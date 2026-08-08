@@ -1,0 +1,110 @@
+'use client';
+
+import { useActionState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { login } from '@/app/actions/authActions';
+import { Dumbbell, LogIn } from 'lucide-react';
+import ThemeToggle from '@/components/ThemeToggle';
+
+export default function LoginPage() {
+  const router = useRouter();
+  const [state, formAction, isPending] = useActionState(login, null);
+
+  useEffect(() => {
+    if (state?.success) {
+      router.push('/admin');
+      router.refresh();
+    }
+  }, [state, router]);
+
+  return (
+    <main className="min-h-screen flex flex-col items-center justify-center p-6 bg-slate-50 dark:bg-zinc-950 text-slate-900 dark:text-zinc-50 transition-colors duration-200">
+      
+      {/* Floating Theme Toggle */}
+      <div className="absolute top-6 right-6">
+        <ThemeToggle />
+      </div>
+
+      <div className="w-full max-w-md">
+        {/* Gym Branding */}
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-red-600 text-white shadow-lg shadow-red-600/30 mb-4 transform hover:scale-105 transition-transform duration-200">
+            <Dumbbell className="w-8 h-8" />
+          </div>
+          <h1 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-red-600 to-amber-500 bg-clip-text text-transparent uppercase">
+            Mutants Academy
+          </h1>
+          <p className="text-sm font-medium text-slate-500 dark:text-zinc-400 mt-2">
+            MMA GYM DASHBOARD PORTAL
+          </p>
+        </div>
+
+        {/* Login Card */}
+        <div className="bg-white dark:bg-zinc-900/50 dark:backdrop-blur-md border border-slate-200 dark:border-zinc-800 rounded-3xl p-8 shadow-xl shadow-slate-100 dark:shadow-none">
+          <h2 className="text-xl font-bold mb-6 text-slate-800 dark:text-zinc-100 flex items-center gap-2">
+            <LogIn className="w-5 h-5 text-red-500" /> Account Sign In
+          </h2>
+
+          <form action={formAction} className="space-y-5">
+            <div>
+              <label htmlFor="email" className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-zinc-400 mb-1.5">
+                Email Address
+              </label>
+              <input
+                id="email"
+                name="email"
+                type="email"
+                required
+                className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900/50 text-slate-900 dark:text-zinc-100 placeholder-slate-400 dark:placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-red-500 dark:focus:ring-red-600 transition-all text-sm"
+                placeholder="coach@mutantsacademy.com"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="password" className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-zinc-400 mb-1.5">
+                Password
+              </label>
+              <input
+                id="password"
+                name="password"
+                type="password"
+                required
+                className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900/50 text-slate-900 dark:text-zinc-100 placeholder-slate-400 dark:placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-red-500 dark:focus:ring-red-600 transition-all text-sm"
+                placeholder="••••••••"
+              />
+            </div>
+
+            {state?.error && (
+              <div className="p-3.5 rounded-xl bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 text-red-600 dark:text-red-400 text-xs font-medium">
+                {state.error}
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={isPending}
+              className="w-full py-3.5 rounded-xl bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-bold text-sm shadow-lg shadow-red-600/25 hover:shadow-red-500/30 dark:shadow-none focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 dark:focus:ring-offset-zinc-950 transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+            >
+              {isPending ? (
+                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              ) : (
+                'Sign In to Dashboard'
+              )}
+            </button>
+          </form>
+        </div>
+
+        {/* Demo Credentials Box */}
+        <div className="mt-8 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-center">
+          <p className="text-xs font-semibold text-amber-700 dark:text-amber-400 uppercase tracking-wide">
+            Development Credentials
+          </p>
+          <div className="mt-2 text-xs text-slate-600 dark:text-zinc-400 font-mono">
+            <span className="font-bold">Email:</span> admin@mutantsacademy.com <br />
+            <span className="font-bold">Pass:</span> admin123
+          </div>
+        </div>
+      </div>
+    </main>
+  );
+}
