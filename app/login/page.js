@@ -93,17 +93,6 @@ export default function LoginPage() {
             </button>
           </form>
         </div>
-
-        {/* Demo Credentials Box */}
-        <div className="mt-8 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-center">
-          <p className="text-xs font-semibold text-amber-700 dark:text-amber-400 uppercase tracking-wide">
-            Development Credentials
-          </p>
-          <div className="mt-2 text-xs text-slate-600 dark:text-zinc-400 font-mono">
-            <span className="font-bold">Email:</span> admin@mutantsacademy.com <br />
-            <span className="font-bold">Pass:</span> admin123
-          </div>
-        </div>
       </div>
     </main>
   );
