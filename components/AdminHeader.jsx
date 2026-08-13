@@ -81,7 +81,7 @@ export default function AdminHeader({ user }) {
                   {user?.name}
                 </p>
                 <span className="text-[10px] font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider">
-                  {user?.role === 'MainAdmin' ? 'Main Admin' : 'Coach'}
+                  {user?.role === 'MainAdmin' ? 'Administrator' : 'Coach'}
                 </span>
               </div>
             </div>
@@ -145,7 +145,7 @@ export default function AdminHeader({ user }) {
                 {user?.name}
               </p>
               <span className="text-xs font-semibold text-slate-500 dark:text-zinc-400 uppercase tracking-wider">
-                {user?.role === 'MainAdmin' ? 'Main Admin' : 'Coach'}
+                {user?.role === 'MainAdmin' ? 'Administrator' : 'Coach'}
               </span>
             </div>
             <button

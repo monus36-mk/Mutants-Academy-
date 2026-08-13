@@ -40,6 +40,7 @@ export async function onboardCoach(prevState, formData) {
     
     // Check permission
     const currentUser = await getCurrentUser();
+
     if (!currentUser || currentUser.role !== 'MainAdmin') {
       return { error: 'Unauthorized. Only Main Admin can onboard coaches.' };
     }
@@ -73,3 +74,29 @@ export async function onboardCoach(prevState, formData) {
     return { error: 'Failed to onboard coach. Please try again.' };
   }
 }
+
+export async function deleteCoach(coachId) {
+  try {
+    await dbConnect();
+    
+    // Check permission
+    const currentUser = await getCurrentUser();
+    if (!currentUser || currentUser.role !== 'MainAdmin') {
+      return { error: 'Unauthorized. Only Main Admin can delete coaches.' };
+    }
+
+    const coach = await User.findOne({ _id: coachId, role: 'Coach' });
+    if (!coach) {
+      return { error: 'Coach/Sub-admin not found.' };
+    }
+
+    await User.deleteOne({ _id: coachId });
+
+    revalidatePath('/admin/users');
+    return { success: true };
+  } catch (err) {
+    console.error('Error deleting coach:', err);
+    return { error: 'Failed to delete coach. Please try again.' };
+  }
+}
+

@@ -1,6 +1,7 @@
 import { getCurrentUser } from '@/app/actions/authActions';
 import { getCoaches } from '@/app/actions/coachActions';
 import OnboardCoachForm from '@/components/OnboardCoachForm';
+import DeleteCoachButton from '@/components/DeleteCoachButton';
 import { redirect } from 'next/navigation';
 import { Users, Calendar, ShieldCheck, Mail } from 'lucide-react';
 
@@ -64,6 +65,7 @@ export default async function ManageCoachesPage() {
                       <th className="px-6 py-4">Coach Info</th>
                       <th className="px-6 py-4">System Role</th>
                       <th className="px-6 py-4">Onboarding Date</th>
+                      <th className="px-6 py-4 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-zinc-800">
@@ -101,6 +103,13 @@ export default async function ManageCoachesPage() {
                                 day: 'numeric',
                               })
                             : 'N/A'}
+                        </td>
+
+                        {/* Actions */}
+                        <td className="px-6 py-4 text-right">
+                          <div className="flex justify-end">
+                            <DeleteCoachButton coachId={coach._id} coachName={coach.name} />
+                          </div>
                         </td>
                       </tr>
                     ))}
