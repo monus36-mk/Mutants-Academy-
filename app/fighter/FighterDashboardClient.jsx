@@ -256,7 +256,7 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
 
                 {/* Dropdown Menu */}
                 {showBellDropdown && (
-                  <div className="absolute right-0 mt-2.5 w-80 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-xl p-4 space-y-3 z-50 text-left animate-in fade-in slide-in-from-top-2 duration-150">
+                  <div className="fixed sm:absolute left-4 right-4 sm:left-auto sm:right-0 mt-2.5 sm:w-80 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-xl p-4 space-y-3 z-50 text-left animate-in fade-in slide-in-from-top-2 duration-150">
                     <div className="flex items-center justify-between border-b border-slate-100 dark:border-zinc-850 pb-2">
                       <span className="text-xs font-black text-slate-800 dark:text-zinc-200 uppercase tracking-wider">Gym Notice Board</span>
                       <button
