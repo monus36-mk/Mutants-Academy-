@@ -13,12 +13,20 @@ const WhatsAppIcon = ({ className }) => (
 export default function FighterDetailModal({ fighter }) {
   const [isOpen, setIsOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [copiedEmail, setCopiedEmail] = useState(false);
 
   const handleCopyPhone = (e) => {
     e.stopPropagation();
     navigator.clipboard.writeText(fighter.phone);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleCopyEmail = (e) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(fighter.email);
+    setCopiedEmail(true);
+    setTimeout(() => setCopiedEmail(false), 2000);
   };
 
   const getExpiredDays = (nextPaymentDate) => {
@@ -250,9 +258,22 @@ export default function FighterDetailModal({ fighter }) {
                   <Mail className="w-5 h-5 text-red-500 mt-0.5 shrink-0" />
                   <div>
                     <span className="block text-[10px] font-bold text-slate-400 dark:text-zinc-550 uppercase tracking-wider">Email Address</span>
-                    <a href={`mailto:${fighter.email}`} className="text-sm font-bold text-slate-750 dark:text-zinc-200 hover:text-red-500 font-mono transition-colors">
-                      {fighter.email}
-                    </a>
+                    <div className="flex items-center gap-2">
+                      <a href={`mailto:${fighter.email}`} className="text-sm font-bold text-slate-750 dark:text-zinc-200 hover:text-red-500 font-mono transition-colors">
+                        {fighter.email}
+                      </a>
+                      <button
+                        onClick={handleCopyEmail}
+                        className="inline-flex items-center justify-center p-0.5 rounded text-slate-400 hover:bg-slate-100 hover:text-slate-650 dark:hover:bg-zinc-800 transition-all"
+                        title={copiedEmail ? "Copied!" : "Copy email address"}
+                      >
+                        {copiedEmail ? (
+                          <Check className="w-3.5 h-3.5 text-emerald-500" />
+                        ) : (
+                          <Copy className="w-3.5 h-3.5" />
+                        )}
+                      </button>
+                    </div>
                   </div>
                 </div>
 

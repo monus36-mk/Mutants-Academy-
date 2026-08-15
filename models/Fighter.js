@@ -18,6 +18,10 @@ const FighterSchema = new mongoose.Schema(
       trim: true,
       lowercase: true,
     },
+    password: {
+      type: String,
+      required: [true, 'Please provide a password'],
+    },
     dob: {
       type: Date,
       required: [true, 'Please provide a date of birth'],
@@ -31,6 +35,12 @@ const FighterSchema = new mongoose.Schema(
       type: String,
       enum: ['Beginner', 'Intermediate', 'Pro'],
       required: [true, 'Please select an experience level'],
+    },
+    style: {
+      type: String,
+      enum: ['Striking', 'Grappling', 'MMA'],
+      default: 'MMA',
+      required: [true, 'Please select a fighting style'],
     },
     assignedCoach: {
       type: mongoose.Schema.Types.ObjectId,

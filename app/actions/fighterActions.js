@@ -5,6 +5,7 @@ import Fighter from '@/models/Fighter';
 import User from '@/models/User';
 import { getCurrentUser } from './authActions';
 import { revalidatePath } from 'next/cache';
+import bcrypt from 'bcryptjs';
 
 import { calculateStatus } from '@/lib/utils';
 
@@ -88,8 +89,10 @@ export async function addFighter(prevState, formData) {
     const packageDurationMonths = Number(formData.get('packageDurationMonths'));
     const entryDateStr = formData.get('entryDate');
     const joiningDateStr = formData.get('joiningDate');
+    const password = formData.get('password');
+    const style = formData.get('style');
 
-    if (!name || !phone || !email || !dobStr || !weightClass || !experienceLevel || !packageDurationMonths) {
+    if (!name || !phone || !email || !dobStr || !weightClass || !experienceLevel || !packageDurationMonths || !style) {
       return { error: 'Please fill in all required fields.' };
     }
 
@@ -113,6 +116,12 @@ export async function addFighter(prevState, formData) {
     // Initial dynamic status calculation
     const status = calculateStatus(nextPaymentDate);
 
+    // Hash the password if provided
+    let hashedPassword = undefined;
+    if (password && password.trim() !== '') {
+      hashedPassword = await bcrypt.hash(password, 12);
+    }
+
     // Create Fighter
     await Fighter.create({
       name,
@@ -127,6 +136,8 @@ export async function addFighter(prevState, formData) {
       packageDurationMonths,
       nextPaymentDate,
       status,
+      password: hashedPassword,
+      style,
     });
 
     revalidatePath('/admin');
@@ -233,8 +244,10 @@ export async function updateFighter(fighterId, prevState, formData) {
     let assignedCoach = formData.get('assignedCoach');
     const entryDateStr = formData.get('entryDate');
     const joiningDateStr = formData.get('joiningDate');
+    const password = formData.get('password');
+    const style = formData.get('style');
 
-    if (!name || !phone || !email || !dobStr || !weightClass || !experienceLevel) {
+    if (!name || !phone || !email || !dobStr || !weightClass || !experienceLevel || !style) {
       return { error: 'Please fill in all required fields.' };
     }
 
@@ -259,8 +272,14 @@ export async function updateFighter(fighterId, prevState, formData) {
     fighter.dob = new Date(dobStr);
     fighter.weightClass = weightClass;
     fighter.experienceLevel = experienceLevel;
+    fighter.style = style;
     if (assignedCoach) {
       fighter.assignedCoach = assignedCoach;
+    }
+
+    // Update password if a new one is provided
+    if (password && password.trim() !== '') {
+      fighter.password = await bcrypt.hash(password, 12);
     }
 
     // Update joining date
@@ -288,6 +307,120 @@ export async function updateFighter(fighterId, prevState, formData) {
   } catch (err) {
     console.error('Error updating fighter:', err);
     return { error: 'Failed to update fighter.' };
+  }
+}
+
+export async function getFighterProfile() {
+  try {
+    await dbConnect();
+
+    const user = await getCurrentUser();
+    if (!user || user.role !== 'Fighter') {
+      return { error: 'Unauthorized' };
+    }
+
+    const fighter = await Fighter.findById(user.id)
+      .populate('assignedCoach', 'name email')
+      .lean();
+
+    if (!fighter) {
+      return { error: 'Fighter profile not found' };
+    }
+
+    const computedStatus = calculateStatus(fighter.nextPaymentDate);
+
+    return {
+      success: true,
+      fighter: {
+        ...fighter,
+        _id: fighter._id.toString(),
+        assignedCoach: fighter.assignedCoach ? {
+          _id: fighter.assignedCoach._id.toString(),
+          name: fighter.assignedCoach.name,
+          email: fighter.assignedCoach.email,
+        } : null,
+        entryDate: fighter.entryDate ? fighter.entryDate.toISOString() : null,
+        joiningDate: fighter.joiningDate ? fighter.joiningDate.toISOString() : (fighter.entryDate ? fighter.entryDate.toISOString() : null),
+        dob: fighter.dob ? fighter.dob.toISOString() : null,
+        nextPaymentDate: fighter.nextPaymentDate ? fighter.nextPaymentDate.toISOString() : null,
+        status: computedStatus,
+      }
+    };
+  } catch (err) {
+    console.error('Error fetching fighter profile:', err);
+    return { error: 'Failed to fetch fighter profile' };
+  }
+}
+
+export async function setupFighterPassword(prevState, formData) {
+  try {
+    await dbConnect();
+
+    const email = formData.get('email')?.trim();
+    const phone = formData.get('phone')?.trim();
+    const password = formData.get('password');
+
+    if (!email || !phone || !password) {
+      return { error: 'Please enter all verification fields and a new password.' };
+    }
+
+    // Find fighter by email (case-insensitive) and phone
+    const emailLower = email.toLowerCase();
+    const fighter = await Fighter.findOne({ 
+      email: emailLower,
+      phone: phone
+    });
+
+    if (!fighter) {
+      return { error: 'No athlete profile matches the provided email and phone number. Please contact your coach to verify your details.' };
+    }
+
+    // Hash and save new password
+    fighter.password = await bcrypt.hash(password, 12);
+    await fighter.save();
+
+    return { success: true };
+  } catch (err) {
+    console.error('Error setting fighter password:', err);
+    return { error: 'Something went wrong. Please try again.' };
+  }
+}
+
+export async function getPeers() {
+  try {
+    await dbConnect();
+
+    const user = await getCurrentUser();
+    if (!user || user.role !== 'Fighter') {
+      return { error: 'Unauthorized' };
+    }
+
+    // Retrieve all fighters excluding sensitive info
+    const fighters = await Fighter.find({})
+      .populate('assignedCoach', 'name email')
+      .sort({ name: 1 })
+      .lean();
+
+    const sanitizedFighters = fighters.map((f) => ({
+      _id: f._id.toString(),
+      name: f.name,
+      phone: f.phone,
+      email: f.email || '',
+      dob: f.dob ? f.dob.toISOString() : null,
+      weightClass: f.weightClass,
+      experienceLevel: f.experienceLevel,
+      joiningDate: f.joiningDate ? f.joiningDate.toISOString() : (f.entryDate ? f.entryDate.toISOString() : null),
+      style: f.style || 'MMA',
+      assignedCoach: f.assignedCoach ? {
+        name: f.assignedCoach.name,
+        email: f.assignedCoach.email,
+      } : null,
+    }));
+
+    return { success: true, fighters: sanitizedFighters };
+  } catch (err) {
+    console.error('Error fetching peers directory:', err);
+    return { error: 'Failed to fetch peers directory' };
   }
 }
 

@@ -159,6 +159,23 @@ export default function AddFighterForm({ coaches, currentUser }) {
             />
           </div>
 
+          {/* Martial Arts Style */}
+          <div>
+            <label htmlFor="style" className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400 mb-1.5">
+              Martial Arts Style *
+            </label>
+            <select
+              id="style"
+              name="style"
+              required
+              className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900/50 text-slate-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-red-500 text-sm transition-all font-semibold"
+            >
+              <option value="MMA">MMA</option>
+              <option value="Striking">Striking (Boxing/Muay Thai)</option>
+              <option value="Grappling">Grappling (BJJ/Wrestling)</option>
+            </select>
+          </div>
+
           {/* Experience Level */}
           <div>
             <label htmlFor="experienceLevel" className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400 mb-1.5">
@@ -174,6 +191,21 @@ export default function AddFighterForm({ coaches, currentUser }) {
               <option value="Intermediate">Intermediate</option>
               <option value="Pro">Pro</option>
             </select>
+          </div>
+
+          {/* Password */}
+          <div>
+            <label htmlFor="password" className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400 mb-1.5">
+              Portal Password (Optional)
+            </label>
+            <input
+              id="password"
+              name="password"
+              type="password"
+              minLength={6}
+              className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900/50 text-slate-900 dark:text-zinc-100 placeholder-slate-400 dark:placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-red-500 text-sm transition-all"
+              placeholder="Leave blank for self-activation"
+            />
           </div>
 
           {/* Original Joined Date */}

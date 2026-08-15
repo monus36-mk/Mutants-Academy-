@@ -7,6 +7,9 @@ export default async function AdminLayout({ children }) {
   if (!user) {
     redirect('/login');
   }
+  if (user.role === 'Fighter') {
+    redirect('/fighter');
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-zinc-950 transition-colors duration-200 flex flex-col">

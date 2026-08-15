@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { login } from '@/app/actions/authActions';
 import { Dumbbell, LogIn } from 'lucide-react';
 import ThemeToggle from '@/components/ThemeToggle';
+import Link from 'next/link';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -12,7 +13,11 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (state?.success) {
-      router.push('/admin');
+      if (state.role === 'Fighter') {
+        router.push('/fighter');
+      } else {
+        router.push('/admin');
+      }
       router.refresh();
     }
   }, [state, router]);
@@ -34,8 +39,8 @@ export default function LoginPage() {
           <h1 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-red-600 to-amber-500 bg-clip-text text-transparent uppercase">
             Mutants Academy
           </h1>
-          <p className="text-sm font-medium text-slate-500 dark:text-zinc-400 mt-2">
-            MMA GYM DASHBOARD PORTAL
+          <p className="text-sm font-bold text-slate-500 dark:text-zinc-400 mt-2 uppercase tracking-wide">
+            Staff & Athlete Portal
           </p>
         </div>
 
@@ -56,7 +61,7 @@ export default function LoginPage() {
                 type="email"
                 required
                 className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900/50 text-slate-900 dark:text-zinc-100 placeholder-slate-400 dark:placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-red-500 dark:focus:ring-red-600 transition-all text-sm"
-                placeholder="coach@mutantsacademy.com"
+                placeholder="e.g. coach@mutantsacademy.com or fighter@example.com"
               />
             </div>
 
@@ -88,10 +93,20 @@ export default function LoginPage() {
               {isPending ? (
                 <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
               ) : (
-                'Sign In to Dashboard'
+                'Sign In to Portal'
               )}
             </button>
           </form>
+
+          {/* Activation Link */}
+          <div className="mt-6 text-center">
+            <Link
+              href="/login/activate"
+              className="text-xs font-bold text-red-500 hover:text-red-600 dark:hover:text-red-400 transition-colors uppercase tracking-wider"
+            >
+              First time logging in? Activate Athlete Account
+            </Link>
+          </div>
         </div>
       </div>
     </main>

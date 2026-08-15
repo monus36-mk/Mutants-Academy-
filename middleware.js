@@ -14,7 +14,7 @@ export async function middleware(request) {
     }
 
     const payload = await verifyToken(sessionCookie.value);
-    if (!payload) {
+    if (!payload || (payload.role !== 'MainAdmin' && payload.role !== 'Coach')) {
       const loginUrl = new URL('/login', request.url);
       const response = NextResponse.redirect(loginUrl);
       response.cookies.delete('session');
@@ -28,9 +28,27 @@ export async function middleware(request) {
     }
   }
 
+  // Protect fighter routes
+  if (pathname.startsWith('/fighter')) {
+    const sessionCookie = request.cookies.get('session');
+    
+    if (!sessionCookie) {
+      const loginUrl = new URL('/login', request.url);
+      return NextResponse.redirect(loginUrl);
+    }
+
+    const payload = await verifyToken(sessionCookie.value);
+    if (!payload || payload.role !== 'Fighter') {
+      const loginUrl = new URL('/login', request.url);
+      const response = NextResponse.redirect(loginUrl);
+      response.cookies.delete('session');
+      return response;
+    }
+  }
+
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: ['/admin/:path*'],
+  matcher: ['/admin/:path*', '/fighter/:path*'],
 };

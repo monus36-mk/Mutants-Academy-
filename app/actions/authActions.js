@@ -4,6 +4,7 @@ import { cookies } from 'next/headers';
 import bcrypt from 'bcryptjs';
 import dbConnect from '@/lib/db';
 import User from '@/models/User';
+import Fighter from '@/models/Fighter';
 import { signToken, verifyToken } from '@/lib/auth';
 
 export async function login(prevState, formData) {
@@ -22,22 +23,37 @@ export async function login(prevState, formData) {
       return { error: 'Please enter all fields' };
     }
 
-    const user = await User.findOne({ email: email.toLowerCase() });
-    if (!user) {
+    const emailLower = email.toLowerCase();
+    let account = await User.findOne({ email: emailLower });
+    let role = account?.role;
+
+    if (!account) {
+      // If not found in Users, check Fighters
+      account = await Fighter.findOne({ email: emailLower });
+      if (account) {
+        role = 'Fighter';
+      }
+    }
+
+    if (!account) {
       return { error: 'Invalid email or password' };
     }
 
-    const isMatch = await bcrypt.compare(password, user.password);
+    if (role === 'Fighter' && !account.password) {
+      return { error: 'This athlete account has not been activated yet. Please click "Activate Athlete Account" below to set up your password.' };
+    }
+
+    const isMatch = await bcrypt.compare(password, account.password);
     if (!isMatch) {
       return { error: 'Invalid email or password' };
     }
 
     // Sign Token
     const token = await signToken({
-      id: user._id.toString(),
-      name: user.name,
-      email: user.email,
-      role: user.role,
+      id: account._id.toString(),
+      name: account.name,
+      email: account.email,
+      role: role,
     });
 
     // Set cookie
@@ -50,7 +66,7 @@ export async function login(prevState, formData) {
       maxAge: 60 * 60 * 24, // 1 day
     });
 
-    return { success: true, role: user.role };
+    return { success: true, role: role };
   } catch (err) {
     console.error('Login action error:', err);
     return { error: 'Something went wrong. Please try again.' };
