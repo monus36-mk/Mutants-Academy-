@@ -24,16 +24,15 @@ export async function login(prevState, formData) {
     }
 
     const emailLower = email.toLowerCase();
-    let account = await User.findOne({ email: emailLower });
-    let role = account?.role;
+    
+    // Query both collections in parallel to optimize lookup latency
+    const [userAccount, fighterAccount] = await Promise.all([
+      User.findOne({ email: emailLower }).lean(),
+      Fighter.findOne({ email: emailLower }).lean()
+    ]);
 
-    if (!account) {
-      // If not found in Users, check Fighters
-      account = await Fighter.findOne({ email: emailLower });
-      if (account) {
-        role = 'Fighter';
-      }
-    }
+    let account = userAccount || fighterAccount;
+    let role = userAccount ? userAccount.role : (fighterAccount ? 'Fighter' : null);
 
     if (!account) {
       return { error: 'Invalid email or password' };

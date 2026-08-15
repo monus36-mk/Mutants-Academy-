@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition, useMemo } from 'react';
+import { useState, useTransition, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { toggleEventRSVP, toggleEventLike, addEventComment } from '@/app/actions/eventActions';
@@ -26,6 +26,19 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [lightboxImage, setLightboxImage] = useState(null);
   const [commentText, setCommentText] = useState('');
+
+  // Close bell dropdown when clicking outside
+  useEffect(() => {
+    if (!showBellDropdown) return;
+    const handleOutsideClick = (event) => {
+      const bellContainer = document.getElementById('notification-bell-container');
+      if (bellContainer && !bellContainer.contains(event.target)) {
+        setShowBellDropdown(false);
+      }
+    };
+    document.addEventListener('click', handleOutsideClick);
+    return () => document.removeEventListener('click', handleOutsideClick);
+  }, [showBellDropdown]);
 
   // Directory filter states
   const [searchQuery, setSearchQuery] = useState('');
@@ -240,7 +253,7 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
             <div className="flex items-center gap-2.5 md:gap-4">
               
               {/* Notification Bell */}
-              <div className="relative">
+              <div id="notification-bell-container" className="relative">
                 <button
                   onClick={() => setShowBellDropdown(!showBellDropdown)}
                   className="w-10 h-10 rounded-xl border border-slate-200 dark:border-zinc-800 flex items-center justify-center text-slate-500 hover:bg-slate-100 dark:hover:bg-zinc-900 transition-all cursor-pointer relative"
@@ -296,6 +309,10 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
               {/* Profile Avatar Page Link */}
               <Link
                 href="/fighter/profile"
+                onClick={() => {
+                  setShowBellDropdown(false);
+                  setSelectedEvent(null);
+                }}
                 className="w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-zinc-900 dark:hover:bg-zinc-800 border border-slate-200 dark:border-zinc-800 flex items-center justify-center text-slate-750 dark:text-zinc-300 transition-all cursor-pointer shadow-sm relative"
                 title="View Profile & Membership details"
               >
@@ -308,11 +325,13 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
                 <button
                   type="submit"
                   formAction={async () => {
+                    setShowBellDropdown(false);
+                    setSelectedEvent(null);
                     const { logout } = require('@/app/actions/authActions');
                     await logout();
                     window.location.href = '/login';
                   }}
-                  className="p-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 text-slate-500 dark:text-zinc-400 hover:bg-red-50 dark:hover:bg-red-950/20 hover:text-red-600 hover:border-red-200 dark:hover:border-red-900/50 transition-all duration-200 cursor-pointer"
+                  className="p-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 text-slate-500 dark:text-zinc-400 hover:bg-red-50 dark:hover:bg-red-950/20 hover:text-red-650 hover:border-red-200 dark:hover:border-red-900/50 transition-all duration-200 cursor-pointer"
                   title="Logout Portal"
                 >
                   <LogOut className="w-5 h-5" />
