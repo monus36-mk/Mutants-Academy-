@@ -417,6 +417,7 @@ export async function getPeers(userId = null) {
       experienceLevel: f.experienceLevel,
       joiningDate: f.joiningDate ? f.joiningDate.toISOString() : (f.entryDate ? f.entryDate.toISOString() : null),
       style: f.style || 'MMA',
+      bio: f.bio || '',
       assignedCoach: f.assignedCoach ? {
         name: f.assignedCoach.name,
         email: f.assignedCoach.email,
@@ -427,6 +428,39 @@ export async function getPeers(userId = null) {
   } catch (err) {
     console.error('Error fetching peers directory:', err);
     return { error: 'Failed to fetch peers directory' };
+  }
+}
+
+export async function updateSelfFighterProfile(style, weightClass, bio = '') {
+  try {
+    await dbConnect();
+
+    const user = await getCurrentUser();
+    if (!user || user.role !== 'Fighter') {
+      return { error: 'Unauthorized' };
+    }
+
+    if (!style || !weightClass) {
+      return { error: 'Please enter all fields' };
+    }
+
+    const fighter = await Fighter.findById(user.id);
+    if (!fighter) {
+      return { error: 'Fighter profile not found' };
+    }
+
+    fighter.style = style;
+    fighter.weightClass = weightClass;
+    fighter.bio = bio;
+    await fighter.save();
+
+    revalidatePath('/fighter');
+    revalidatePath('/fighter/profile');
+
+    return { success: true };
+  } catch (err) {
+    console.error('Error updating self profile:', err);
+    return { error: 'Failed to update profile details' };
   }
 }
 

@@ -22,10 +22,21 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
   const router = useRouter();
   const [activeTab, setActiveTab] = useState('events'); // 'events' or 'directory'
   const [isPendingRSVP, startRSVPTransition] = useTransition();
+  const [isPendingLike, startLikeTransition] = useTransition();
   const [showBellDropdown, setShowBellDropdown] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [lightboxImage, setLightboxImage] = useState(null);
   const [commentText, setCommentText] = useState('');
+  const [readNoticesCount, setReadNoticesCount] = useState(0);
+  const [selectedPeer, setSelectedPeer] = useState(null);
+
+  // Initialize read notices count on mount
+  useEffect(() => {
+    const cachedCount = localStorage.getItem('readNoticesCount');
+    if (cachedCount) {
+      setReadNoticesCount(parseInt(cachedCount, 10));
+    }
+  }, []);
 
   // Close bell dropdown when clicking outside
   useEffect(() => {
@@ -70,11 +81,43 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
     return Math.floor(diffDays / 30.4);
   };
 
+  // Format exact tenure period helper
+  const formatTenurePeriod = (joiningDateString) => {
+    if (!joiningDateString) return 'Newcomer';
+    const joinDate = new Date(joiningDateString);
+    const today = new Date();
+    
+    let years = today.getFullYear() - joinDate.getFullYear();
+    let months = today.getMonth() - joinDate.getMonth();
+    
+    if (months < 0 || (months === 0 && today.getDate() < joinDate.getDate())) {
+      years--;
+      months += 12;
+    }
+    
+    if (today.getDate() < joinDate.getDate()) {
+      months--;
+      if (months < 0) {
+        years--;
+        months += 12;
+      }
+    }
+    
+    const totalMonths = (years * 12) + months;
+    const label = totalMonths < 6 ? 'Newcomer' : 'Veteran';
+    
+    if (years === 0) {
+      return `${label} (${months} ${months === 1 ? 'mo' : 'mos'})`;
+    }
+    if (months === 0) {
+      return `${label} (${years} ${years === 1 ? 'yr' : 'yrs'})`;
+    }
+    return `${label} (${years} ${years === 1 ? 'yr' : 'yrs'} ${months} ${months === 1 ? 'mo' : 'mos'})`;
+  };
+
   // Filter peers
   const filteredPeers = useMemo(() => {
     return initialPeers.filter(p => {
-      // Exclude self from the directory list
-      if (p._id === fighter._id) return false;
 
       // 1. Search Query
       if (searchQuery && !p.name.toLowerCase().includes(searchQuery.toLowerCase())) {
@@ -133,7 +176,7 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
   };
 
   const handleLike = (eventId) => {
-    startRSVPTransition(async () => {
+    startLikeTransition(async () => {
       const res = await toggleEventLike(eventId);
       if (res.success) {
         // If this event is open in details modal, update local state too
@@ -255,26 +298,35 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
               {/* Notification Bell */}
               <div id="notification-bell-container" className="relative">
                 <button
-                  onClick={() => setShowBellDropdown(!showBellDropdown)}
+                  onClick={() => {
+                    setShowBellDropdown(!showBellDropdown);
+                    if (!showBellDropdown) {
+                      setReadNoticesCount(initialEvents.length);
+                      localStorage.setItem('readNoticesCount', initialEvents.length.toString());
+                    }
+                  }}
                   className="w-10 h-10 rounded-xl border border-slate-200 dark:border-zinc-800 flex items-center justify-center text-slate-500 hover:bg-slate-100 dark:hover:bg-zinc-900 transition-all cursor-pointer relative"
                   title="Notifications & Notices"
                 >
                   <Bell className="w-5 h-5" />
-                  {initialEvents.length > 0 && (
-                    <span className="absolute -top-1 -right-1 w-4.5 h-4.5 rounded-full bg-red-600 border border-white dark:border-zinc-950 text-[9px] font-black text-white flex items-center justify-center">
-                      {initialEvents.length}
-                    </span>
-                  )}
+                  {(() => {
+                    const unreadCount = Math.max(0, initialEvents.length - readNoticesCount);
+                    return unreadCount > 0 && (
+                      <span className="absolute -top-1 -right-1 w-4.5 h-4.5 rounded-full bg-red-600 border border-white dark:border-zinc-950 text-[9px] font-black text-white flex items-center justify-center">
+                        {unreadCount}
+                      </span>
+                    );
+                  })()}
                 </button>
 
                 {/* Dropdown Menu */}
                 {showBellDropdown && (
-                  <div className="fixed sm:absolute left-4 right-4 sm:left-auto sm:right-0 mt-2.5 sm:w-80 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-xl p-4 space-y-3 z-50 text-left animate-in fade-in slide-in-from-top-2 duration-150">
+                  <div className="absolute right-0 mt-2.5 w-[calc(100vw-2rem)] sm:w-80 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-xl p-4 space-y-3 z-50 text-left animate-in fade-in slide-in-from-top-2 duration-150">
                     <div className="flex items-center justify-between border-b border-slate-100 dark:border-zinc-850 pb-2">
                       <span className="text-xs font-black text-slate-800 dark:text-zinc-200 uppercase tracking-wider">Gym Notice Board</span>
                       <button
                         onClick={() => setShowBellDropdown(false)}
-                        className="text-[10px] font-bold text-red-500 hover:text-red-650"
+                        className="text-[10px] font-bold text-red-500 hover:text-red-655"
                       >
                         Dismiss
                       </button>
@@ -288,13 +340,13 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
                           <div 
                             key={e._id} 
                             onClick={() => { setSelectedEvent(e); setShowBellDropdown(false); }}
-                            className="p-2 border border-slate-100 dark:border-zinc-850 rounded-xl hover:bg-slate-50 dark:hover:bg-zinc-950/40 transition-colors cursor-pointer"
+                            className="p-2 border border-slate-100 dark:border-zinc-850 rounded-xl hover:bg-slate-50 dark:hover:bg-zinc-955/40 transition-colors cursor-pointer"
                           >
                             <div className="flex justify-between items-center mb-0.5">
                               <span className="font-extrabold text-slate-700 dark:text-zinc-200 truncate pr-2 max-w-[160px] uppercase tracking-tight">{e.title}</span>
                               <span className="text-[8px] text-slate-400 font-mono">{formatEventDate(e.date)}</span>
                             </div>
-                            <p className="text-[10px] text-slate-450 dark:text-zinc-500 line-clamp-2 leading-relaxed">{e.description}</p>
+                            <p className="text-[10px] text-slate-450 dark:text-zinc-550 line-clamp-2 leading-relaxed">{e.description}</p>
                           </div>
                         ))
                       )}
@@ -306,18 +358,24 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
               {/* Theme Toggle */}
               <ThemeToggle />
 
-              {/* Profile Avatar Page Link */}
-              <Link
-                href="/fighter/profile"
-                onClick={() => {
-                  setShowBellDropdown(false);
-                  setSelectedEvent(null);
-                }}
-                className="w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-zinc-900 dark:hover:bg-zinc-800 border border-slate-200 dark:border-zinc-800 flex items-center justify-center text-slate-750 dark:text-zinc-300 transition-all cursor-pointer shadow-sm relative"
-                title="View Profile & Membership details"
-              >
-                <User className="w-5 h-5 text-red-500" />
-              </Link>
+              {/* Profile Avatar Page Link with Athlete Name */}
+              <div className="flex items-center gap-2.5 sm:gap-3 pl-1">
+                <div className="hidden sm:flex flex-col text-right">
+                  <span className="text-xs font-extrabold text-slate-750 dark:text-zinc-200 uppercase tracking-tight leading-tight">{fighter.name}</span>
+                  <span className="text-[9px] font-black text-red-500 uppercase tracking-widest leading-none mt-0.5">Athlete</span>
+                </div>
+                <Link
+                  href="/fighter/profile"
+                  onClick={() => {
+                    setShowBellDropdown(false);
+                    setSelectedEvent(null);
+                  }}
+                  className="w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-zinc-900 dark:hover:bg-zinc-800 border border-slate-200 dark:border-zinc-800 flex items-center justify-center text-slate-750 dark:text-zinc-300 transition-all cursor-pointer shadow-sm relative shrink-0"
+                  title="View Profile & Membership details"
+                >
+                  <User className="w-5 h-5 text-red-500" />
+                </Link>
+              </div>
 
               {/* Logout */}
               <form action="/api/auth/logout" method="POST" className="m-0">
@@ -345,7 +403,7 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
 
       {/* Announcements Ticker Banner */}
       {tickerNotices.length > 0 && (
-        <div className="w-full bg-red-650 text-white py-2 px-4 shadow-inner overflow-hidden border-b border-red-700 select-none">
+        <div className="w-full bg-red-600 text-white py-2 px-4 shadow-inner overflow-hidden border-b border-red-700 select-none">
           <div className="max-w-7xl mx-auto flex items-center gap-3">
             <span className="inline-flex px-2 py-0.5 rounded bg-white text-red-600 text-[9px] font-black uppercase tracking-wider shrink-0 shadow-sm animate-pulse">
               ANNOUNCEMENT
@@ -376,14 +434,14 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
               Osu, {fighter.name}!
             </h1>
             <p className="text-slate-405 text-sm mt-1 max-w-xl">
-              Fighter Portal active. Review notice boards, RSVP to training schedules, and connect with sparring partners. Click the profile icon in the header to view billing cycles.
+              Fighter Portal active. Review notice boards, join training schedules, and connect with sparring partners. Click the profile icon in the header to view billing cycles.
             </p>
           </div>
 
           {/* Dynamic counts */}
           <div className="shrink-0 flex gap-4 text-xs font-black uppercase tracking-widest">
             <div className="px-4 py-3 bg-slate-800/50 dark:bg-zinc-900/60 border border-slate-700/50 dark:border-zinc-800/80 rounded-2xl">
-              <span className="block text-slate-450 text-[8px] font-bold tracking-wider">EVENTS RSVP'D</span>
+              <span className="block text-slate-450 text-[8px] font-bold tracking-wider">EVENTS JOINED</span>
               <span className="text-lg md:text-xl text-red-550 font-extrabold">{upcomingEvents.filter(e => e.rsvps.includes(fighter._id)).length}</span>
             </div>
             <div className="px-4 py-3 bg-slate-800/50 dark:bg-zinc-900/60 border border-slate-700/50 dark:border-zinc-800/80 rounded-2xl">
@@ -448,13 +506,18 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
                         {/* Event Photo/Image if uploaded */}
                         {event.image && (
                           <div 
-                            className="w-full h-48 rounded-2xl overflow-hidden border border-slate-200 dark:border-zinc-800 shadow-sm relative select-none cursor-zoom-in bg-slate-100 dark:bg-zinc-950/50"
+                            className="w-full h-48 max-h-48 rounded-2xl overflow-hidden border border-slate-200 dark:border-zinc-800 shadow-sm relative select-none cursor-zoom-in bg-slate-105 dark:bg-zinc-950/50"
+                            style={{ height: '192px', maxHeight: '192px' }}
                             onClick={(e) => {
                               e.stopPropagation();
                               setLightboxImage(event.image);
                             }}
                           >
-                            <img src={event.image} alt={event.title} className="w-full h-full object-contain hover:scale-105 transition-all duration-300" />
+                            <img 
+                              src={event.image} 
+                              alt={event.title} 
+                              className="w-full h-full max-h-full object-contain hover:scale-105 transition-all duration-300" 
+                            />
                           </div>
                         )}
 
@@ -505,8 +568,8 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
                       <div className="flex items-center justify-between gap-4 border-t border-slate-100 dark:border-zinc-850 pt-5 mt-6 flex-wrap sm:flex-nowrap">
                         <div className="flex items-center gap-4 flex-wrap sm:flex-nowrap">
                           {event.category !== 'Announcement' && (
-                            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-450 dark:text-zinc-500 uppercase tracking-wider font-mono">
-                              <Users className="w-4 h-4" /> {event.rsvps.length} RSVP'd
+                            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-455 dark:text-zinc-500 uppercase tracking-wider font-mono">
+                              <Users className="w-4 h-4" /> {event.rsvps.length} Joined
                             </div>
                           )}
 
@@ -515,13 +578,17 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
                               e.stopPropagation();
                               handleLike(event._id);
                             }}
+                            disabled={isPendingLike}
                             className={`flex items-center gap-1.5 text-xs font-bold font-mono transition-all hover:scale-105 active:scale-95 cursor-pointer ${
                               event.likes?.includes(fighter._id)
                                 ? 'text-red-500 font-black'
                                 : 'text-slate-400 hover:text-red-400'
                             }`}
                           >
-                            <Heart className={`w-4 h-4 ${event.likes?.includes(fighter._id) ? 'fill-current' : ''}`} />
+                            <Heart 
+                              className={`w-4 h-4 ${event.likes?.includes(fighter._id) ? 'text-red-500' : 'text-slate-400'}`} 
+                              fill={event.likes?.includes(fighter._id) ? 'currentColor' : 'none'} 
+                            />
                             <span>{event.likes?.length || 0}</span>
                           </button>
                         </div>
@@ -536,15 +603,15 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
                             className={`px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all select-none cursor-pointer flex items-center gap-1 border ${
                               isAttending
                                 ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/35 hover:bg-emerald-500/20'
-                                : 'bg-red-650 hover:bg-red-500 text-white border-transparent shadow-md shadow-red-500/10 hover:shadow-red-500/20 active:scale-95'
+                                : 'bg-red-600 hover:bg-red-500 text-white border-transparent shadow-md shadow-red-500/10 hover:shadow-red-500/20 active:scale-95'
                             }`}
                           >
                             {isPendingRSVP ? (
                               <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
                             ) : isAttending ? (
-                              'Attending'
+                              'Joined'
                             ) : (
-                              'RSVP'
+                              'Join'
                             )}
                           </button>
                         )}
@@ -571,7 +638,7 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
                 </span>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4">
                 {/* Name search */}
                 <div className="relative col-span-1 lg:col-span-1">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -584,17 +651,17 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
                   />
                 </div>
 
-                {/* Style */}
+                 {/* Style */}
                 <div>
                   <select
                     value={styleFilter}
                     onChange={(e) => setStyleFilter(e.target.value)}
-                    className="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-955/20 text-slate-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-red-500 text-xs font-semibold"
+                    className="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900/20 text-slate-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-red-500 text-xs font-semibold"
                   >
-                    <option value="All">All styles</option>
-                    <option value="MMA">MMA</option>
-                    <option value="Striking">Striking</option>
-                    <option value="Grappling">Grappling</option>
+                    <option value="All" className="bg-white dark:bg-zinc-900 text-slate-900 dark:text-zinc-100">All styles</option>
+                    <option value="MMA" className="bg-white dark:bg-zinc-900 text-slate-900 dark:text-zinc-100">MMA</option>
+                    <option value="Striking" className="bg-white dark:bg-zinc-900 text-slate-900 dark:text-zinc-100">Striking</option>
+                    <option value="Grappling" className="bg-white dark:bg-zinc-900 text-slate-900 dark:text-zinc-100">Grappling</option>
                   </select>
                 </div>
 
@@ -603,12 +670,12 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
                   <select
                     value={levelFilter}
                     onChange={(e) => setLevelFilter(e.target.value)}
-                    className="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-955/20 text-slate-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-red-500 text-xs font-semibold"
+                    className="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900/20 text-slate-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-red-500 text-xs font-semibold"
                   >
-                    <option value="All">All levels</option>
-                    <option value="Beginner">Beginner</option>
-                    <option value="Intermediate">Intermediate</option>
-                    <option value="Pro">Pro</option>
+                    <option value="All" className="bg-white dark:bg-zinc-900 text-slate-900 dark:text-zinc-100">All levels</option>
+                    <option value="Beginner" className="bg-white dark:bg-zinc-900 text-slate-900 dark:text-zinc-100">Beginner</option>
+                    <option value="Intermediate" className="bg-white dark:bg-zinc-900 text-slate-900 dark:text-zinc-100">Intermediate</option>
+                    <option value="Pro" className="bg-white dark:bg-zinc-900 text-slate-900 dark:text-zinc-100">Pro</option>
                   </select>
                 </div>
 
@@ -617,12 +684,12 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
                   <select
                     value={ageFilter}
                     onChange={(e) => setAgeFilter(e.target.value)}
-                    className="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-955/20 text-slate-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-red-500 text-xs font-semibold"
+                    className="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900/20 text-slate-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-red-500 text-xs font-semibold"
                   >
-                    <option value="All">All ages</option>
-                    <option value="Youth">Youth (&lt;18)</option>
-                    <option value="Adult">Adult (18-35)</option>
-                    <option value="Master">Master (35+)</option>
+                    <option value="All" className="bg-white dark:bg-zinc-900 text-slate-900 dark:text-zinc-100">All ages</option>
+                    <option value="Youth" className="bg-white dark:bg-zinc-900 text-slate-900 dark:text-zinc-100">Youth (&lt;18)</option>
+                    <option value="Adult" className="bg-white dark:bg-zinc-900 text-slate-900 dark:text-zinc-100">Adult (18-35)</option>
+                    <option value="Master" className="bg-white dark:bg-zinc-900 text-slate-900 dark:text-zinc-100">Master (35+)</option>
                   </select>
                 </div>
 
@@ -631,11 +698,11 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
                   <select
                     value={tenureFilter}
                     onChange={(e) => setTenureFilter(e.target.value)}
-                    className="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-955/20 text-slate-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-red-500 text-xs font-semibold"
+                    className="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900/20 text-slate-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-red-500 text-xs font-semibold"
                   >
-                    <option value="All">All tenures</option>
-                    <option value="Newcomer">Newcomer (&lt;6mo)</option>
-                    <option value="Veteran">Veteran (6mo+)</option>
+                    <option value="All" className="bg-white dark:bg-zinc-900 text-slate-900 dark:text-zinc-100">All tenures</option>
+                    <option value="Newcomer" className="bg-white dark:bg-zinc-900 text-slate-900 dark:text-zinc-100">Newcomer (&lt;6mo)</option>
+                    <option value="Veteran" className="bg-white dark:bg-zinc-900 text-slate-900 dark:text-zinc-100">Veteran (6mo+)</option>
                   </select>
                 </div>
               </div>
@@ -657,7 +724,8 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
                 {filteredPeers.map((peer) => (
                   <div
                     key={peer._id}
-                    className="bg-white dark:bg-zinc-900/50 border border-slate-200 dark:border-zinc-800 hover:border-slate-350 dark:hover:border-zinc-700 rounded-3xl p-6 shadow-sm hover:shadow-md transition-all flex flex-col justify-between"
+                    onClick={() => setSelectedPeer(peer)}
+                    className="bg-white dark:bg-zinc-900/50 border border-slate-200 dark:border-zinc-800 hover:border-slate-350 dark:hover:border-zinc-700 rounded-3xl p-6 shadow-sm hover:shadow-md transition-all flex flex-col justify-between cursor-pointer"
                   >
                     <div className="space-y-4">
                       {/* Avatar & Header */}
@@ -700,15 +768,15 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
                         </div>
                         <div>
                           <span className="block text-[8px] font-bold text-slate-400 dark:text-zinc-550 uppercase tracking-wider">Tenure</span>
-                          <span className="font-semibold text-slate-700 dark:text-zinc-300 block mt-0.5">
-                            {calculateTenureMonths(peer.joiningDate) < 6 ? 'Newcomer' : 'Veteran'}
+                          <span className="font-semibold text-slate-700 dark:text-zinc-300 block mt-0.5 text-xs sm:text-sm">
+                            {formatTenurePeriod(peer.joiningDate)}
                           </span>
                         </div>
                       </div>
                     </div>
 
                     {/* Sparring Connect controls */}
-                    <div className="flex items-center gap-3 pt-5 mt-6 border-t border-slate-100 dark:border-zinc-850 justify-end">
+                    <div className="flex items-center gap-3 pt-5 mt-6 border-t border-slate-100 dark:border-zinc-855 justify-end" onClick={(e) => e.stopPropagation()}>
                       <a
                         href={`tel:${peer.phone}`}
                         className="p-2 rounded-xl bg-slate-50 hover:bg-slate-100 dark:bg-zinc-950/40 dark:hover:bg-zinc-950 text-slate-500 dark:text-zinc-400 hover:text-slate-700 transition-all border border-slate-200 dark:border-zinc-800"
@@ -743,7 +811,7 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
           className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-md transition-all duration-300"
           style={{ backgroundColor: 'rgba(0, 0, 0, 0.75)' }}
         >
-          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-3xl w-full max-w-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 max-h-[90vh] flex flex-col">
+          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-3xl w-full max-w-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 flex flex-col" style={{ maxHeight: '90vh' }}>
             
             {/* Modal Header */}
             <div className="flex items-center justify-between p-6 border-b border-slate-100 dark:border-zinc-850 shrink-0">
@@ -769,7 +837,8 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
               {/* Event Poster / Flyer */}
               {selectedEvent.image && (
                 <div 
-                  className="w-full rounded-2xl overflow-hidden border border-slate-200 dark:border-zinc-800 shadow-sm relative select-none max-h-80 cursor-zoom-in"
+                  className="w-full rounded-2xl overflow-hidden border border-slate-200 dark:border-zinc-800 shadow-sm relative select-none cursor-zoom-in h-64 sm:h-80 shrink-0"
+                  style={{ maxHeight: '280px' }}
                   onClick={() => setLightboxImage(selectedEvent.image)}
                 >
                   <img src={selectedEvent.image} alt={selectedEvent.title} className="w-full h-full object-contain bg-slate-50 dark:bg-zinc-950" />
@@ -851,7 +920,7 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
                   <button
                     type="submit"
                     disabled={isPendingRSVP || !commentText.trim()}
-                    className="p-2.5 rounded-xl bg-red-650 hover:bg-red-500 text-white disabled:opacity-50 transition-all flex items-center justify-center cursor-pointer shadow-md shadow-red-500/10"
+                    className="p-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white disabled:opacity-50 transition-all flex items-center justify-center cursor-pointer shadow-md shadow-red-500/10"
                   >
                     <Send className="w-4.5 h-4.5" />
                   </button>
@@ -865,8 +934,8 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
               
               <div className="flex items-center gap-4 flex-wrap sm:flex-nowrap">
                 {selectedEvent.category !== 'Announcement' && (
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-slate-450 dark:text-zinc-500 uppercase tracking-wider font-mono">
-                    <Users className="w-4.5 h-4.5" /> {selectedEvent.rsvps.length} RSVP
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-slate-455 dark:text-zinc-500 uppercase tracking-wider font-mono">
+                    <Users className="w-4.5 h-4.5" /> {selectedEvent.rsvps.length} Joined
                   </div>
                 )}
 
@@ -874,13 +943,17 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
                   onClick={() => {
                     handleLike(selectedEvent._id);
                   }}
+                  disabled={isPendingLike}
                   className={`flex items-center gap-1.5 text-xs font-bold font-mono transition-all hover:scale-105 active:scale-95 cursor-pointer ${
                     selectedEvent.likes?.includes(fighter._id)
                       ? 'text-red-500 font-black'
                       : 'text-slate-400 hover:text-red-400'
                   }`}
                 >
-                  <Heart className={`w-4 h-4 ${selectedEvent.likes?.includes(fighter._id) ? 'fill-current' : ''}`} />
+                  <Heart 
+                    className={`w-4 h-4 ${selectedEvent.likes?.includes(fighter._id) ? 'text-red-500' : 'text-slate-400'}`} 
+                    fill={selectedEvent.likes?.includes(fighter._id) ? 'currentColor' : 'none'} 
+                  />
                   <span>{selectedEvent.likes?.length || 0}</span>
                 </button>
               </div>
@@ -910,15 +983,15 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
                     className={`px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all select-none cursor-pointer flex items-center gap-1 border ${
                       selectedEvent.rsvps.includes(fighter._id)
                         ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/35 hover:bg-emerald-500/20'
-                        : 'bg-red-650 hover:bg-red-500 text-white border-transparent shadow-md shadow-red-500/10 active:scale-95'
+                        : 'bg-red-600 hover:bg-red-500 text-white border-transparent shadow-md shadow-red-500/10 active:scale-95'
                     }`}
                   >
                     {isPendingRSVP ? (
                       <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
                     ) : selectedEvent.rsvps.includes(fighter._id) ? (
-                      'Attending'
+                      'Joined'
                     ) : (
-                      'RSVP'
+                      'Join'
                     )}
                   </button>
                 )}
@@ -933,18 +1006,10 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
       {/* WhatsApp Fullscreen Lightbox Image Viewer */}
       {lightboxImage && (
         <div 
-          className="fixed inset-0 z-[100] flex items-center justify-center backdrop-blur-md transition-all duration-300 select-none animate-in fade-in duration-200"
+          className="fixed inset-0 z-[9999] flex items-center justify-center backdrop-blur-md transition-all duration-300 select-none animate-in fade-in duration-200"
           style={{ backgroundColor: 'rgba(0, 0, 0, 0.95)' }}
           onClick={() => setLightboxImage(null)}
         >
-          <button
-            onClick={() => setLightboxImage(null)}
-            className="absolute top-4 right-4 p-3 rounded-full bg-zinc-900/90 hover:bg-zinc-800 text-white transition-all cursor-pointer z-[110] border border-zinc-800 shadow-md"
-            title="Close image viewer"
-          >
-            <X className="w-6 h-6" />
-          </button>
-          
           <div className="w-full h-full p-6 flex items-center justify-center relative">
             <img 
               src={lightboxImage} 
@@ -952,6 +1017,156 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
               className="max-w-full max-h-[92vh] object-contain rounded-lg animate-in zoom-in-95 duration-200"
               onClick={(e) => e.stopPropagation()} 
             />
+          </div>
+
+          <button
+            onClick={() => setLightboxImage(null)}
+            className="absolute top-4 right-4 p-3 rounded-full bg-zinc-900/90 hover:bg-zinc-800 text-white transition-all cursor-pointer z-[10000] border border-zinc-800 shadow-md flex items-center justify-center"
+            title="Close image viewer"
+          >
+            <X className="w-6 h-6" />
+          </button>
+        </div>
+      )}
+
+      {/* Selected Peer (Fighter) Profile Details Modal */}
+      {selectedPeer && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-md transition-all duration-300 animate-in fade-in duration-200"
+          style={{ backgroundColor: 'rgba(0, 0, 0, 0.75)' }}
+          onClick={() => setSelectedPeer(null)}
+        >
+          <div 
+            className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-3xl w-full max-w-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 flex flex-col"
+            style={{ maxHeight: '90vh' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-6 border-b border-slate-100 dark:border-zinc-850 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-red-500/10 text-red-650 flex items-center justify-center font-bold text-lg select-none">
+                  {selectedPeer.name.charAt(0)}
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-base text-slate-800 dark:text-zinc-150 uppercase tracking-tight">
+                    {selectedPeer.name}
+                  </h3>
+                  <span className="text-[10px] text-slate-400 dark:text-zinc-550 font-semibold uppercase tracking-wider block mt-0.5">
+                    Academy Peer
+                  </span>
+                </div>
+              </div>
+              <button
+                onClick={() => setSelectedPeer(null)}
+                className="p-2 rounded-xl text-slate-400 hover:bg-slate-100 dark:hover:bg-zinc-800 hover:text-slate-650 dark:hover:text-zinc-205 transition-all cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal scrollable body */}
+            <div className="p-6 overflow-y-auto space-y-6 flex-1 text-slate-700 dark:text-zinc-300">
+              
+              {/* Detailed attributes grid */}
+              <div className="grid grid-cols-2 gap-x-6 gap-y-4 pt-2 text-xs">
+                <div>
+                  <span className="block text-[9px] font-bold text-slate-400 dark:text-zinc-555 uppercase tracking-wider">Martial Style</span>
+                  <span className="text-sm font-extrabold text-red-500 dark:text-red-400 uppercase tracking-wide block mt-1">
+                    {selectedPeer.style}
+                  </span>
+                </div>
+                <div>
+                  <span className="block text-[9px] font-bold text-slate-400 dark:text-zinc-555 uppercase tracking-wider">Experience Level</span>
+                  <span className={`inline-flex px-2.5 py-0.5 rounded-full text-[11px] font-bold mt-1 ${
+                    selectedPeer.experienceLevel === 'Pro' 
+                      ? 'bg-purple-100 text-purple-700 dark:bg-purple-950/20 dark:text-purple-400 border border-purple-200 dark:border-purple-900/30'
+                      : selectedPeer.experienceLevel === 'Intermediate' 
+                      ? 'bg-blue-100 text-blue-700 dark:bg-blue-950/20 dark:text-blue-400 border border-blue-200 dark:border-blue-900/30'
+                      : 'bg-slate-100 text-slate-700 dark:bg-zinc-800 dark:text-zinc-400 border border-slate-200 dark:border-zinc-700/50'
+                  }`}>
+                    {selectedPeer.experienceLevel}
+                  </span>
+                </div>
+                <div>
+                  <span className="block text-[9px] font-bold text-slate-400 dark:text-zinc-555 uppercase tracking-wider">Weight Class</span>
+                  <span className="text-sm font-bold text-slate-700 dark:text-zinc-250 block mt-1">
+                    {selectedPeer.weightClass} kg
+                  </span>
+                </div>
+                <div>
+                  <span className="block text-[9px] font-bold text-slate-400 dark:text-zinc-555 uppercase tracking-wider">Age Group</span>
+                  <span className="text-sm font-bold text-slate-700 dark:text-zinc-250 block mt-1">
+                    {calculateAge(selectedPeer.dob)} yrs ({calculateAge(selectedPeer.dob) < 18 ? 'Youth' : calculateAge(selectedPeer.dob) > 35 ? 'Master' : 'Adult'})
+                  </span>
+                </div>
+                <div>
+                  <span className="block text-[9px] font-bold text-slate-400 dark:text-zinc-555 uppercase tracking-wider">Academy Tenure</span>
+                  <span className="text-sm font-bold text-slate-700 dark:text-zinc-250 block mt-1">
+                    {formatTenurePeriod(selectedPeer.joiningDate)}
+                  </span>
+                </div>
+                <div>
+                  <span className="block text-[9px] font-bold text-slate-400 dark:text-zinc-555 uppercase tracking-wider">Joined Date</span>
+                  <span className="text-sm font-bold text-slate-700 dark:text-zinc-250 font-mono block mt-1">
+                    {new Date(selectedPeer.joiningDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+                  </span>
+                </div>
+              </div>
+
+              {/* Bio & Achievements Section */}
+              <div className="border-t border-slate-100 dark:border-zinc-800/80 pt-5 space-y-2">
+                <h4 className="text-xs font-black uppercase tracking-wider text-slate-400 dark:text-zinc-555 flex items-center gap-1.5">
+                  <Award className="w-4 h-4 text-red-500" /> Bio & Achievements
+                </h4>
+                <p className="text-xs font-medium leading-relaxed bg-slate-50/50 dark:bg-zinc-950/20 p-4 border border-slate-100 dark:border-zinc-850 rounded-2xl whitespace-pre-wrap text-slate-655 dark:text-zinc-400">
+                  {selectedPeer.bio || (
+                    <span className="italic text-slate-400 dark:text-zinc-550">
+                      No bio or competition achievements listed by this athlete yet.
+                    </span>
+                  )}
+                </p>
+              </div>
+
+              {/* Contact Information (If available) */}
+              <div className="border-t border-slate-100 dark:border-zinc-800/80 pt-5 space-y-3.5">
+                <h4 className="text-xs font-black uppercase tracking-wider text-slate-400 dark:text-zinc-555">Contact Info</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs font-semibold text-slate-605 dark:text-zinc-350">
+                  <div className="flex items-center gap-2">
+                    <Phone className="w-4 h-4 text-red-500" />
+                    <span className="font-mono">{selectedPeer.phone}</span>
+                  </div>
+                  {selectedPeer.email && (
+                    <div className="flex items-center gap-2 break-all">
+                      <Mail className="w-4 h-4 text-red-500" />
+                      <span className="font-mono">{selectedPeer.email}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+            </div>
+
+            {/* Modal Actions Footer */}
+            <div className="p-6 border-t border-slate-100 dark:border-zinc-850 bg-slate-50/50 dark:bg-zinc-950/20 flex items-center gap-3 justify-end shrink-0">
+              <a
+                href={`tel:${selectedPeer.phone}`}
+                className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 text-slate-500 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-900 transition-all font-bold text-xs flex items-center gap-1.5"
+              >
+                <Phone className="w-4 h-4" />
+                <span>Call Athlete</span>
+              </a>
+              <a
+                href={getWhatsAppSparringUrl(selectedPeer)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-center px-4 py-2.5 rounded-xl text-white bg-emerald-600 hover:bg-emerald-500 transition-all gap-1.5 text-xs font-bold shadow-md shadow-emerald-500/10 active:scale-95 cursor-pointer"
+              >
+                <WhatsAppIcon className="w-4.5 h-4.5" />
+                <span>Request Sparring</span>
+              </a>
+            </div>
+
           </div>
         </div>
       )}

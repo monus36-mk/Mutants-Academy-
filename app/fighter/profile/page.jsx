@@ -3,7 +3,8 @@ import { getCurrentUser } from '@/app/actions/authActions';
 import { getFighterProfile } from '@/app/actions/fighterActions';
 import ThemeToggle from '@/components/ThemeToggle';
 import Link from 'next/link';
-import { Dumbbell, Calendar, Phone, Mail, Award, Clock, LogOut, CheckCircle2, AlertTriangle, XCircle, User, ArrowLeft } from 'lucide-react';
+import { Dumbbell, Clock, LogOut, CheckCircle2, AlertTriangle, XCircle, ArrowLeft } from 'lucide-react';
+import FighterProfileClient from './FighterProfileClient';
 
 export default async function FighterProfilePage() {
   const user = await getCurrentUser();
@@ -156,7 +157,7 @@ export default async function FighterProfilePage() {
         </div>
 
         {/* Details Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 md:gap-8">
           
           {/* Card 1: Subscription Info */}
           <div className="bg-white dark:bg-zinc-900/50 border border-slate-200 dark:border-zinc-800 rounded-3xl p-6 md:p-8 shadow-sm flex flex-col justify-between transition-colors">
@@ -201,99 +202,8 @@ export default async function FighterProfilePage() {
             </div>
           </div>
 
-          {/* Card 2: Profile & Coach details */}
-          <div className="space-y-6 md:space-y-8">
-            
-            {/* Athlete Profile details */}
-            <div className="bg-white dark:bg-zinc-900/50 border border-slate-200 dark:border-zinc-800 rounded-3xl p-6 md:p-8 shadow-sm transition-colors">
-              <h2 className="text-base font-black text-slate-800 dark:text-zinc-150 uppercase tracking-wider mb-6 flex items-center gap-2">
-                <User className="w-5 h-5 text-red-500" /> Athlete Profile
-              </h2>
-              
-              <div className="grid grid-cols-2 gap-6">
-                <div>
-                  <span className="block text-[10px] font-bold text-slate-400 dark:text-zinc-550 uppercase tracking-wider">Martial Style</span>
-                  <span className="text-sm font-extrabold text-red-500 dark:text-red-400 uppercase tracking-wide block mt-1">{fighter.style}</span>
-                </div>
-
-                <div>
-                  <span className="block text-[10px] font-bold text-slate-400 dark:text-zinc-550 uppercase tracking-wider">Experience Level</span>
-                  <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-bold mt-1 ${
-                    fighter.experienceLevel === 'Pro' 
-                      ? 'bg-purple-100 text-purple-700 dark:bg-purple-950/20 dark:text-purple-400 border border-purple-200 dark:border-purple-900/30'
-                      : fighter.experienceLevel === 'Intermediate' 
-                      ? 'bg-blue-100 text-blue-700 dark:bg-blue-950/20 dark:text-blue-400 border border-blue-200 dark:border-blue-900/30'
-                      : 'bg-slate-100 text-slate-700 dark:bg-zinc-800 dark:text-zinc-400 border border-slate-200 dark:border-zinc-700/50'
-                  }`}>
-                    {fighter.experienceLevel}
-                  </span>
-                </div>
-
-                <div>
-                  <span className="block text-[10px] font-bold text-slate-400 dark:text-zinc-550 uppercase tracking-wider">Weight Class</span>
-                  <span className="text-sm font-bold text-slate-700 dark:text-zinc-250 block mt-1">{fighter.weightClass}</span>
-                </div>
-
-                <div>
-                  <span className="block text-[10px] font-bold text-slate-400 dark:text-zinc-550 uppercase tracking-wider">Phone</span>
-                  <span className="text-sm font-bold text-slate-700 dark:text-zinc-250 font-mono block mt-1">
-                    {fighter.phone}
-                  </span>
-                </div>
-
-                <div className="col-span-2">
-                  <span className="block text-[10px] font-bold text-slate-400 dark:text-zinc-550 uppercase tracking-wider">Email Address</span>
-                  <span className="text-sm font-bold text-slate-700 dark:text-zinc-250 font-mono block mt-1 break-all">
-                    {fighter.email}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Coach Details */}
-            <div className="bg-white dark:bg-zinc-900/50 border border-slate-200 dark:border-zinc-800 rounded-3xl p-6 md:p-8 shadow-sm transition-colors">
-              <h2 className="text-base font-black text-slate-800 dark:text-zinc-150 uppercase tracking-wider mb-4 flex items-center gap-2">
-                <Award className="w-5 h-5 text-red-500" /> Training Supervisor
-              </h2>
-              
-              {fighter.assignedCoach ? (
-                <div className="flex items-start gap-4">
-                  <div className="w-12 h-12 rounded-2xl bg-red-500/10 text-red-600 flex items-center justify-center font-bold text-lg">
-                    {fighter.assignedCoach.name.charAt(0)}
-                  </div>
-                  <div>
-                    <h3 className="font-extrabold text-slate-800 dark:text-zinc-100 text-sm uppercase">
-                      {fighter.assignedCoach.name}
-                    </h3>
-                    <p className="text-xs text-slate-400 dark:text-zinc-500 uppercase font-semibold">
-                      Academy Coach
-                    </p>
-                    <a
-                      href={`mailto:${fighter.assignedCoach.email}`}
-                      className="inline-flex items-center gap-1.5 mt-2 text-xs font-bold text-red-500 hover:text-red-650 dark:hover:text-red-400 font-mono"
-                    >
-                      <Mail className="w-3.5 h-3.5" /> {fighter.assignedCoach.email}
-                    </a>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-2xl bg-slate-105 dark:bg-zinc-800 flex items-center justify-center text-slate-505">
-                    <User className="w-6 h-6" />
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-slate-700 dark:text-zinc-350 text-sm">
-                      General Coaching Staff
-                    </h3>
-                    <p className="text-xs text-slate-400 mt-0.5">
-                      No coach currently assigned.
-                    </p>
-                  </div>
-                </div>
-              )}
-            </div>
-
-          </div>
+          {/* Card 2: Profile & Coach details (Interactive Client Wrapper) */}
+          <FighterProfileClient initialFighter={fighter} />
 
         </div>
 

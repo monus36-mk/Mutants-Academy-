@@ -209,3 +209,50 @@ export async function addEventComment(eventId, text) {
     return { error: 'Failed to post comment.' };
   }
 }
+
+export async function updateEvent(eventId, formData) {
+  try {
+    await dbConnect();
+
+    const user = await getCurrentUser();
+    if (!user || (user.role !== 'MainAdmin' && user.role !== 'Coach')) {
+      return { error: 'Unauthorized' };
+    }
+
+    const title = formData.get('title')?.trim();
+    const description = formData.get('description')?.trim();
+    const dateStr = formData.get('date');
+    const location = formData.get('location')?.trim();
+    const category = formData.get('category');
+    const image = formData.get('image');
+    const audio = formData.get('audio');
+
+    if (!title || !description || !dateStr || !category) {
+      return { error: 'Please fill in all required fields.' };
+    }
+
+    const event = await Event.findById(eventId);
+    if (!event) {
+      return { error: 'Event not found.' };
+    }
+
+    event.title = title;
+    event.description = description;
+    event.date = new Date(dateStr);
+    event.location = location;
+    event.category = category;
+    
+    // Only update if provided or explicitly cleared
+    event.image = image || undefined;
+    event.audio = audio || undefined;
+
+    await event.save();
+
+    revalidatePath('/admin/events');
+    revalidatePath('/fighter');
+    return { success: true };
+  } catch (err) {
+    console.error('Error updating event:', err);
+    return { error: 'Failed to update event.' };
+  }
+}

@@ -68,9 +68,17 @@ const FighterSchema = new mongoose.Schema(
       enum: ['Active', 'Due Soon', 'Expired'],
       default: 'Active',
     },
+    bio: {
+      type: String,
+      default: '',
+      trim: true,
+    },
   },
   { timestamps: true }
 );
 
-// Prevent compiling model query if it already exists
+// Prevent compiling model query unless schema updates require it
+if (mongoose.models.Fighter && !mongoose.models.Fighter.schema.paths.bio) {
+  delete mongoose.models.Fighter;
+}
 export default mongoose.models.Fighter || mongoose.model('Fighter', FighterSchema);

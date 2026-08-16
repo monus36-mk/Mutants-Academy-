@@ -1,18 +1,19 @@
 'use client';
 
-import { useState, useTransition, useActionState, useEffect, useRef } from 'react';
+import { useState, useTransition, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { createEvent, deleteEvent } from '@/app/actions/eventActions';
+import { createEvent, deleteEvent, updateEvent } from '@/app/actions/eventActions';
 import { 
   Calendar, MapPin, Trash2, Megaphone, Users, Clock, Plus, 
-  AlertCircle, CalendarRange, Image as ImageIcon, Mic, Square, Play, Trash, Info
+  AlertCircle, CalendarRange, Image as ImageIcon, Mic, Square, Play, Trash, Info, Pencil, X
 } from 'lucide-react';
 
 export default function EventsManager({ initialEvents, user }) {
   const router = useRouter();
   const [isPendingDelete, startDeleteTransition] = useTransition();
-  const [state, formAction, isPendingCreate] = useActionState(createEvent, null);
+  const [isPendingSubmit, startSubmitTransition] = useTransition();
   const [errorMsg, setErrorMsg] = useState(null);
+  const [editingEvent, setEditingEvent] = useState(null);
 
   // Form input states
   const [title, setTitle] = useState('');
@@ -36,24 +37,80 @@ export default function EventsManager({ initialEvents, user }) {
   const streamRef = useRef(null);
   const timerRef = useRef(null);
 
-  useEffect(() => {
-    if (state?.success) {
-      // Clear form inputs and media on success
-      setTitle('');
-      setDescription('');
+  const startEdit = (event) => {
+    setEditingEvent(event);
+    setTitle(event.title);
+    setDescription(event.description);
+    
+    // Format date for datetime-local input (YYYY-MM-DDTHH:mm)
+    if (event.date) {
+      const d = new Date(event.date);
+      const tzOffset = d.getTimezoneOffset() * 60000;
+      const localISOTime = (new Date(d.getTime() - tzOffset)).toISOString().slice(0, 16);
+      setDate(localISOTime);
+    } else {
       setDate('');
-      setLocation('');
-      setCategory('Announcement');
-      setImage('');
-      setImagePreview('');
-      setAudioUrl('');
-      setAudioBase64('');
-      setErrorMsg(null);
-      router.refresh();
-    } else if (state?.error) {
-      setErrorMsg(state.error);
     }
-  }, [state, router]);
+    
+    setLocation(event.location || '');
+    setCategory(event.category || 'Announcement');
+    setImage(event.image || '');
+    setImagePreview(event.image || '');
+    setAudioUrl(event.audio || '');
+    setAudioBase64(event.audio || '');
+    setErrorMsg(null);
+    
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const cancelEdit = () => {
+    setEditingEvent(null);
+    setTitle('');
+    setDescription('');
+    setDate('');
+    setLocation('');
+    setCategory('Announcement');
+    setImage('');
+    setImagePreview('');
+    setAudioUrl('');
+    setAudioBase64('');
+    setErrorMsg(null);
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!title || !description || !date || !category) {
+      setErrorMsg('Please fill in all required fields.');
+      return;
+    }
+
+    startSubmitTransition(async () => {
+      setErrorMsg(null);
+      
+      const formData = new FormData();
+      formData.append('title', title);
+      formData.append('description', description);
+      formData.append('date', date);
+      formData.append('location', location);
+      formData.append('category', category);
+      formData.append('image', image);
+      formData.append('audio', audioBase64);
+
+      let res;
+      if (editingEvent) {
+        res = await updateEvent(editingEvent._id, formData);
+      } else {
+        res = await createEvent(null, formData);
+      }
+
+      if (res.success) {
+        cancelEdit();
+        router.refresh();
+      } else {
+        setErrorMsg(res.error || 'Failed to submit notice.');
+      }
+    });
+  };
 
   // Clean up timers and audio recording on unmount
   useEffect(() => {
@@ -247,15 +304,17 @@ export default function EventsManager({ initialEvents, user }) {
           </div>
           <div>
             <h2 className="text-xl font-bold text-slate-800 dark:text-zinc-100 uppercase tracking-tight">
-              Post Gym Notice
+              {editingEvent ? 'Update Gym Notice' : 'Post Gym Notice'}
             </h2>
             <p className="text-slate-400 dark:text-zinc-550 text-xs mt-0.5">
-              Broadcast announcements, sparring cards, seminars, or upload voice memos.
+              {editingEvent 
+                ? 'Modify notice description, category, dates, or media attachments.' 
+                : 'Broadcast announcements, sparring cards, seminars, or upload voice memos.'}
             </p>
           </div>
         </div>
 
-        <form action={formAction} className="space-y-5">
+        <form onSubmit={handleSubmit} className="space-y-5">
           {/* Hidden inputs for Base64 attachments */}
           <input type="hidden" name="image" value={image} />
           <input type="hidden" name="audio" value={audioBase64} />
@@ -430,19 +489,38 @@ export default function EventsManager({ initialEvents, user }) {
             </div>
           )}
 
-          <button
-            type="submit"
-            disabled={isPendingCreate || recording}
-            className="w-full py-3.5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-sm shadow-lg shadow-red-600/20 active:scale-[0.98] transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
-          >
-            {isPendingCreate ? (
-              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-            ) : (
-              <>
-                <Plus className="w-4.5 h-4.5" /> Publish Notice
-              </>
+          <div className="flex gap-3">
+            {editingEvent && (
+              <button
+                type="button"
+                onClick={cancelEdit}
+                className="flex-1 py-3.5 rounded-xl border border-slate-200 dark:border-zinc-800 text-slate-650 dark:text-zinc-400 font-bold text-sm hover:bg-slate-50 dark:hover:bg-zinc-900/30 transition-all cursor-pointer text-center select-none"
+              >
+                Cancel
+              </button>
             )}
-          </button>
+            <button
+              type="submit"
+              disabled={isPendingSubmit || recording}
+              className={`rounded-xl py-3.5 font-bold text-sm shadow-lg active:scale-[0.98] transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 ${
+                editingEvent 
+                  ? 'flex-1 bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/10' 
+                  : 'w-full bg-red-600 hover:bg-red-500 text-white shadow-red-600/20'
+              }`}
+            >
+              {isPendingSubmit ? (
+                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              ) : editingEvent ? (
+                <>
+                  <Pencil className="w-4.5 h-4.5" /> Save Changes
+                </>
+              ) : (
+                <>
+                  <Plus className="w-4.5 h-4.5" /> Publish Notice
+                </>
+              )}
+            </button>
+          </div>
         </form>
       </div>
 
@@ -517,6 +595,18 @@ export default function EventsManager({ initialEvents, user }) {
                   </div>
 
                   <div className="shrink-0 flex sm:flex-col justify-end items-end gap-2">
+                    <button
+                      onClick={() => startEdit(event)}
+                      className={`p-2.5 rounded-xl border transition-all cursor-pointer ${
+                        editingEvent && editingEvent._id === event._id
+                          ? 'border-emerald-500 bg-emerald-500/10 text-emerald-500'
+                          : 'border-slate-200 dark:border-zinc-800/80 hover:border-slate-350 hover:bg-slate-50 dark:hover:bg-zinc-900/30 text-slate-400 dark:text-zinc-500'
+                      }`}
+                      title="Edit Event"
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </button>
+
                     <button
                       onClick={() => handleDelete(event._id)}
                       className="p-2.5 rounded-xl border border-slate-200 dark:border-zinc-800/80 hover:border-red-200 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 text-slate-400 transition-all cursor-pointer"

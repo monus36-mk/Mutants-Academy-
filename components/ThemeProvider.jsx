@@ -3,12 +3,12 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 
 const ThemeContext = createContext({
-  theme: 'dark',
+  theme: 'light',
   toggleTheme: () => {},
 });
 
 export function ThemeProvider({ children }) {
-  const [theme, setTheme] = useState('dark'); // Default to premium dark mode
+  const [theme, setTheme] = useState('light'); // Default to light mode
 
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme');
@@ -17,8 +17,7 @@ export function ThemeProvider({ children }) {
       setTheme(savedTheme);
       document.documentElement.classList.toggle('dark', savedTheme === 'dark');
     } else {
-      const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      const initialTheme = systemPrefersDark ? 'dark' : 'light';
+      const initialTheme = 'light';
       setTheme(initialTheme);
       document.documentElement.classList.toggle('dark', initialTheme === 'dark');
     }
