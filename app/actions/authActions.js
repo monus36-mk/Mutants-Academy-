@@ -1,6 +1,7 @@
 'use server';
 
 import { cookies } from 'next/headers';
+import { redirect } from 'next/navigation';
 import bcrypt from 'bcryptjs';
 import dbConnect from '@/lib/db';
 import User from '@/models/User';
@@ -65,8 +66,15 @@ export async function login(prevState, formData) {
       maxAge: 60 * 60 * 24, // 1 day
     });
 
-    return { success: true, role: role };
+    if (role === 'Fighter') {
+      redirect('/fighter');
+    } else {
+      redirect('/admin');
+    }
   } catch (err) {
+    if (err.digest?.startsWith('NEXT_REDIRECT')) {
+      throw err;
+    }
     console.error('Login action error:', err);
     return { error: 'Something went wrong. Please try again.' };
   }
