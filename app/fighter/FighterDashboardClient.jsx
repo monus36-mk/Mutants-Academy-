@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition, useMemo, useEffect } from 'react';
+import { useState, useTransition, useMemo, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { toggleEventRSVP, toggleEventLike, addEventComment } from '@/app/actions/eventActions';
@@ -9,7 +9,7 @@ import {
   Dumbbell, Calendar, Phone, Mail, Award, Clock, LogOut, 
   CheckCircle2, AlertTriangle, XCircle, Users, Bell, 
   MessageSquare, UserCheck, Sparkles, Filter, Search, ShieldAlert,
-  MapPin, HelpCircle, User, Mic, X, Heart, Send
+  MapPin, HelpCircle, User, Mic, X, Heart, Send, Pin
 } from 'lucide-react';
 
 const WhatsAppIcon = ({ className }) => (
@@ -17,6 +17,23 @@ const WhatsAppIcon = ({ className }) => (
     <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L0 24l6.335-1.662c1.746.953 3.71 1.455 5.703 1.456h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
   </svg>
 );
+
+const getTitleColorClass = (colorKey) => {
+  switch (colorKey) {
+    case 'fire':
+      return 'bg-gradient-to-r from-red-600 via-orange-500 to-yellow-500 bg-clip-text text-transparent';
+    case 'emerald':
+      return 'bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 bg-clip-text text-transparent';
+    case 'sapphire':
+      return 'bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-600 bg-clip-text text-transparent';
+    case 'gold':
+      return 'bg-gradient-to-r from-amber-500 via-yellow-500 to-orange-500 bg-clip-text text-transparent';
+    case 'electric':
+      return 'bg-gradient-to-r from-fuchsia-500 via-purple-600 to-pink-500 bg-clip-text text-transparent';
+    default:
+      return 'text-slate-800 dark:text-zinc-150';
+  }
+};
 
 export default function FighterDashboardClient({ fighter, initialPeers, initialEvents }) {
   const router = useRouter();
@@ -28,6 +45,7 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
   const [lightboxImage, setLightboxImage] = useState(null);
   const [commentText, setCommentText] = useState('');
   const [readNoticesCount, setReadNoticesCount] = useState(0);
+  const commentInputRef = useRef(null);
   const [selectedPeer, setSelectedPeer] = useState(null);
 
   // Initialize read notices count on mount
@@ -213,6 +231,7 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
               createdAt: new Date().toISOString(),
               fighterId: fighter._id,
               fighterName: fighter.name,
+              fighterRole: 'Athlete',
             }
           ]
         }));
@@ -305,7 +324,7 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
                       localStorage.setItem('readNoticesCount', initialEvents.length.toString());
                     }
                   }}
-                  className="w-10 h-10 rounded-xl border border-slate-200 dark:border-zinc-800 flex items-center justify-center text-slate-500 hover:bg-slate-100 dark:hover:bg-zinc-900 transition-all cursor-pointer relative"
+                  className="w-10 h-10 rounded-2xl border border-slate-200 dark:border-zinc-800 flex items-center justify-center text-slate-500 bg-white dark:bg-zinc-900 hover:bg-slate-50 dark:hover:bg-zinc-800 transition-all cursor-pointer relative"
                   title="Notifications & Notices"
                 >
                   <Bell className="w-5 h-5" />
@@ -340,13 +359,18 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
                           <div 
                             key={e._id} 
                             onClick={() => { setSelectedEvent(e); setShowBellDropdown(false); }}
-                            className="p-2 border border-slate-100 dark:border-zinc-850 rounded-xl hover:bg-slate-50 dark:hover:bg-zinc-955/40 transition-colors cursor-pointer"
+                            className="p-2.5 border border-slate-100 dark:border-zinc-850 rounded-xl hover:bg-slate-50 dark:hover:bg-zinc-955/40 transition-colors cursor-pointer space-y-1"
                           >
-                            <div className="flex justify-between items-center mb-0.5">
-                              <span className="font-extrabold text-slate-700 dark:text-zinc-200 truncate pr-2 max-w-[160px] uppercase tracking-tight">{e.title}</span>
-                              <span className="text-[8px] text-slate-400 font-mono">{formatEventDate(e.date)}</span>
+                            <div className="space-y-0.5">
+                              <div className="flex items-center justify-between">
+                                <span className="font-extrabold text-slate-800 dark:text-zinc-200 truncate pr-2 uppercase tracking-tight text-xs">{e.title}</span>
+                                <span className={`inline-flex px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider border shrink-0 ${getEventColor(e.category)}`}>
+                                  {e.category}
+                                </span>
+                              </div>
+                              <span className="text-[9px] text-slate-400 dark:text-zinc-550 font-mono block">{formatEventDate(e.date)}</span>
                             </div>
-                            <p className="text-[10px] text-slate-450 dark:text-zinc-550 line-clamp-2 leading-relaxed">{e.description}</p>
+                            <p className="text-[10px] text-slate-455 dark:text-zinc-550 line-clamp-2 leading-relaxed font-medium">{e.description}</p>
                           </div>
                         ))
                       )}
@@ -360,8 +384,8 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
 
               {/* Profile Avatar Page Link with Athlete Name */}
               <div className="flex items-center gap-2.5 sm:gap-3 pl-1">
-                <div className="hidden sm:flex flex-col text-right">
-                  <span className="text-xs font-extrabold text-slate-750 dark:text-zinc-200 uppercase tracking-tight leading-tight">{fighter.name}</span>
+                <div className="flex flex-col text-right">
+                  <span className="text-xs font-extrabold text-slate-900 dark:text-zinc-100 uppercase tracking-tight leading-tight">{fighter.name}</span>
                   <span className="text-[9px] font-black text-red-500 uppercase tracking-widest leading-none mt-0.5">Athlete</span>
                 </div>
                 <Link
@@ -370,7 +394,7 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
                     setShowBellDropdown(false);
                     setSelectedEvent(null);
                   }}
-                  className="w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-zinc-900 dark:hover:bg-zinc-800 border border-slate-200 dark:border-zinc-800 flex items-center justify-center text-slate-750 dark:text-zinc-300 transition-all cursor-pointer shadow-sm relative shrink-0"
+                  className="w-10 h-10 rounded-2xl bg-white hover:bg-slate-50 dark:bg-zinc-900 dark:hover:bg-zinc-800 border border-slate-200 dark:border-zinc-800 flex items-center justify-center text-slate-750 dark:text-zinc-300 transition-all cursor-pointer shadow-sm relative shrink-0"
                   title="View Profile & Membership details"
                 >
                   <User className="w-5 h-5 text-red-500" />
@@ -389,7 +413,7 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
                     await logout();
                     window.location.href = '/login';
                   }}
-                  className="p-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 text-slate-500 dark:text-zinc-400 hover:bg-red-50 dark:hover:bg-red-950/20 hover:text-red-650 hover:border-red-200 dark:hover:border-red-900/50 transition-all duration-200 cursor-pointer"
+                  className="p-2.5 rounded-2xl border border-slate-200 dark:border-zinc-800 text-slate-550 dark:text-zinc-400 bg-white dark:bg-zinc-900 hover:bg-red-50 dark:hover:bg-red-955/20 hover:text-red-650 hover:border-red-200 dark:hover:border-red-900/50 transition-all duration-200 cursor-pointer"
                   title="Logout Portal"
                 >
                   <LogOut className="w-5 h-5" />
@@ -495,9 +519,9 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
                 {upcomingEvents.map((event) => {
                   const isAttending = event.rsvps.includes(fighter._id);
                   return (
-                    <div
+                     <div
                       key={event._id}
-                      className="bg-white dark:bg-zinc-900/50 border border-slate-200 dark:border-zinc-800 hover:border-slate-300 dark:hover:border-zinc-700 rounded-3xl p-6 md:p-8 flex flex-col justify-between shadow-sm hover:shadow-md transition-all group"
+                      className="bg-white dark:bg-zinc-900/50 border border-slate-200 dark:border-zinc-800 hover:border-slate-300 dark:hover:border-zinc-700 rounded-3xl p-6 md:p-8 flex flex-col justify-between shadow-sm hover:shadow-md transition-all group max-w-2xl w-full"
                     >
                       <div 
                         className="space-y-4 cursor-pointer"
@@ -506,8 +530,7 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
                         {/* Event Photo/Image if uploaded */}
                         {event.image && (
                           <div 
-                            className="w-full h-48 max-h-48 rounded-2xl overflow-hidden border border-slate-200 dark:border-zinc-800 shadow-sm relative select-none cursor-zoom-in bg-slate-105 dark:bg-zinc-950/50"
-                            style={{ height: '192px', maxHeight: '192px' }}
+                            className="w-full h-48 rounded-2xl overflow-hidden border border-slate-200 dark:border-zinc-800 shadow-sm relative select-none cursor-zoom-in bg-slate-100 dark:bg-zinc-955/50"
                             onClick={(e) => {
                               e.stopPropagation();
                               setLightboxImage(event.image);
@@ -516,16 +539,23 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
                             <img 
                               src={event.image} 
                               alt={event.title} 
-                              className="w-full h-full max-h-full object-contain hover:scale-105 transition-all duration-300" 
+                              className="w-full h-full object-contain hover:scale-105 transition-all duration-300" 
                             />
                           </div>
                         )}
 
                         {/* Title & Badge */}
                         <div className="flex items-start justify-between gap-3">
-                          <span className={`inline-flex px-2.5 py-1 rounded-xl text-[9px] font-black uppercase tracking-wider border shrink-0 ${getEventColor(event.category)}`}>
-                            {event.category}
-                          </span>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className={`inline-flex px-2.5 py-1 rounded-xl text-[9px] font-black uppercase tracking-wider border shrink-0 ${getEventColor(event.category)}`}>
+                              {event.category}
+                            </span>
+                            {event.pinned && (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-[9px] font-black uppercase tracking-wider bg-red-600/10 text-red-500 border border-red-500/20 shrink-0">
+                                <Pin className="w-3 h-3 text-red-500 fill-current" /> Pinned
+                              </span>
+                            )}
+                          </div>
                           
                           {/* Attendance label */}
                           {isAttending && (
@@ -535,7 +565,7 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
                           )}
                         </div>
 
-                        <h3 className="text-lg font-black text-slate-800 dark:text-zinc-150 uppercase tracking-tight group-hover:text-red-500 transition-colors">
+                        <h3 className={`text-lg font-black uppercase tracking-tight group-hover:text-red-500 transition-colors ${getTitleColorClass(event.titleColor)}`}>
                           {event.title}
                         </h3>
 
@@ -573,7 +603,7 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
                             </div>
                           )}
 
-                          <button
+                           <button
                             onClick={(e) => {
                               e.stopPropagation();
                               handleLike(event._id);
@@ -590,6 +620,18 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
                               fill={event.likes?.includes(fighter._id) ? 'currentColor' : 'none'} 
                             />
                             <span>{event.likes?.length || 0}</span>
+                          </button>
+
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedEvent(event);
+                            }}
+                            className="flex items-center gap-1.5 text-xs font-bold font-mono transition-all hover:scale-105 active:scale-95 cursor-pointer text-slate-400 hover:text-blue-500 dark:hover:text-blue-400"
+                            title="View Discussion Comments"
+                          >
+                            <MessageSquare className="w-4 h-4" />
+                            <span>{event.comments?.length || 0}</span>
                           </button>
                         </div>
 
@@ -640,19 +682,27 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
 
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4">
                 {/* Name search */}
-                <div className="relative col-span-1 lg:col-span-1">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950/20 text-slate-900 dark:text-zinc-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-red-500 text-xs transition-all font-semibold"
-                    placeholder="Search by name..."
-                  />
+                <div>
+                  <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400 mb-1.5">
+                    Search Name
+                  </label>
+                  <div className="relative">
+                    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950/20 text-slate-900 dark:text-zinc-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-red-500 text-xs transition-all font-semibold"
+                      placeholder="e.g. Monus"
+                    />
+                  </div>
                 </div>
 
-                 {/* Style */}
+                {/* Style */}
                 <div>
+                  <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400 mb-1.5">
+                    Martial Style
+                  </label>
                   <select
                     value={styleFilter}
                     onChange={(e) => setStyleFilter(e.target.value)}
@@ -667,6 +717,9 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
 
                 {/* Level */}
                 <div>
+                  <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400 mb-1.5">
+                    Experience Level
+                  </label>
                   <select
                     value={levelFilter}
                     onChange={(e) => setLevelFilter(e.target.value)}
@@ -681,6 +734,9 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
 
                 {/* Age */}
                 <div>
+                  <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400 mb-1.5">
+                    Age Group
+                  </label>
                   <select
                     value={ageFilter}
                     onChange={(e) => setAgeFilter(e.target.value)}
@@ -695,6 +751,9 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
 
                 {/* Tenure */}
                 <div>
+                  <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400 mb-1.5">
+                    Tenure
+                  </label>
                   <select
                     value={tenureFilter}
                     onChange={(e) => setTenureFilter(e.target.value)}
@@ -738,7 +797,7 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
                             <h4 className="font-extrabold text-sm text-slate-800 dark:text-zinc-150 uppercase tracking-tight leading-tight">
                               {peer.name}
                             </h4>
-                            <span className="text-[10px] text-slate-400 dark:text-zinc-550 font-mono block mt-0.5">
+                            <span className="text-[10px] text-slate-400 dark:text-zinc-555 font-mono block mt-0.5">
                               Joined: {new Date(peer.joiningDate).toLocaleDateString('en-US', { year: 'numeric', month: 'short' })}
                             </span>
                           </div>
@@ -779,7 +838,7 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
                     <div className="flex items-center gap-3 pt-5 mt-6 border-t border-slate-100 dark:border-zinc-855 justify-end" onClick={(e) => e.stopPropagation()}>
                       <a
                         href={`tel:${peer.phone}`}
-                        className="p-2 rounded-xl bg-slate-50 hover:bg-slate-100 dark:bg-zinc-950/40 dark:hover:bg-zinc-950 text-slate-500 dark:text-zinc-400 hover:text-slate-700 transition-all border border-slate-200 dark:border-zinc-800"
+                        className="p-2 rounded-xl bg-slate-50 hover:bg-slate-100 dark:bg-zinc-950/40 dark:hover:bg-zinc-950 text-slate-550 dark:text-zinc-400 hover:text-slate-700 transition-all border border-slate-200 dark:border-zinc-800"
                         title={`Call ${peer.name}`}
                       >
                         <Phone className="w-4 h-4" />
@@ -819,7 +878,7 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
                 <span className={`inline-flex px-2.5 py-1 rounded-xl text-[9px] font-black uppercase tracking-wider border shrink-0 ${getEventColor(selectedEvent.category)}`}>
                   {selectedEvent.category}
                 </span>
-                <h3 className="font-extrabold text-base text-slate-800 dark:text-zinc-150 uppercase tracking-tight truncate max-w-xs sm:max-w-md">
+                <h3 className={`font-extrabold text-base uppercase tracking-tight truncate max-w-xs sm:max-w-md ${getTitleColorClass(selectedEvent.titleColor)}`}>
                   {selectedEvent.title}
                 </h3>
               </div>
@@ -895,13 +954,34 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
                           {comment.fighterName.charAt(0)}
                         </div>
                         <div className="flex-1 space-y-1">
-                          <div className="flex justify-between items-center">
-                            <span className="font-extrabold text-slate-800 dark:text-zinc-200 uppercase">{comment.fighterName}</span>
-                            <span className="text-[9px] text-slate-400 font-mono">
+                          <div className="flex justify-between items-start gap-2">
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <span className="font-extrabold text-slate-800 dark:text-zinc-200 uppercase">{comment.fighterName}</span>
+                              <span className={`inline-flex px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider border shrink-0 ${
+                                comment.fighterRole === 'Admin' || comment.fighterRole === 'Coach'
+                                  ? 'bg-red-500/10 text-red-500 border-red-500/20'
+                                  : 'bg-blue-500/10 text-blue-500 border-blue-500/20'
+                              }`}>
+                                {comment.fighterRole || 'Athlete'}
+                              </span>
+                            </div>
+                            <span className="text-[9px] text-slate-400 font-mono shrink-0">
                               {comment.createdAt ? new Date(comment.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Just now'}
                             </span>
                           </div>
                           <p className="text-slate-600 dark:text-zinc-350 leading-relaxed break-all font-medium">{comment.text}</p>
+                          <div className="flex items-center gap-3 pt-0.5">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setCommentText(`@${comment.fighterName} `);
+                                commentInputRef.current?.focus();
+                              }}
+                              className="text-[9px] font-bold text-red-500 hover:text-red-655 transition-colors cursor-pointer"
+                            >
+                              Reply
+                            </button>
+                          </div>
                         </div>
                       </div>
                     ))
@@ -911,6 +991,7 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
                 {/* Comment Form */}
                 <form onSubmit={handleCommentSubmit} className="flex gap-2 items-center">
                   <input
+                    ref={commentInputRef}
                     type="text"
                     value={commentText}
                     onChange={(e) => setCommentText(e.target.value)}

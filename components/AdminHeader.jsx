@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { logout } from '@/app/actions/authActions';
 import ThemeToggle from './ThemeToggle';
-import { Dumbbell, Users, PlusCircle, LayoutDashboard, LogOut, Menu, X, ShieldAlert, Calendar } from 'lucide-react';
+import { Dumbbell, Users, PlusCircle, LayoutDashboard, LogOut, Menu, X, ShieldAlert, Calendar, Megaphone } from 'lucide-react';
 
 export default function AdminHeader({ user }) {
   const pathname = usePathname();
@@ -27,6 +27,7 @@ export default function AdminHeader({ user }) {
     { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
     { href: '/admin/add-fighter', label: 'Add Fighter', icon: PlusCircle },
     { href: '/admin/events', label: 'Events Board', icon: Calendar },
+    { href: '/admin/notices', label: 'Notice Board', icon: Megaphone },
   ];
 
   // Only Main Admin can manage coaches

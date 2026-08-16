@@ -15,7 +15,22 @@ export async function getEvents() {
         select: 'name',
         options: { strictPopulate: false }
       })
-      .sort({ createdAt: -1 })
+      .populate({
+        path: 'comments.user',
+        select: 'name role',
+        options: { strictPopulate: false }
+      })
+      .populate({
+        path: 'rsvps',
+        select: 'name style experienceLevel',
+        options: { strictPopulate: false }
+      })
+      .populate({
+        path: 'likes',
+        select: 'name style experienceLevel',
+        options: { strictPopulate: false }
+      })
+      .sort({ pinned: -1, createdAt: -1 })
       .lean();
 
     return {
@@ -24,15 +39,44 @@ export async function getEvents() {
         ...e,
         _id: e._id.toString(),
         date: e.date.toISOString(),
-        rsvps: e.rsvps.map((id) => id.toString()),
-        likes: e.likes ? e.likes.map((id) => id.toString()) : [],
-        comments: e.comments ? e.comments.map((c) => ({
-          _id: c._id.toString(),
-          text: c.text,
-          createdAt: c.createdAt ? c.createdAt.toISOString() : null,
-          fighterId: c.fighter ? (c.fighter._id ? c.fighter._id.toString() : c.fighter.toString()) : null,
-          fighterName: c.fighter ? c.fighter.name : 'Unknown Athlete',
+        rsvps: e.rsvps ? e.rsvps.map((f) => (f._id ? f._id.toString() : f.toString())) : [],
+        likes: e.likes ? e.likes.map((f) => (f._id ? f._id.toString() : f.toString())) : [],
+        joinedFighters: e.rsvps ? e.rsvps.map((f) => ({
+          _id: f._id ? f._id.toString() : f.toString(),
+          name: f.name || 'Unknown Fighter',
+          style: f.style || 'MMA',
+          experienceLevel: f.experienceLevel || 'Beginner'
         })) : [],
+        likedFighters: e.likes ? e.likes.map((f) => ({
+          _id: f._id ? f._id.toString() : f.toString(),
+          name: f.name || 'Unknown Fighter',
+          style: f.style || 'MMA',
+          experienceLevel: f.experienceLevel || 'Beginner'
+        })) : [],
+        comments: e.comments ? e.comments.map((c) => {
+          let name = 'Unknown';
+          let role = 'Athlete';
+
+          if (c.fighter) {
+            name = c.fighter.name || c.authorName || 'Unknown Athlete';
+            role = c.authorRole || 'Athlete';
+          } else if (c.user) {
+            name = c.user.name || c.authorName || 'Master Admin';
+            role = c.user.role === 'MainAdmin' ? 'Admin' : (c.user.role === 'Coach' ? 'Coach' : (c.authorRole || 'Admin'));
+          } else {
+            name = c.authorName || 'Unknown';
+            role = c.authorRole || 'Athlete';
+          }
+
+          return {
+            _id: c._id.toString(),
+            text: c.text,
+            createdAt: c.createdAt ? c.createdAt.toISOString() : null,
+            fighterId: c.fighter ? (c.fighter._id ? c.fighter._id.toString() : c.fighter.toString()) : (c.user ? (c.user._id ? c.user._id.toString() : c.user.toString()) : null),
+            fighterName: name,
+            fighterRole: role,
+          };
+        }) : [],
         createdAt: e.createdAt ? e.createdAt.toISOString() : null,
         updatedAt: e.updatedAt ? e.updatedAt.toISOString() : null,
       })),
@@ -59,6 +103,7 @@ export async function createEvent(prevState, formData) {
     const category = formData.get('category');
     const image = formData.get('image');
     const audio = formData.get('audio');
+    const titleColor = formData.get('titleColor') || 'default';
 
     if (!title || !description || !dateStr || !category) {
       return { error: 'Please fill in all required fields.' };
@@ -66,6 +111,7 @@ export async function createEvent(prevState, formData) {
 
     console.log('--- server actions: createEvent ---');
     console.log('title:', title);
+    console.log('titleColor:', titleColor);
     console.log('image size (chars):', image ? image.length : 0);
     console.log('audio size (chars):', audio ? audio.length : 0);
 
@@ -78,6 +124,7 @@ export async function createEvent(prevState, formData) {
       rsvps: [],
       image: image || undefined,
       audio: audio || undefined,
+      titleColor,
     });
 
     revalidatePath('/admin/events');
@@ -182,7 +229,7 @@ export async function addEventComment(eventId, text) {
     await dbConnect();
 
     const user = await getCurrentUser();
-    if (!user || user.role !== 'Fighter') {
+    if (!user) {
       return { error: 'Unauthorized' };
     }
 
@@ -195,14 +242,25 @@ export async function addEventComment(eventId, text) {
       return { error: 'Event not found.' };
     }
 
-    event.comments.push({
-      fighter: user.id,
+    const commentDoc = {
       text: text.trim(),
-    });
+    };
 
+    if (user.role === 'Fighter') {
+      commentDoc.fighter = user.id;
+      commentDoc.authorName = user.name;
+      commentDoc.authorRole = 'Athlete';
+    } else {
+      commentDoc.user = user.id;
+      commentDoc.authorName = user.name;
+      commentDoc.authorRole = user.role === 'MainAdmin' ? 'Admin' : 'Coach';
+    }
+
+    event.comments.push(commentDoc);
     await event.save();
 
     revalidatePath('/fighter');
+    revalidatePath('/admin/events');
     return { success: true };
   } catch (err) {
     console.error('Error adding comment:', err);
@@ -226,6 +284,7 @@ export async function updateEvent(eventId, formData) {
     const category = formData.get('category');
     const image = formData.get('image');
     const audio = formData.get('audio');
+    const titleColor = formData.get('titleColor') || 'default';
 
     if (!title || !description || !dateStr || !category) {
       return { error: 'Please fill in all required fields.' };
@@ -241,6 +300,7 @@ export async function updateEvent(eventId, formData) {
     event.date = new Date(dateStr);
     event.location = location;
     event.category = category;
+    event.titleColor = titleColor;
     
     // Only update if provided or explicitly cleared
     event.image = image || undefined;
@@ -254,5 +314,31 @@ export async function updateEvent(eventId, formData) {
   } catch (err) {
     console.error('Error updating event:', err);
     return { error: 'Failed to update event.' };
+  }
+}
+
+export async function toggleEventPin(eventId) {
+  try {
+    await dbConnect();
+
+    const user = await getCurrentUser();
+    if (!user || (user.role !== 'MainAdmin' && user.role !== 'Coach')) {
+      return { error: 'Unauthorized' };
+    }
+
+    const event = await Event.findById(eventId);
+    if (!event) {
+      return { error: 'Event not found.' };
+    }
+
+    event.pinned = !event.pinned;
+    await event.save();
+
+    revalidatePath('/admin/events');
+    revalidatePath('/fighter');
+    return { success: true };
+  } catch (err) {
+    console.error('Error toggling pin:', err);
+    return { error: 'Failed to update event pin status.' };
   }
 }

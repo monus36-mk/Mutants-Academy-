@@ -18,9 +18,9 @@ export default async function AdminDashboard({ searchParams }) {
   const user = await getCurrentUser();
   const isAdmin = user?.role === 'MainAdmin';
 
-  // Fetch coach list for filtering (if admin)
+  // Fetch coach list for filtering (if admin or coach)
   let coaches = [];
-  if (isAdmin) {
+  if (isAdmin || user?.role === 'Coach') {
     const coachRes = await getCoaches();
     if (coachRes.success) {
       coaches = coachRes.coaches;
@@ -84,9 +84,7 @@ export default async function AdminDashboard({ searchParams }) {
             Welcome back, {user?.name}!
           </h1>
           <p className="text-slate-400 text-sm mt-1">
-            {isAdmin
-              ? "Mutants Academy Headquarter Dashboard. Monitoring all fighters and coaching staff."
-              : "Coach Dashboard. Managing fighters registered under your profile."}
+            "Mutants Academy Headquarter Dashboard. Monitoring all fighters and coaching staff."
           </p>
         </div>
         <div>
@@ -226,7 +224,7 @@ export default async function AdminDashboard({ searchParams }) {
                   <th className="px-6 py-4">Fighter Info</th>
                   <th className="hidden sm:table-cell px-6 py-4">Weight Class</th>
                   <th className="hidden sm:table-cell px-6 py-4">Exp Level</th>
-                  {isAdmin && <th className="px-6 py-4">Assigned Coach</th>}
+                  <th className="px-6 py-4">Assigned Coach</th>
                   <th className="px-6 py-4">Next Payment</th>
                   <th className="px-6 py-4">Status</th>
                   <th className="px-6 py-4 text-right">Actions</th>
@@ -260,12 +258,10 @@ export default async function AdminDashboard({ searchParams }) {
                       </span>
                     </td>
 
-                    {/* Assigned Coach (Admin Only) */}
-                    {isAdmin && (
-                      <td className="px-6 py-4.5 text-sm font-semibold text-slate-700 dark:text-zinc-300">
-                        {fighter.assignedCoach ? fighter.assignedCoach.name : <span className="text-red-500 font-bold">Unassigned</span>}
-                      </td>
-                    )}
+                    {/* Assigned Coach */}
+                    <td className="px-6 py-4.5 text-sm font-semibold text-slate-700 dark:text-zinc-300">
+                      {fighter.assignedCoach ? fighter.assignedCoach.name : <span className="text-red-500 font-bold">Unassigned</span>}
+                    </td>
 
                     {/* Next Payment Date */}
                     <td className="px-6 py-4.5">

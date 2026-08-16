@@ -9,7 +9,7 @@ export default function ThemeToggle() {
   return (
     <button
       onClick={toggleTheme}
-      className="p-2.5 rounded-xl bg-gray-100 dark:bg-zinc-800 text-gray-700 dark:text-zinc-300 hover:bg-gray-200 dark:hover:bg-zinc-700 transition-all duration-200 cursor-pointer border border-gray-200 dark:border-zinc-700 focus:outline-none focus:ring-2 focus:ring-red-500"
+      className="p-2.5 rounded-2xl bg-white dark:bg-zinc-900 text-slate-700 dark:text-zinc-350 hover:bg-slate-50 dark:hover:bg-zinc-800 transition-all duration-200 cursor-pointer border border-slate-200 dark:border-zinc-800 focus:outline-none"
       aria-label="Toggle theme"
       type="button"
     >

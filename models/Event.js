@@ -37,6 +37,14 @@ const EventSchema = new mongoose.Schema(
     audio: {
       type: String,
     },
+    pinned: {
+      type: Boolean,
+      default: false,
+    },
+    titleColor: {
+      type: String,
+      default: 'default',
+    },
     likes: [
       {
         type: mongoose.Schema.Types.ObjectId,
@@ -48,7 +56,18 @@ const EventSchema = new mongoose.Schema(
         fighter: {
           type: mongoose.Schema.Types.ObjectId,
           ref: 'Fighter',
-          required: true,
+          required: false,
+        },
+        user: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: 'User',
+          required: false,
+        },
+        authorName: {
+          type: String,
+        },
+        authorRole: {
+          type: String,
         },
         text: {
           type: String,
@@ -64,4 +83,8 @@ const EventSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+// Prevent compiling model query unless schema updates require it
+if (mongoose.models.Event && (!mongoose.models.Event.schema.paths.pinned || !mongoose.models.Event.schema.paths.titleColor)) {
+  delete mongoose.models.Event;
+}
 export default mongoose.models.Event || mongoose.model('Event', EventSchema);

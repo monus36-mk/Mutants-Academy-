@@ -82,8 +82,8 @@ export default function SearchFilters({ coaches, isAdmin }) {
           </select>
         </div>
 
-        {/* Coach Filter (Admin Only) */}
-        {isAdmin && (
+        {/* Coach Filter */}
+        {coaches && coaches.length > 0 && (
           <div>
             <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400 mb-1.5">
               Assigned Coach
@@ -91,7 +91,7 @@ export default function SearchFilters({ coaches, isAdmin }) {
             <select
               defaultValue={searchParams.get('assignedCoach') || ''}
               onChange={(e) => handleFilterChange('assignedCoach', e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900/40 text-slate-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-red-500 text-sm transition-all"
+              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900/40 text-slate-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-red-500 text-sm transition-all font-semibold"
             >
               <option value="">All Coaches</option>
               {coaches?.map((coach) => (

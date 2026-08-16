@@ -20,11 +20,8 @@ export async function getFighters(filters = {}) {
 
     const query = {};
 
-    // Role-based access control: Coaches can only view their own fighters
-    if (user.role === 'Coach') {
-      query.assignedCoach = user.id;
-    } else if (filters.assignedCoach) {
-      // MainAdmin filtering by coach
+    // Access control: Admins and Coaches can view all fighters and filter by coach if needed
+    if (filters.assignedCoach) {
       query.assignedCoach = filters.assignedCoach;
     }
 
