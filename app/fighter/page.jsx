@@ -10,8 +10,13 @@ export default async function FighterDashboardPage() {
     redirect('/login');
   }
 
-  // Fetch fighter profile
-  const profileRes = await getFighterProfile();
+  // Fetch initial dashboard data concurrently in parallel
+  const [profileRes, peersRes, eventsRes] = await Promise.all([
+    getFighterProfile(user.id),
+    getPeers(user.id),
+    getEvents(),
+  ]);
+
   if (!profileRes.success) {
     // Session is invalid or fighter was deleted, log out
     const { logout } = require('@/app/actions/authActions');
@@ -19,12 +24,7 @@ export default async function FighterDashboardPage() {
     redirect('/login');
   }
 
-  // Fetch peers roster
-  const peersRes = await getPeers();
   const peers = peersRes.success ? peersRes.fighters : [];
-
-  // Fetch active notice board & events
-  const eventsRes = await getEvents();
   const events = eventsRes.success ? eventsRes.events : [];
 
   return (

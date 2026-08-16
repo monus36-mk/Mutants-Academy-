@@ -310,16 +310,20 @@ export async function updateFighter(fighterId, prevState, formData) {
   }
 }
 
-export async function getFighterProfile() {
+export async function getFighterProfile(userId = null) {
   try {
     await dbConnect();
 
-    const user = await getCurrentUser();
-    if (!user || user.role !== 'Fighter') {
-      return { error: 'Unauthorized' };
+    let id = userId;
+    if (!id) {
+      const user = await getCurrentUser();
+      if (!user || user.role !== 'Fighter') {
+        return { error: 'Unauthorized' };
+      }
+      id = user.id;
     }
 
-    const fighter = await Fighter.findById(user.id)
+    const fighter = await Fighter.findById(id)
       .populate('assignedCoach', 'name email')
       .lean();
 
@@ -386,13 +390,15 @@ export async function setupFighterPassword(prevState, formData) {
   }
 }
 
-export async function getPeers() {
+export async function getPeers(userId = null) {
   try {
     await dbConnect();
 
-    const user = await getCurrentUser();
-    if (!user || user.role !== 'Fighter') {
-      return { error: 'Unauthorized' };
+    if (!userId) {
+      const user = await getCurrentUser();
+      if (!user || user.role !== 'Fighter') {
+        return { error: 'Unauthorized' };
+      }
     }
 
     // Retrieve all fighters excluding sensitive info
