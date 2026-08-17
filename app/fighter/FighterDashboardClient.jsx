@@ -11,6 +11,7 @@ import {
   MessageSquare, UserCheck, Sparkles, Filter, Search, ShieldAlert,
   MapPin, HelpCircle, User, Mic, X, Heart, Send, Pin
 } from 'lucide-react';
+import { formatWhatsAppNumber } from '@/lib/utils';
 
 const WhatsAppIcon = ({ className }) => (
   <svg className={className} fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -289,7 +290,7 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
   };
 
   const getWhatsAppSparringUrl = (peer) => {
-    const cleanPhone = peer.phone.replace(/\D/g, '');
+    const cleanPhone = formatWhatsAppNumber(peer.phone);
     const message = `Hey ${peer.name}! Let's set up a sparring session at Mutants Academy! I train in ${fighter.style}. Let me know if you are free.`;
     return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
   };
@@ -873,18 +874,18 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
           <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-3xl w-full max-w-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 flex flex-col" style={{ maxHeight: '90vh' }}>
             
             {/* Modal Header */}
-            <div className="flex items-center justify-between p-6 border-b border-slate-100 dark:border-zinc-850 shrink-0">
-              <div className="flex items-center gap-3">
+            <div className="flex items-center justify-between p-6 border-b border-slate-100 dark:border-zinc-855 shrink-0 gap-2">
+              <div className="flex items-center gap-2.5 min-w-0 flex-1">
                 <span className={`inline-flex px-2.5 py-1 rounded-xl text-[9px] font-black uppercase tracking-wider border shrink-0 ${getEventColor(selectedEvent.category)}`}>
                   {selectedEvent.category}
                 </span>
-                <h3 className={`font-extrabold text-base uppercase tracking-tight truncate max-w-xs sm:max-w-md ${getTitleColorClass(selectedEvent.titleColor)}`}>
+                <h3 className={`font-extrabold text-xs sm:text-base uppercase tracking-tight truncate min-w-0 flex-1 ${getTitleColorClass(selectedEvent.titleColor)}`}>
                   {selectedEvent.title}
                 </h3>
               </div>
               <button
                 onClick={() => setSelectedEvent(null)}
-                className="p-2 rounded-xl text-slate-400 hover:bg-slate-100 dark:hover:bg-zinc-800 hover:text-slate-650 dark:hover:text-zinc-205 transition-all cursor-pointer"
+                className="p-2 rounded-xl text-slate-400 hover:bg-slate-100 dark:hover:bg-zinc-800 hover:text-slate-655 dark:hover:text-zinc-205 transition-all cursor-pointer shrink-0"
               >
                 <X className="w-5 h-5" />
               </button>

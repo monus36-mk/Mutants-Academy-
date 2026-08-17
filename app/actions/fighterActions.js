@@ -61,6 +61,58 @@ export async function getFighters(filters = {}) {
       serializedFighters = serializedFighters.filter(f => f.status === filters.status);
     }
 
+    // Filter by Martial Style (style)
+    if (filters.style && filters.style !== 'All') {
+      serializedFighters = serializedFighters.filter(f => f.style === filters.style);
+    }
+
+    // Filter by Experience Level (experienceLevel)
+    if (filters.experienceLevel && filters.experienceLevel !== 'All') {
+      serializedFighters = serializedFighters.filter(f => f.experienceLevel === filters.experienceLevel);
+    }
+
+    // Filter by Age Group (ageFilter)
+    if (filters.ageFilter && filters.ageFilter !== 'All') {
+      serializedFighters = serializedFighters.filter(f => {
+        if (!f.dob) return false;
+        const calculateAge = (dobString) => {
+          if (!dobString) return null;
+          const birthDate = new Date(dobString);
+          const today = new Date();
+          let age = today.getFullYear() - birthDate.getFullYear();
+          const m = today.getMonth() - birthDate.getMonth();
+          if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+            age--;
+          }
+          return age;
+        };
+        const age = calculateAge(f.dob);
+        if (age === null) return false;
+        if (filters.ageFilter === 'Youth') return age < 18;
+        if (filters.ageFilter === 'Adult') return age >= 18 && age <= 35;
+        if (filters.ageFilter === 'Master') return age > 35;
+        return true;
+      });
+    }
+
+    // Filter by Tenure (tenureFilter)
+    if (filters.tenureFilter && filters.tenureFilter !== 'All') {
+      serializedFighters = serializedFighters.filter(f => {
+        const calculateTenureMonths = (joiningDateStr) => {
+          if (!joiningDateStr) return 0;
+          const joined = new Date(joiningDateStr);
+          const today = new Date();
+          const yearsDiff = today.getFullYear() - joined.getFullYear();
+          const monthsDiff = today.getMonth() - joined.getMonth();
+          return yearsDiff * 12 + monthsDiff;
+        };
+        const tenureMonths = calculateTenureMonths(f.joiningDate);
+        if (filters.tenureFilter === 'Newcomer') return tenureMonths < 6;
+        if (filters.tenureFilter === 'Veteran') return tenureMonths >= 6;
+        return true;
+      });
+    }
+
     return { success: true, fighters: serializedFighters };
   } catch (err) {
     console.error('Error fetching fighters:', err);
@@ -78,7 +130,8 @@ export async function addFighter(prevState, formData) {
     }
 
     const name = formData.get('name')?.trim();
-    const phone = formData.get('phone')?.trim();
+    const countryCode = formData.get('countryCode')?.trim() || '+91';
+    let phone = formData.get('phone')?.trim();
     const email = formData.get('email')?.trim();
     const dobStr = formData.get('dob');
     const weightClass = formData.get('weightClass')?.trim();
@@ -91,6 +144,11 @@ export async function addFighter(prevState, formData) {
 
     if (!name || !phone || !email || !dobStr || !weightClass || !experienceLevel || !packageDurationMonths || !style) {
       return { error: 'Please fill in all required fields.' };
+    }
+
+    if (phone && !phone.startsWith('+')) {
+      const cleanCC = countryCode.startsWith('+') ? countryCode : `+${countryCode}`;
+      phone = `${cleanCC} ${phone}`;
     }
 
     // Determine assigned coach based on role
@@ -233,7 +291,8 @@ export async function updateFighter(fighterId, prevState, formData) {
     }
 
     const name = formData.get('name')?.trim();
-    const phone = formData.get('phone')?.trim();
+    const countryCode = formData.get('countryCode')?.trim() || '+91';
+    let phone = formData.get('phone')?.trim();
     const email = formData.get('email')?.trim();
     const dobStr = formData.get('dob');
     const weightClass = formData.get('weightClass')?.trim();
@@ -246,6 +305,11 @@ export async function updateFighter(fighterId, prevState, formData) {
 
     if (!name || !phone || !email || !dobStr || !weightClass || !experienceLevel || !style) {
       return { error: 'Please fill in all required fields.' };
+    }
+
+    if (phone && !phone.startsWith('+')) {
+      const cleanCC = countryCode.startsWith('+') ? countryCode : `+${countryCode}`;
+      phone = `${cleanCC} ${phone}`;
     }
 
     const fighter = await Fighter.findById(fighterId);
@@ -365,11 +429,19 @@ export async function setupFighterPassword(prevState, formData) {
       return { error: 'Please enter all verification fields and a new password.' };
     }
 
-    // Find fighter by email (case-insensitive) and phone
+    // Find fighter by email (case-insensitive)
     const emailLower = email.toLowerCase();
-    const fighter = await Fighter.findOne({ 
-      email: emailLower,
-      phone: phone
+    const fighters = await Fighter.find({ email: emailLower });
+
+    // Loosely check phone number matching the last 10 digits
+    const cleanInputPhone = phone.replace(/\D/g, '');
+    const fighter = fighters.find(f => {
+      if (!f.phone) return false;
+      const cleanFighterPhone = f.phone.replace(/\D/g, '');
+      if (cleanInputPhone.length >= 10 && cleanFighterPhone.length >= 10) {
+        return cleanInputPhone.slice(-10) === cleanFighterPhone.slice(-10);
+      }
+      return cleanInputPhone === cleanFighterPhone;
     });
 
     if (!fighter) {

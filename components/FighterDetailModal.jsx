@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { X, Calendar, Phone, Mail, Dumbbell, User, ShieldAlert, Award, Clock, ArrowRight, Edit, Copy, Check } from 'lucide-react';
 import Link from 'next/link';
+import { formatWhatsAppNumber } from '@/lib/utils';
 
 const WhatsAppIcon = ({ className }) => (
   <svg className={className} fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -10,7 +11,7 @@ const WhatsAppIcon = ({ className }) => (
   </svg>
 );
 
-export default function FighterDetailModal({ fighter }) {
+export default function FighterDetailModal({ fighter, canEdit = false }) {
   const [isOpen, setIsOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [copiedEmail, setCopiedEmail] = useState(false);
@@ -39,7 +40,7 @@ export default function FighterDetailModal({ fighter }) {
   };
 
   const getWhatsAppUrl = (fighter) => {
-    const cleanPhone = fighter.phone.replace(/\D/g, '');
+    const cleanPhone = formatWhatsAppNumber(fighter.phone);
     let message = '';
     const formattedDate = new Date(fighter.nextPaymentDate).toLocaleDateString('en-US', {
       year: 'numeric',
@@ -311,12 +312,14 @@ export default function FighterDetailModal({ fighter }) {
               >
                 Close Profile
               </button>
-              <Link
-                href={`/admin/edit-fighter/${fighter._id}`}
-                className="px-5 py-2.5 rounded-xl bg-red-650 hover:bg-red-500 text-white text-xs font-extrabold shadow-md shadow-red-500/10 flex items-center gap-1.5 cursor-pointer"
-              >
-                <Edit className="w-3.5 h-3.5" /> Edit Profile
-              </Link>
+              {canEdit && (
+                <Link
+                  href={`/admin/edit-fighter/${fighter._id}`}
+                  className="px-5 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-extrabold shadow-md shadow-red-500/10 flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Edit className="w-3.5 h-3.5" /> Edit Profile
+                </Link>
+              )}
             </div>
 
           </div>

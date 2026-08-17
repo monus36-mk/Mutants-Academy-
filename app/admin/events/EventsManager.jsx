@@ -498,7 +498,7 @@ export default function EventsManager({ initialEvents, user }) {
                 <button
                   type="button"
                   onClick={removeImage}
-                  className="absolute top-2 right-2 p-1.5 rounded-lg bg-black/60 text-white hover:bg-red-650 transition-colors cursor-pointer"
+                  className="absolute top-2 right-2 p-1.5 rounded-lg bg-black/60 text-white hover:bg-red-600 transition-colors cursor-pointer"
                   title="Remove Image"
                 >
                   <Trash2 className="w-4 h-4" />
@@ -747,23 +747,23 @@ export default function EventsManager({ initialEvents, user }) {
           <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-3xl w-full max-w-3xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 flex flex-col" style={{ maxHeight: '90vh' }}>
             
             {/* Modal Header */}
-            <div className="flex items-center justify-between p-6 border-b border-slate-100 dark:border-zinc-850 shrink-0">
-              <div className="flex items-center gap-3">
+            <div className="flex items-center justify-between p-6 border-b border-slate-100 dark:border-zinc-855 shrink-0 gap-2">
+              <div className="flex items-center gap-2.5 min-w-0 flex-1">
                 <span className={`inline-flex px-2.5 py-1 rounded-xl text-[9px] font-black uppercase tracking-wider border shrink-0 ${getCategoryBadge(activeSelectedEvent.category)}`}>
                   {activeSelectedEvent.category}
                 </span>
                 {activeSelectedEvent.pinned && (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-red-650/10 text-red-500 border border-red-500/20 shrink-0">
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-red-600/10 text-red-500 border border-red-500/20 shrink-0">
                     <Pin className="w-3 h-3 text-red-500 fill-current" /> Pinned
                   </span>
                 )}
-                <h3 className={`font-extrabold text-base uppercase tracking-tight truncate max-w-xs sm:max-w-md ${getTitleColorClass(activeSelectedEvent.titleColor)}`}>
+                <h3 className={`font-extrabold text-xs sm:text-base uppercase tracking-tight truncate min-w-0 flex-1 ${getTitleColorClass(activeSelectedEvent.titleColor)}`}>
                   {activeSelectedEvent.title}
                 </h3>
               </div>
               <button
                 onClick={() => setSelectedEvent(null)}
-                className="p-2 rounded-xl text-slate-400 hover:bg-slate-100 dark:hover:bg-zinc-800 hover:text-slate-650 dark:hover:text-zinc-205 transition-all cursor-pointer"
+                className="p-2 rounded-xl text-slate-400 hover:bg-slate-100 dark:hover:bg-zinc-800 hover:text-slate-655 dark:hover:text-zinc-205 transition-all cursor-pointer shrink-0"
               >
                 <X className="w-5 h-5" />
               </button>

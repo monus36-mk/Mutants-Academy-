@@ -97,16 +97,29 @@ export default function AddFighterForm({ coaches, currentUser }) {
             <label htmlFor="phone" className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400 mb-1.5">
               Phone Number *
             </label>
-            <div className="relative">
-              <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <input
-                id="phone"
-                name="phone"
-                type="tel"
-                required
-                className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900/50 text-slate-900 dark:text-zinc-100 placeholder-slate-400 dark:placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-red-500 text-sm transition-all"
-                placeholder="e.g. +1 555-0199"
-              />
+            <div className="flex gap-2">
+              <div className="relative w-28 shrink-0">
+                <input
+                  id="countryCode"
+                  name="countryCode"
+                  type="text"
+                  required
+                  defaultValue="+91"
+                  className="w-full px-3 py-3 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900/50 text-slate-900 dark:text-zinc-100 placeholder-slate-400 dark:placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-red-500 text-sm font-semibold text-center transition-all"
+                  placeholder="+91"
+                />
+              </div>
+              <div className="relative flex-1">
+                <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <input
+                  id="phone"
+                  name="phone"
+                  type="tel"
+                  required
+                  className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900/50 text-slate-900 dark:text-zinc-100 placeholder-slate-400 dark:placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-red-500 text-sm transition-all font-semibold"
+                  placeholder="98765 43210"
+                />
+              </div>
             </div>
           </div>
 

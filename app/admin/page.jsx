@@ -14,6 +14,10 @@ export default async function AdminDashboard({ searchParams }) {
   const search = params.search || '';
   const status = params.status || '';
   const assignedCoach = params.assignedCoach || '';
+  const style = params.style || '';
+  const experienceLevel = params.experienceLevel || '';
+  const ageFilter = params.ageFilter || '';
+  const tenureFilter = params.tenureFilter || '';
 
   const user = await getCurrentUser();
   const isAdmin = user?.role === 'MainAdmin';
@@ -28,7 +32,15 @@ export default async function AdminDashboard({ searchParams }) {
   }
 
   // Fetch filtered list
-  const fightersRes = await getFighters({ search, status, assignedCoach });
+  const fightersRes = await getFighters({ 
+    search, 
+    status, 
+    assignedCoach,
+    style,
+    experienceLevel,
+    ageFilter,
+    tenureFilter
+  });
   const fighters = fightersRes.success ? fightersRes.fighters : [];
 
   // Fetch unfiltered list for overall gym stats
@@ -195,8 +207,12 @@ export default async function AdminDashboard({ searchParams }) {
           <h2 className="text-lg font-bold text-slate-800 dark:text-zinc-100">
             Fighters Roster ({fighters.length})
           </h2>
-          <span className="text-xs text-slate-400 dark:text-zinc-500 font-semibold font-mono">
-            TODAY: AUGUST 8, 2026
+          <span className="text-xs text-slate-400 dark:text-zinc-500 font-semibold font-mono uppercase">
+            TODAY: {new Date().toLocaleDateString('en-US', {
+              month: 'long',
+              day: 'numeric',
+              year: 'numeric'
+            })}
           </span>
         </div>
 
@@ -231,15 +247,17 @@ export default async function AdminDashboard({ searchParams }) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-zinc-800">
-                {fighters.map((fighter) => (
-                  <tr
-                    key={fighter._id}
-                    className="hover:bg-slate-50/50 dark:hover:bg-zinc-900/20 transition-all duration-150"
-                  >
-                    {/* Fighter Detail Trigger Column */}
-                    <td className="px-6 py-4.5">
-                      <FighterDetailModal fighter={fighter} />
-                    </td>
+                {fighters.map((fighter) => {
+                  const canEdit = isAdmin || (user?.role === 'Coach' && fighter.assignedCoach?._id?.toString() === user.id);
+                  return (
+                    <tr
+                      key={fighter._id}
+                      className="hover:bg-slate-50/50 dark:hover:bg-zinc-900/20 transition-all duration-150"
+                    >
+                      {/* Fighter Detail Trigger Column */}
+                      <td className="px-6 py-4.5">
+                        <FighterDetailModal fighter={fighter} canEdit={canEdit} />
+                      </td>
 
                     {/* Weight Class */}
                     <td className="hidden sm:table-cell px-6 py-4.5 text-sm font-semibold text-slate-700 dark:text-zinc-300">
@@ -304,19 +322,25 @@ export default async function AdminDashboard({ searchParams }) {
                     {/* Action Buttons */}
                     <td className="px-6 py-4.5">
                       <div className="flex items-center justify-end gap-2">
-                        <Link
-                          href={`/admin/edit-fighter/${fighter._id}`}
-                          className="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-300 transition-all cursor-pointer flex items-center gap-1 border border-slate-200 dark:border-zinc-750"
-                          title="Edit Fighter"
-                        >
-                          <Edit3 className="w-3.5 h-3.5 text-red-500" /> Edit
-                        </Link>
-                        <RenewalModal fighter={fighter} />
-                        <DeleteButton fighterId={fighter._id} />
+                        {canEdit ? (
+                          <>
+                            <Link
+                              href={`/admin/edit-fighter/${fighter._id}`}
+                              className="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-300 transition-all cursor-pointer flex items-center gap-1 border border-slate-200 dark:border-zinc-750"
+                              title="Edit Fighter"
+                            >
+                              <Edit3 className="w-3.5 h-3.5 text-red-500" /> Edit
+                            </Link>
+                            <RenewalModal fighter={fighter} />
+                            <DeleteButton fighterId={fighter._id} />
+                          </>
+                        ) : (
+                          <span className="text-xs text-slate-400 dark:text-zinc-650 font-bold italic tracking-wide select-none px-2 py-1 bg-slate-100/50 dark:bg-zinc-900/30 rounded-lg border border-slate-200/50 dark:border-zinc-800/40">View Only</span>
+                        )}
                       </div>
                     </td>
                   </tr>
-                ))}
+                )})}
               </tbody>
             </table>
           </div>

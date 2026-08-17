@@ -47,7 +47,7 @@ export default function SearchFilters({ coaches, isAdmin }) {
         )}
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
         {/* Search Input */}
         <div className="relative">
           <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400 mb-1.5">
@@ -60,7 +60,7 @@ export default function SearchFilters({ coaches, isAdmin }) {
               placeholder="e.g. Khabib Nurmagomedov"
               defaultValue={searchParams.get('search') || ''}
               onChange={(e) => handleFilterChange('search', e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900/40 text-slate-900 dark:text-zinc-100 placeholder-slate-400 dark:placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-red-500 text-sm transition-all"
+              className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900/40 text-slate-900 dark:text-zinc-100 placeholder-slate-400 dark:placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-red-500 text-sm transition-all font-semibold"
             />
           </div>
         </div>
@@ -73,7 +73,7 @@ export default function SearchFilters({ coaches, isAdmin }) {
           <select
             defaultValue={searchParams.get('status') || ''}
             onChange={(e) => handleFilterChange('status', e.target.value)}
-            className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900/40 text-slate-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-red-500 text-sm transition-all"
+            className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900/40 text-slate-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-red-500 text-sm transition-all font-semibold"
           >
             <option value="">All Statuses</option>
             <option value="Active">Active</option>
@@ -103,9 +103,76 @@ export default function SearchFilters({ coaches, isAdmin }) {
           </div>
         )}
 
+        {/* Martial Style */}
+        <div>
+          <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400 mb-1.5">
+            Martial Style
+          </label>
+          <select
+            defaultValue={searchParams.get('style') || ''}
+            onChange={(e) => handleFilterChange('style', e.target.value)}
+            className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900/40 text-slate-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-red-500 text-sm transition-all font-semibold"
+          >
+            <option value="">All Styles</option>
+            <option value="MMA">MMA</option>
+            <option value="Striking">Striking</option>
+            <option value="Grappling">Grappling</option>
+          </select>
+        </div>
+
+        {/* Experience Level */}
+        <div>
+          <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400 mb-1.5">
+            Experience Level
+          </label>
+          <select
+            defaultValue={searchParams.get('experienceLevel') || ''}
+            onChange={(e) => handleFilterChange('experienceLevel', e.target.value)}
+            className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900/40 text-slate-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-red-500 text-sm transition-all font-semibold"
+          >
+            <option value="">All Levels</option>
+            <option value="Beginner">Beginner</option>
+            <option value="Intermediate">Intermediate</option>
+            <option value="Pro">Pro</option>
+          </select>
+        </div>
+
+        {/* Age Group */}
+        <div>
+          <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400 mb-1.5">
+            Age Group
+          </label>
+          <select
+            defaultValue={searchParams.get('ageFilter') || ''}
+            onChange={(e) => handleFilterChange('ageFilter', e.target.value)}
+            className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900/40 text-slate-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-red-500 text-sm transition-all font-semibold"
+          >
+            <option value="">All Ages</option>
+            <option value="Youth">Youth (&lt;18)</option>
+            <option value="Adult">Adult (18-35)</option>
+            <option value="Master">Master (35+)</option>
+          </select>
+        </div>
+
+        {/* Tenure */}
+        <div>
+          <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400 mb-1.5">
+            Tenure
+          </label>
+          <select
+            defaultValue={searchParams.get('tenureFilter') || ''}
+            onChange={(e) => handleFilterChange('tenureFilter', e.target.value)}
+            className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900/40 text-slate-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-red-500 text-sm transition-all font-semibold"
+          >
+            <option value="">All Tenures</option>
+            <option value="Newcomer">Newcomer (&lt;6mo)</option>
+            <option value="Veteran">Veteran (6mo+)</option>
+          </select>
+        </div>
+
         {/* Loading Indicator */}
         {isPending && (
-          <div className="flex items-end justify-start sm:justify-end pb-3 text-xs text-slate-500 dark:text-zinc-400 font-semibold gap-1.5 animate-pulse">
+          <div className="flex items-end justify-start pb-3 text-xs text-slate-500 dark:text-zinc-400 font-semibold gap-1.5 animate-pulse">
             <div className="w-4 h-4 border-2 border-red-500 border-t-transparent rounded-full animate-spin" />
             Updating Radar...
           </div>

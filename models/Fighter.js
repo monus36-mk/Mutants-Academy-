@@ -20,7 +20,6 @@ const FighterSchema = new mongoose.Schema(
     },
     password: {
       type: String,
-      required: [true, 'Please provide a password'],
     },
     dob: {
       type: Date,
@@ -78,7 +77,7 @@ const FighterSchema = new mongoose.Schema(
 );
 
 // Prevent compiling model query unless schema updates require it
-if (mongoose.models.Fighter && !mongoose.models.Fighter.schema.paths.bio) {
+if (mongoose.models.Fighter) {
   delete mongoose.models.Fighter;
 }
 export default mongoose.models.Fighter || mongoose.model('Fighter', FighterSchema);
