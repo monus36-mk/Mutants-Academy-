@@ -15,6 +15,18 @@ export default function ActivatePage() {
   const [isSuccess, setIsSuccess] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [emailVal, setEmailVal] = useState('');
+  const [phoneVal, setPhoneVal] = useState('');
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const emailParam = params.get('email');
+      const phoneParam = params.get('phone');
+      if (emailParam) setEmailVal(emailParam);
+      if (phoneParam) setPhoneVal(phoneParam);
+    }
+  }, []);
 
   useEffect(() => {
     if (state?.success) {
@@ -129,6 +141,8 @@ export default function ActivatePage() {
                   name="email"
                   type="email"
                   required
+                  value={emailVal}
+                  onChange={(e) => setEmailVal(e.target.value)}
                   className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900/50 text-slate-900 dark:text-zinc-100 placeholder-slate-400 dark:placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-red-500 dark:focus:ring-red-600 transition-all text-sm font-semibold"
                   placeholder="e.g. fighter@example.com"
                 />
@@ -147,6 +161,8 @@ export default function ActivatePage() {
                   name="phone"
                   type="tel"
                   required
+                  value={phoneVal}
+                  onChange={(e) => setPhoneVal(e.target.value)}
                   className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900/50 text-slate-900 dark:text-zinc-100 placeholder-slate-400 dark:placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-red-500 dark:focus:ring-red-600 transition-all text-sm font-semibold"
                   placeholder="e.g. +1 555-0199"
                 />

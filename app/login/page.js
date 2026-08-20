@@ -96,13 +96,19 @@ export default function LoginPage() {
             </button>
           </form>
 
-          {/* Activation Link */}
-          <div className="mt-6 text-center">
+          {/* Action Links */}
+          <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-center border-t border-slate-100 dark:border-zinc-800/80 pt-4">
             <Link
               href="/login/activate"
-              className="text-xs font-bold text-red-500 hover:text-red-650 dark:hover:text-red-400 transition-colors uppercase tracking-wider"
+              className="text-xs font-bold text-red-500 hover:text-red-655 dark:hover:text-red-400 transition-colors uppercase tracking-wider"
             >
-              First time logging in? Activate Athlete Account
+              Activate Athlete Account
+            </Link>
+            <Link
+              href="/login/forgot-password"
+              className="text-xs font-bold text-slate-400 hover:text-red-550 dark:hover:text-red-405 transition-colors uppercase tracking-wider"
+            >
+              Forgot Password?
             </Link>
           </div>
         </div>

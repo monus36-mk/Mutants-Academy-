@@ -23,6 +23,12 @@ const UserSchema = new mongoose.Schema(
       enum: ['MainAdmin', 'Coach'],
       default: 'Coach',
     },
+    resetOtp: {
+      type: String,
+    },
+    resetOtpExpires: {
+      type: Date,
+    },
   },
   { timestamps: true }
 );

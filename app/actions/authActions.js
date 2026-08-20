@@ -7,6 +7,7 @@ import dbConnect from '@/lib/db';
 import User from '@/models/User';
 import Fighter from '@/models/Fighter';
 import { signToken, verifyToken } from '@/lib/auth';
+import { sendOtpEmail } from '@/lib/mail';
 
 export async function login(prevState, formData) {
   try {
@@ -96,5 +97,96 @@ export async function getCurrentUser() {
     return payload;
   } catch (err) {
     return null;
+  }
+}
+
+export async function sendResetOtp(prevState, formData) {
+  try {
+    await dbConnect();
+    
+    const email = formData.get('email')?.trim();
+    if (!email) {
+      return { error: 'Please enter your email address' };
+    }
+
+    const emailLower = email.toLowerCase();
+
+    // Query User and Fighter models
+    const [userAccount, fighterAccount] = await Promise.all([
+      User.findOne({ email: emailLower }),
+      Fighter.findOne({ email: emailLower })
+    ]);
+
+    const account = userAccount || fighterAccount;
+    if (!account) {
+      return { error: 'No account found with this email address' };
+    }
+
+    // Generate 6-digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiry = new Date(Date.now() + 15 * 60 * 1000); // 15 mins
+
+    account.resetOtp = otp;
+    account.resetOtpExpires = expiry;
+    await account.save();
+
+    // Send email
+    await sendOtpEmail(account.email, account.name, otp);
+
+    return { success: true, email: account.email };
+  } catch (err) {
+    console.error('Error sending reset OTP:', err);
+    return { error: 'Something went wrong. Please try again.' };
+  }
+}
+
+export async function verifyOtpAndResetPassword(prevState, formData) {
+  try {
+    await dbConnect();
+
+    const email = formData.get('email')?.trim();
+    const otp = formData.get('otp')?.trim();
+    const password = formData.get('password');
+    const confirmPassword = formData.get('confirmPassword');
+
+    if (!email || !otp || !password || !confirmPassword) {
+      return { error: 'Please fill in all fields' };
+    }
+
+    if (password !== confirmPassword) {
+      return { error: 'Passwords do not match' };
+    }
+
+    if (password.length < 6) {
+      return { error: 'Password must be at least 6 characters long' };
+    }
+
+    const emailLower = email.toLowerCase();
+
+    // Query User and Fighter models
+    const [userAccount, fighterAccount] = await Promise.all([
+      User.findOne({ email: emailLower }),
+      Fighter.findOne({ email: emailLower })
+    ]);
+
+    const account = userAccount || fighterAccount;
+    if (!account) {
+      return { error: 'Account not found' };
+    }
+
+    if (!account.resetOtp || account.resetOtp !== otp || new Date() > account.resetOtpExpires) {
+      return { error: 'Invalid or expired OTP code' };
+    }
+
+    // Hash and save new password
+    account.password = await bcrypt.hash(password, 12);
+    account.resetOtp = undefined;
+    account.resetOtpExpires = undefined;
+    await account.save();
+
+    return { success: true };
+  } catch (err) {
+    console.error('Error verifying OTP / resetting password:', err);
+    return { error: 'Failed to reset password. Please try again.' };
   }
 }

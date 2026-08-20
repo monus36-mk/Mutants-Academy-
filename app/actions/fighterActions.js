@@ -8,6 +8,7 @@ import { revalidatePath } from 'next/cache';
 import bcrypt from 'bcryptjs';
 
 import { calculateStatus } from '@/lib/utils';
+import { sendWelcomeEmail } from '@/lib/mail';
 
 export async function getFighters(filters = {}) {
   try {
@@ -178,7 +179,7 @@ export async function addFighter(prevState, formData) {
     }
 
     // Create Fighter
-    await Fighter.create({
+    const fighter = await Fighter.create({
       name,
       phone,
       email,
@@ -194,6 +195,15 @@ export async function addFighter(prevState, formData) {
       password: hashedPassword,
       style,
     });
+
+    // Send Welcome Email
+    try {
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+      const activationLink = `${appUrl}/login/activate?email=${encodeURIComponent(email)}&phone=${encodeURIComponent(phone)}`;
+      await sendWelcomeEmail(email, name, activationLink);
+    } catch (mailErr) {
+      console.error('Failed to send welcome email to fighter:', mailErr);
+    }
 
     revalidatePath('/admin');
     return { success: true };

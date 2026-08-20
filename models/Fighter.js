@@ -72,6 +72,12 @@ const FighterSchema = new mongoose.Schema(
       default: '',
       trim: true,
     },
+    resetOtp: {
+      type: String,
+    },
+    resetOtpExpires: {
+      type: Date,
+    },
   },
   { timestamps: true }
 );
