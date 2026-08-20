@@ -17,7 +17,7 @@ export async function login(prevState, formData) {
   }
 
   try {
-    const email = formData.get('email');
+    const email = formData.get('email')?.trim();
     const password = formData.get('password');
 
     if (!email || !password) {

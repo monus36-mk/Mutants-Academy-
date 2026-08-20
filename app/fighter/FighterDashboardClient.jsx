@@ -316,7 +316,7 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
             <div className="flex items-center gap-2.5 md:gap-4">
               
               {/* Notification Bell */}
-              <div id="notification-bell-container" className="relative">
+              <div id="notification-bell-container" className="static sm:relative">
                 <button
                   onClick={() => {
                     setShowBellDropdown(!showBellDropdown);
@@ -341,7 +341,7 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
 
                 {/* Dropdown Menu */}
                 {showBellDropdown && (
-                  <div className="absolute right-0 mt-2.5 w-[calc(100vw-2rem)] sm:w-80 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-xl p-4 space-y-3 z-50 text-left animate-in fade-in slide-in-from-top-2 duration-150">
+                  <div className="absolute right-4 left-4 sm:right-0 sm:left-auto mt-2.5 sm:w-80 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-xl p-4 space-y-3 z-50 text-left animate-in fade-in slide-in-from-top-2 duration-150">
                     <div className="flex items-center justify-between border-b border-slate-100 dark:border-zinc-850 pb-2">
                       <span className="text-xs font-black text-slate-800 dark:text-zinc-200 uppercase tracking-wider">Gym Notice Board</span>
                       <button

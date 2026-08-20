@@ -260,12 +260,12 @@ export default function FighterDetailModal({ fighter, canEdit = false }) {
                   <div>
                     <span className="block text-[10px] font-bold text-slate-400 dark:text-zinc-550 uppercase tracking-wider">Email Address</span>
                     <div className="flex items-center gap-2">
-                      <a href={`mailto:${fighter.email}`} className="text-sm font-bold text-slate-750 dark:text-zinc-200 hover:text-red-500 font-mono transition-colors">
+                      <a href={`mailto:${fighter.email}`} className="text-sm font-bold text-slate-750 dark:text-zinc-200 hover:text-red-500 font-mono transition-colors break-all">
                         {fighter.email}
                       </a>
                       <button
                         onClick={handleCopyEmail}
-                        className="inline-flex items-center justify-center p-0.5 rounded text-slate-400 hover:bg-slate-100 hover:text-slate-650 dark:hover:bg-zinc-800 transition-all"
+                        className="inline-flex items-center justify-center p-0.5 rounded text-slate-400 hover:bg-slate-100 hover:text-slate-650 dark:hover:bg-zinc-800 transition-all shrink-0"
                         title={copiedEmail ? "Copied!" : "Copy email address"}
                       >
                         {copiedEmail ? (

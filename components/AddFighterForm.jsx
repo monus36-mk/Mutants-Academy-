@@ -3,7 +3,7 @@
 import { useState, useTransition, useActionState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { addFighter } from '@/app/actions/fighterActions';
-import { UserPlus, Calendar, Phone, Dumbbell, ShieldAlert, Award, Mail } from 'lucide-react';
+import { UserPlus, Calendar, Phone, Dumbbell, ShieldAlert, Award, Mail, Eye, EyeOff } from 'lucide-react';
 
 export default function AddFighterForm({ coaches, currentUser }) {
   const router = useRouter();
@@ -21,6 +21,7 @@ export default function AddFighterForm({ coaches, currentUser }) {
   const [joiningDate, setJoiningDate] = useState(getTodayString());
   const [dob, setDob] = useState('');
   const [duration, setDuration] = useState(1);
+  const [showPassword, setShowPassword] = useState(false);
 
   const calculateAge = (dobString) => {
     if (!dobString) return null;
@@ -211,14 +212,25 @@ export default function AddFighterForm({ coaches, currentUser }) {
             <label htmlFor="password" className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400 mb-1.5">
               Portal Password (Optional)
             </label>
-            <input
-              id="password"
-              name="password"
-              type="password"
-              minLength={6}
-              className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900/50 text-slate-900 dark:text-zinc-100 placeholder-slate-400 dark:placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-red-500 text-sm transition-all"
-              placeholder="Leave blank for self-activation"
-            />
+            <div className="relative">
+              <input
+                id="password"
+                name="password"
+                type={showPassword ? "text" : "password"}
+                autoComplete="new-password"
+                minLength={6}
+                className="w-full pl-4 pr-11 py-3 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900/50 text-slate-900 dark:text-zinc-100 placeholder-slate-400 dark:placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-red-500 text-sm transition-all"
+                placeholder="Leave blank for self-activation"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 dark:hover:text-zinc-300 transition-colors cursor-pointer"
+                title={showPassword ? "Hide password" : "Show password"}
+              >
+                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
           </div>
 
           {/* Original Joined Date */}
