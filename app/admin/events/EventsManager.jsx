@@ -22,7 +22,7 @@ const getTitleColorClass = (colorKey) => {
     case 'electric':
       return 'bg-gradient-to-r from-fuchsia-500 via-purple-600 to-pink-500 bg-clip-text text-transparent';
     default:
-      return 'text-slate-800 dark:text-zinc-150';
+      return 'text-slate-800 dark:text-zinc-100';
   }
 };
 
@@ -363,7 +363,7 @@ export default function EventsManager({ initialEvents, user }) {
             <h2 className="text-xl font-bold text-slate-800 dark:text-zinc-100 uppercase tracking-tight">
               {editingEvent ? 'Update Gym Notice' : 'Post Gym Notice'}
             </h2>
-            <p className="text-slate-400 dark:text-zinc-550 text-xs mt-0.5">
+            <p className="text-slate-400 dark:text-zinc-500 text-xs mt-0.5">
               {editingEvent 
                 ? 'Modify notice description, category, dates, or media attachments.' 
                 : 'Broadcast announcements, sparring cards, seminars, or upload voice memos.'}
@@ -487,7 +487,7 @@ export default function EventsManager({ initialEvents, user }) {
           </div>
 
           {/* Image Upload Input */}
-          <div className="pt-2 border-t border-slate-100 dark:border-zinc-850">
+          <div className="pt-2 border-t border-slate-100 dark:border-zinc-800">
             <span className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400 mb-2.5 flex items-center gap-1.5">
               <ImageIcon className="w-4 h-4 text-red-500" /> Notice Image (Optional)
             </span>
@@ -519,7 +519,7 @@ export default function EventsManager({ initialEvents, user }) {
           </div>
 
           {/* Voice Notice Recorder */}
-          <div className="pt-2 border-t border-slate-100 dark:border-zinc-850">
+          <div className="pt-2 border-t border-slate-100 dark:border-zinc-800">
             <span className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400 mb-2.5 flex items-center gap-1.5">
               <Mic className="w-4 h-4 text-red-500" /> Voice notice (Optional)
             </span>
@@ -539,7 +539,7 @@ export default function EventsManager({ initialEvents, user }) {
                 </button>
               </div>
             ) : audioUrl ? (
-              <div className="p-3 bg-slate-55 dark:bg-zinc-950/40 border border-slate-205 dark:border-zinc-850 rounded-2xl flex items-center justify-between gap-3">
+              <div className="p-3 bg-slate-100 dark:bg-zinc-950/40 border border-slate-200 dark:border-zinc-800 rounded-2xl flex items-center justify-between gap-3">
                 <audio src={audioUrl} controls className="h-9 w-full max-w-[220px]" />
                 <button
                   type="button"
@@ -554,7 +554,7 @@ export default function EventsManager({ initialEvents, user }) {
               <button
                 type="button"
                 onClick={startRecording}
-                className="w-full py-3 bg-slate-50 hover:bg-slate-100 dark:bg-zinc-900/30 dark:hover:bg-zinc-900/60 border border-slate-200 dark:border-zinc-800 hover:border-red-500/40 text-slate-650 dark:text-zinc-400 font-bold text-xs uppercase rounded-2xl transition-all flex items-center justify-center gap-1.5 cursor-pointer select-none"
+                className="w-full py-3 bg-slate-50 hover:bg-slate-100 dark:bg-zinc-900/30 dark:hover:bg-zinc-900/60 border border-slate-200 dark:border-zinc-800 hover:border-red-500/40 text-slate-600 dark:text-zinc-400 font-bold text-xs uppercase rounded-2xl transition-all flex items-center justify-center gap-1.5 cursor-pointer select-none"
               >
                 <Mic className="w-4 h-4 text-red-500" /> Record Voice Memo
               </button>
@@ -572,7 +572,7 @@ export default function EventsManager({ initialEvents, user }) {
               <button
                 type="button"
                 onClick={cancelEdit}
-                className="flex-1 py-3.5 rounded-xl border border-slate-200 dark:border-zinc-800 text-slate-650 dark:text-zinc-400 font-bold text-sm hover:bg-slate-50 dark:hover:bg-zinc-900/30 transition-all cursor-pointer text-center select-none"
+                className="flex-1 py-3.5 rounded-xl border border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-400 font-bold text-sm hover:bg-slate-50 dark:hover:bg-zinc-900/30 transition-all cursor-pointer text-center select-none"
               >
                 Cancel
               </button>
@@ -616,8 +616,8 @@ export default function EventsManager({ initialEvents, user }) {
               <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-slate-100 dark:bg-zinc-800 text-slate-400 mb-4">
                 <Calendar className="w-8 h-8" />
               </div>
-              <h3 className="text-base font-bold text-slate-600 dark:text-zinc-350">No events or notices found</h3>
-              <p className="text-slate-400 dark:text-zinc-550 text-xs mt-1 max-w-sm mx-auto">
+              <h3 className="text-base font-bold text-slate-600 dark:text-zinc-300">No events or notices found</h3>
+              <p className="text-slate-400 dark:text-zinc-500 text-xs mt-1 max-w-sm mx-auto">
                 Fill out the notice poster form to broadcast matches, sparring invites, or gym closures to all athletes.
               </p>
             </div>
@@ -630,7 +630,7 @@ export default function EventsManager({ initialEvents, user }) {
                     setSelectedEvent(event);
                     setActiveModalTab('comments');
                   }}
-                  className="p-5 border border-slate-200 dark:border-zinc-800 hover:border-slate-350 dark:hover:border-zinc-700 bg-slate-50/50 dark:bg-zinc-950/20 rounded-2xl flex flex-col sm:flex-row justify-between gap-4 transition-all cursor-pointer hover:shadow-md group"
+                  className="p-5 border border-slate-200 dark:border-zinc-800 hover:border-slate-300 dark:hover:border-zinc-700 bg-slate-50/50 dark:bg-zinc-950/20 rounded-2xl flex flex-col sm:flex-row justify-between gap-4 transition-all cursor-pointer hover:shadow-md group"
                 >
                   <div className="space-y-3 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
@@ -649,24 +649,24 @@ export default function EventsManager({ initialEvents, user }) {
 
                     {/* Image Attachment inside Admin list */}
                     {event.image && (
-                      <div className="relative rounded-xl overflow-hidden border border-slate-200 dark:border-zinc-800 h-28 w-44 select-none shadow-sm bg-slate-100 dark:bg-zinc-955/50">
+                      <div className="relative rounded-xl overflow-hidden border border-slate-200 dark:border-zinc-800 h-28 w-44 select-none shadow-sm bg-slate-100 dark:bg-zinc-950/50">
                         <img src={event.image} alt={event.title} className="w-full h-full object-contain" />
                       </div>
                     )}
 
-                    <p className="text-xs text-slate-550 dark:text-zinc-400 font-medium leading-relaxed max-w-xl">
+                    <p className="text-xs text-slate-500 dark:text-zinc-400 font-medium leading-relaxed max-w-xl">
                       {event.description}
                     </p>
 
                     {/* Audio Player in Admin list */}
                     {event.audio && (
-                      <div className="flex items-center gap-2 p-2 bg-slate-100 dark:bg-zinc-900 border border-slate-205 dark:border-zinc-850 rounded-xl w-fit" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex items-center gap-2 p-2 bg-slate-100 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl w-fit" onClick={(e) => e.stopPropagation()}>
                         <Mic className="w-3.5 h-3.5 text-red-500 shrink-0" />
                         <audio src={event.audio} controls className="h-7 max-w-[200px]" />
                       </div>
                     )}
 
-                    <div className="flex flex-wrap gap-4 text-[11px] font-semibold text-slate-400 dark:text-zinc-550 font-mono pt-1">
+                    <div className="flex flex-wrap gap-4 text-[11px] font-semibold text-slate-400 dark:text-zinc-500 font-mono pt-1">
                       <span className="flex items-center gap-1">
                         <Clock className="w-3.5 h-3.5 text-red-500" /> {formatDate(event.date)}
                       </span>
@@ -696,7 +696,7 @@ export default function EventsManager({ initialEvents, user }) {
                       className={`p-2.5 rounded-xl border transition-all cursor-pointer ${
                         event.pinned
                           ? 'border-red-500 bg-red-500/10 text-red-500'
-                          : 'border-slate-200 dark:border-zinc-800/80 hover:border-slate-350 hover:bg-slate-50 dark:hover:bg-zinc-900/30 text-slate-400 dark:text-zinc-550'
+                          : 'border-slate-200 dark:border-zinc-800/80 hover:border-slate-300 hover:bg-slate-50 dark:hover:bg-zinc-900/30 text-slate-400 dark:text-zinc-500'
                       }`}
                       title={event.pinned ? "Unpin Notice" : "Pin Notice"}
                       disabled={isPendingPin}
@@ -712,7 +712,7 @@ export default function EventsManager({ initialEvents, user }) {
                       className={`p-2.5 rounded-xl border transition-all cursor-pointer ${
                         editingEvent && editingEvent._id === event._id
                           ? 'border-emerald-500 bg-emerald-500/10 text-emerald-500'
-                          : 'border-slate-200 dark:border-zinc-800/80 hover:border-slate-350 hover:bg-slate-50 dark:hover:bg-zinc-900/30 text-slate-400 dark:text-zinc-550'
+                          : 'border-slate-200 dark:border-zinc-800/80 hover:border-slate-300 hover:bg-slate-50 dark:hover:bg-zinc-900/30 text-slate-400 dark:text-zinc-500'
                       }`}
                       title="Edit Event"
                     >
@@ -747,7 +747,7 @@ export default function EventsManager({ initialEvents, user }) {
           <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-3xl w-full max-w-3xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 flex flex-col" style={{ maxHeight: '90vh' }}>
             
             {/* Modal Header */}
-            <div className="flex items-center justify-between p-6 border-b border-slate-100 dark:border-zinc-855 shrink-0 gap-2">
+            <div className="flex items-center justify-between p-6 border-b border-slate-100 dark:border-zinc-800 shrink-0 gap-2">
               <div className="flex items-center gap-2.5 min-w-0 flex-1">
                 <span className={`inline-flex px-2.5 py-1 rounded-xl text-[9px] font-black uppercase tracking-wider border shrink-0 ${getCategoryBadge(activeSelectedEvent.category)}`}>
                   {activeSelectedEvent.category}
@@ -763,24 +763,24 @@ export default function EventsManager({ initialEvents, user }) {
               </div>
               <button
                 onClick={() => setSelectedEvent(null)}
-                className="p-2 rounded-xl text-slate-400 hover:bg-slate-100 dark:hover:bg-zinc-800 hover:text-slate-655 dark:hover:text-zinc-205 transition-all cursor-pointer shrink-0"
+                className="p-2 rounded-xl text-slate-400 hover:bg-slate-100 dark:hover:bg-zinc-800 hover:text-slate-600 dark:hover:text-zinc-205 transition-all cursor-pointer shrink-0"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             {/* Modal Body Grid (Split Image/Details & Members List) */}
-            <div className="overflow-y-auto flex-1 flex flex-col md:flex-row divide-y md:divide-y-0 md:divide-x divide-slate-105 dark:divide-zinc-850">
+            <div className="overflow-y-auto flex-1 flex flex-col md:flex-row divide-y md:divide-y-0 md:divide-x divide-slate-100 dark:divide-zinc-800">
               
               {/* Left Column: Event details, description, audio */}
               <div className="p-6 md:w-1/2 space-y-5 overflow-y-auto">
                 {activeSelectedEvent.image && (
-                  <div className="w-full rounded-2xl overflow-hidden border border-slate-200 dark:border-zinc-800 shadow-sm relative bg-slate-105 dark:bg-zinc-950/50">
-                    <img src={activeSelectedEvent.image} alt={activeSelectedEvent.title} className="w-full object-contain max-h-56 bg-slate-50 dark:bg-zinc-955" />
+                  <div className="w-full rounded-2xl overflow-hidden border border-slate-200 dark:border-zinc-800 shadow-sm relative bg-slate-100 dark:bg-zinc-950/50">
+                    <img src={activeSelectedEvent.image} alt={activeSelectedEvent.title} className="w-full object-contain max-h-56 bg-slate-50 dark:bg-zinc-950" />
                   </div>
                 )}
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-slate-55 dark:bg-zinc-955/40 p-4 border border-slate-100 dark:border-zinc-850 rounded-2xl text-xs font-mono font-semibold text-slate-555 dark:text-zinc-400">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-slate-100 dark:bg-zinc-950/40 p-4 border border-slate-100 dark:border-zinc-800 rounded-2xl text-xs font-mono font-semibold text-slate-555 dark:text-zinc-400">
                   <span className="flex items-center gap-2">
                     <Clock className="w-4 h-4 text-red-500 shrink-0" /> {formatDate(activeSelectedEvent.date)}
                   </span>
@@ -792,16 +792,16 @@ export default function EventsManager({ initialEvents, user }) {
                 </div>
 
                 <div className="space-y-1.5">
-                  <h4 className="text-[10px] font-black uppercase tracking-wider text-slate-455 dark:text-zinc-550">Notice Details</h4>
-                  <p className="text-xs font-medium leading-relaxed bg-slate-50/50 dark:bg-zinc-950/20 p-4 border border-slate-100 dark:border-zinc-850 rounded-2xl whitespace-pre-wrap text-slate-655 dark:text-zinc-350">
+                  <h4 className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-zinc-500">Notice Details</h4>
+                  <p className="text-xs font-medium leading-relaxed bg-slate-50/50 dark:bg-zinc-950/20 p-4 border border-slate-100 dark:border-zinc-800 rounded-2xl whitespace-pre-wrap text-slate-600 dark:text-zinc-300">
                     {activeSelectedEvent.description}
                   </p>
                 </div>
 
                 {activeSelectedEvent.audio && (
                   <div className="space-y-2">
-                    <h4 className="text-[10px] font-black uppercase tracking-wider text-slate-455 dark:text-zinc-550">Voice Memo</h4>
-                    <div className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-850 rounded-2xl w-fit">
+                    <h4 className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-zinc-500">Voice Memo</h4>
+                    <div className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-2xl w-fit">
                       <Mic className="w-4.5 h-4.5 text-red-500 shrink-0" />
                       <audio src={activeSelectedEvent.audio} controls className="h-8 max-w-[200px]" />
                     </div>
@@ -812,7 +812,7 @@ export default function EventsManager({ initialEvents, user }) {
               {/* Right Column: Interactive tabs for replies, joins, and likes */}
               <div className="p-6 md:w-1/2 flex flex-col overflow-hidden max-h-[50vh] md:max-h-none">
                 {/* Tab Navigation */}
-                <div className="flex border-b border-slate-100 dark:border-zinc-850 pb-2 mb-4 gap-4 text-xs font-bold uppercase tracking-wider select-none shrink-0">
+                <div className="flex border-b border-slate-100 dark:border-zinc-800 pb-2 mb-4 gap-4 text-xs font-bold uppercase tracking-wider select-none shrink-0">
                   <button
                     onClick={() => setActiveModalTab('comments')}
                     className={`pb-1 cursor-pointer transition-colors border-b-2 ${
@@ -846,10 +846,10 @@ export default function EventsManager({ initialEvents, user }) {
                       {/* Comments list */}
                       <div className="flex-1 overflow-y-auto space-y-2.5 pr-1 mb-4 max-h-[220px] md:max-h-[300px]">
                         {!activeSelectedEvent.comments || activeSelectedEvent.comments.length === 0 ? (
-                          <p className="text-xs text-slate-400 dark:text-zinc-550 text-center py-6 font-medium">No discussion comments yet.</p>
+                          <p className="text-xs text-slate-400 dark:text-zinc-500 text-center py-6 font-medium">No discussion comments yet.</p>
                         ) : (
                           activeSelectedEvent.comments.map((comment) => (
-                            <div key={comment._id} className="flex gap-2 items-start text-xs bg-slate-50/50 dark:bg-zinc-950/20 p-3 rounded-2xl border border-slate-105 dark:border-zinc-850">
+                            <div key={comment._id} className="flex gap-2 items-start text-xs bg-slate-50/50 dark:bg-zinc-950/20 p-3 rounded-2xl border border-slate-100 dark:border-zinc-800">
                               <div className="w-6.5 h-6.5 rounded-lg bg-red-500/10 text-red-500 flex items-center justify-center font-bold shrink-0 uppercase select-none">
                                 {comment.fighterName.charAt(0)}
                               </div>
@@ -869,7 +869,7 @@ export default function EventsManager({ initialEvents, user }) {
                                     {comment.createdAt ? new Date(comment.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Just now'}
                                   </span>
                                 </div>
-                                <p className="text-slate-655 dark:text-zinc-350 leading-relaxed break-all font-medium">{comment.text}</p>
+                                <p className="text-slate-600 dark:text-zinc-300 leading-relaxed break-all font-medium">{comment.text}</p>
                                 <div className="flex items-center gap-3 pt-0.5">
                                   <button
                                     type="button"
@@ -877,7 +877,7 @@ export default function EventsManager({ initialEvents, user }) {
                                       setCommentText(`@${comment.fighterName} `);
                                       commentInputRef.current?.focus();
                                     }}
-                                    className="text-[9px] font-bold text-red-500 hover:text-red-655 transition-colors cursor-pointer"
+                                    className="text-[9px] font-bold text-red-500 hover:text-red-600 transition-colors cursor-pointer"
                                   >
                                     Reply
                                   </button>
@@ -889,14 +889,14 @@ export default function EventsManager({ initialEvents, user }) {
                       </div>
 
                       {/* Comment submit form */}
-                      <form onSubmit={(e) => handleCommentSubmit(e, activeSelectedEvent._id)} className="flex gap-2 items-center mt-auto pt-2 border-t border-slate-105 dark:border-zinc-850 shrink-0">
+                      <form onSubmit={(e) => handleCommentSubmit(e, activeSelectedEvent._id)} className="flex gap-2 items-center mt-auto pt-2 border-t border-slate-100 dark:border-zinc-800 shrink-0">
                         <input
                           ref={commentInputRef}
                           type="text"
                           value={commentText}
                           onChange={(e) => setCommentText(e.target.value)}
                           placeholder="Write admin reply..."
-                          className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950/30 text-slate-900 dark:text-zinc-100 placeholder-slate-400 dark:placeholder-zinc-550 focus:outline-none focus:ring-2 focus:ring-red-500 text-xs transition-all font-semibold"
+                          className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950/30 text-slate-900 dark:text-zinc-100 placeholder-slate-400 dark:placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-red-500 text-xs transition-all font-semibold"
                         />
                         <button
                           type="submit"
@@ -915,7 +915,7 @@ export default function EventsManager({ initialEvents, user }) {
                         <p className="text-xs text-slate-400 dark:text-zinc-555 text-center py-10 font-medium">No athletes have joined this notice event yet.</p>
                       ) : (
                         activeSelectedEvent.joinedFighters.map((f) => (
-                          <div key={f._id} className="flex items-center justify-between p-3 bg-slate-50/50 dark:bg-zinc-955/20 border border-slate-105 dark:border-zinc-850 rounded-2xl text-xs font-bold text-slate-700 dark:text-zinc-300">
+                          <div key={f._id} className="flex items-center justify-between p-3 bg-slate-50/50 dark:bg-zinc-950/20 border border-slate-100 dark:border-zinc-800 rounded-2xl text-xs font-bold text-slate-700 dark:text-zinc-300">
                             <div className="flex items-center gap-2.5">
                               <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center font-bold uppercase shrink-0">
                                 {f.name.charAt(0)}
@@ -940,7 +940,7 @@ export default function EventsManager({ initialEvents, user }) {
                         <p className="text-xs text-slate-400 dark:text-zinc-555 text-center py-10 font-medium">No members have liked this notice yet.</p>
                       ) : (
                         activeSelectedEvent.likedFighters.map((f) => (
-                          <div key={f._id} className="flex items-center justify-between p-3 bg-slate-50/50 dark:bg-zinc-955/20 border border-slate-105 dark:border-zinc-850 rounded-2xl text-xs font-bold text-slate-700 dark:text-zinc-300">
+                          <div key={f._id} className="flex items-center justify-between p-3 bg-slate-50/50 dark:bg-zinc-950/20 border border-slate-100 dark:border-zinc-800 rounded-2xl text-xs font-bold text-slate-700 dark:text-zinc-300">
                             <div className="flex items-center gap-2.5">
                               <div className="w-8 h-8 rounded-xl bg-red-500/10 text-red-500 flex items-center justify-center font-bold uppercase shrink-0">
                                 {f.name.charAt(0)}
@@ -965,10 +965,10 @@ export default function EventsManager({ initialEvents, user }) {
             </div>
 
             {/* Modal Footer */}
-            <div className="p-6 border-t border-slate-100 dark:border-zinc-850 bg-slate-50/50 dark:bg-zinc-950/20 flex items-center justify-end shrink-0">
+            <div className="p-6 border-t border-slate-100 dark:border-zinc-800 bg-slate-50/50 dark:bg-zinc-950/20 flex items-center justify-end shrink-0">
               <button
                 onClick={() => setSelectedEvent(null)}
-                className="px-5 py-2.5 rounded-xl border border-slate-200 text-slate-655 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-900 transition-all font-bold text-xs cursor-pointer"
+                className="px-5 py-2.5 rounded-xl border border-slate-200 text-slate-600 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-900 transition-all font-bold text-xs cursor-pointer"
               >
                 Close Notice details
               </button>

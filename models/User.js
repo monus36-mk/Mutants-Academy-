@@ -23,6 +23,10 @@ const UserSchema = new mongoose.Schema(
       enum: ['MainAdmin', 'Coach'],
       default: 'Coach',
     },
+    category: {
+      type: String,
+      enum: ['Martial Arts', 'Silambam'],
+    },
     resetOtp: {
       type: String,
     },
@@ -33,5 +37,8 @@ const UserSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Prevent compiling model query if it already exists
-export default mongoose.models.User || mongoose.model('User', UserSchema);
+// Re-compile model to update schema in development hot-reloading
+if (mongoose.models.User) {
+  delete mongoose.models.User;
+}
+export default mongoose.model('User', UserSchema);

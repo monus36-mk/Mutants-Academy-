@@ -37,9 +37,14 @@ const FighterSchema = new mongoose.Schema(
     },
     style: {
       type: String,
-      enum: ['Striking', 'Grappling', 'MMA'],
+      enum: ['Striking', 'Grappling', 'MMA', 'None'],
       default: 'MMA',
       required: [true, 'Please select a fighting style'],
+    },
+    eca: {
+      type: String,
+      enum: ['None', 'Silambam', 'Zumba', 'Dance'],
+      default: 'None',
     },
     assignedCoach: {
       type: mongoose.Schema.Types.ObjectId,
@@ -71,6 +76,10 @@ const FighterSchema = new mongoose.Schema(
       type: String,
       default: '',
       trim: true,
+    },
+    photo: {
+      type: String,
+      default: '',
     },
     resetOtp: {
       type: String,

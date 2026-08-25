@@ -1,6 +1,7 @@
 import { getCurrentUser } from '@/app/actions/authActions';
 import { getCoaches } from '@/app/actions/coachActions';
 import OnboardCoachForm from '@/components/OnboardCoachForm';
+import EditCoachModal from '@/components/EditCoachModal';
 import DeleteCoachButton from '@/components/DeleteCoachButton';
 import { redirect } from 'next/navigation';
 import { Users, Calendar, ShieldCheck, Mail } from 'lucide-react';
@@ -63,6 +64,7 @@ export default async function ManageCoachesPage() {
                   <thead>
                     <tr className="bg-slate-50 dark:bg-zinc-900/80 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400 border-b border-slate-100 dark:border-zinc-800/80">
                       <th className="px-6 py-4">Coach Info</th>
+                      <th className="px-6 py-4">Discipline</th>
                       <th className="px-6 py-4">System Role</th>
                       <th className="px-6 py-4">Onboarding Date</th>
                       <th className="px-6 py-4 text-right">Actions</th>
@@ -77,13 +79,24 @@ export default async function ManageCoachesPage() {
                         {/* Name / Email */}
                         <td className="px-6 py-4">
                           <div>
-                            <span className="block font-bold text-slate-850 dark:text-zinc-100 text-sm">
+                            <span className="block font-bold text-slate-800 dark:text-zinc-100 text-sm">
                               {coach.name}
                             </span>
                             <span className="flex items-center gap-1 text-xs text-slate-400 dark:text-zinc-500 mt-0.5 font-mono">
                               <Mail className="w-3.5 h-3.5 shrink-0" /> {coach.email}
                             </span>
                           </div>
+                        </td>
+
+                        {/* Discipline */}
+                        <td className="px-6 py-4 text-xs font-bold">
+                          <span className={`inline-flex px-2 py-0.5 rounded-md text-[11px] font-bold border ${
+                            coach.category === 'Silambam' 
+                              ? 'bg-amber-105 text-amber-700 dark:bg-amber-950/20 dark:text-amber-400 border-amber-200 dark:border-amber-900/30' 
+                              : 'bg-blue-100 text-blue-700 dark:bg-blue-950/20 dark:text-blue-400 border border-blue-200 dark:border-blue-900/30'
+                          }`}>
+                            {coach.category || 'Martial Arts'}
+                          </span>
                         </td>
 
                         {/* System Role */}
@@ -94,20 +107,23 @@ export default async function ManageCoachesPage() {
                         </td>
 
                         {/* Onboarding Date */}
-                        <td className="px-6 py-4 text-xs text-slate-500 dark:text-zinc-400 font-mono flex items-center gap-1.5 mt-2">
-                          <Calendar className="w-3.5 h-3.5" />
-                          {coach.createdAt 
-                            ? new Date(coach.createdAt).toLocaleDateString('en-US', {
-                                year: 'numeric',
-                                month: 'short',
-                                day: 'numeric',
-                              })
-                            : 'N/A'}
+                        <td className="px-6 py-4 text-xs text-slate-500 dark:text-zinc-400 font-mono">
+                          <div className="flex items-center gap-1.5 mt-2">
+                            <Calendar className="w-3.5 h-3.5" />
+                            {coach.createdAt 
+                              ? new Date(coach.createdAt).toLocaleDateString('en-US', {
+                                  year: 'numeric',
+                                  month: 'short',
+                                  day: 'numeric',
+                                })
+                              : 'N/A'}
+                          </div>
                         </td>
 
                         {/* Actions */}
                         <td className="px-6 py-4 text-right">
-                          <div className="flex justify-end">
+                          <div className="flex justify-end items-center">
+                            <EditCoachModal coach={coach} />
                             <DeleteCoachButton coachId={coach._id} coachName={coach.name} />
                           </div>
                         </td>

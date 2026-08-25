@@ -23,6 +23,8 @@ export default function EditFighterForm({ fighter, coaches, currentUser }) {
   const [joiningDate, setJoiningDate] = useState(formatDate(fighter.joiningDate));
   const [dob, setDob] = useState(formatDate(fighter.dob));
   const [showPassword, setShowPassword] = useState(false);
+  const [eca, setEca] = useState(fighter.eca || 'None');
+  const [style, setStyle] = useState(fighter.style || 'MMA');
 
   const calculateAge = (dobString) => {
     if (!dobString) return null;
@@ -190,12 +192,33 @@ export default function EditFighterForm({ fighter, coaches, currentUser }) {
               id="style"
               name="style"
               required
-              defaultValue={fighter.style || 'MMA'}
+              value={style}
+              onChange={(e) => setStyle(e.target.value)}
               className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900/50 text-slate-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-red-500 text-sm transition-all font-semibold"
             >
               <option value="MMA">MMA</option>
               <option value="Striking">Striking (Boxing/Muay Thai)</option>
               <option value="Grappling">Grappling (BJJ/Wrestling)</option>
+              <option value="None">None</option>
+            </select>
+          </div>
+
+          {/* Extra Curricular Activity (ECA) */}
+          <div>
+            <label htmlFor="eca" className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400 mb-1.5">
+              Extra Curricular Activity (ECA)
+            </label>
+            <select
+              id="eca"
+              name="eca"
+              value={eca}
+              onChange={(e) => setEca(e.target.value)}
+              className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900/50 text-slate-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-red-500 text-sm transition-all font-semibold"
+            >
+              <option value="None">None</option>
+              <option value="Silambam">Silambam</option>
+              <option value="Zumba">Zumba</option>
+              <option value="Dance">Dance</option>
             </select>
           </div>
 
@@ -301,7 +324,7 @@ export default function EditFighterForm({ fighter, coaches, currentUser }) {
                   type="text"
                   disabled
                   value={fighter.assignedCoach?.name || currentUser?.name || 'Self'}
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-zinc-850 bg-slate-100 dark:bg-zinc-900 text-slate-550 dark:text-zinc-400 text-sm font-semibold"
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-100 dark:bg-zinc-900 text-slate-500 dark:text-zinc-400 text-sm font-semibold"
                 />
                 <input type="hidden" name="assignedCoach" value={fighter.assignedCoach?._id || fighter.assignedCoach || currentUser?.id} />
               </div>
@@ -310,7 +333,7 @@ export default function EditFighterForm({ fighter, coaches, currentUser }) {
         </div>
 
         {/* Calculated Next Payment Expiry Preview */}
-        <div className="p-4 bg-slate-50 dark:bg-zinc-950/70 border border-slate-200 dark:border-zinc-850 rounded-2xl flex items-center justify-between">
+        <div className="p-4 bg-slate-50 dark:bg-zinc-950/70 border border-slate-200 dark:border-zinc-800 rounded-2xl flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Calendar className="w-5 h-5 text-red-500" />
             <div>

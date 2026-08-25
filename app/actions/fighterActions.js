@@ -19,9 +19,22 @@ export async function getFighters(filters = {}) {
       return { error: 'Unauthorized' };
     }
 
+    const dbUser = await User.findById(user.id).lean();
+    const userRole = dbUser ? dbUser.role : user.role;
+    const userCategory = dbUser ? dbUser.category : null;
+
     const query = {};
 
-    // Access control: Admins and Coaches can view all fighters and filter by coach if needed
+    // Access control: Coaches can only view students in their discipline (field of study)
+    if (userRole === 'Coach') {
+      const coachCategory = userCategory || 'Martial Arts';
+      if (coachCategory === 'Martial Arts') {
+        query.style = { $in: ['MMA', 'Striking', 'Grappling'] };
+      } else if (coachCategory === 'Silambam') {
+        query.eca = 'Silambam';
+      }
+    }
+
     if (filters.assignedCoach) {
       query.assignedCoach = filters.assignedCoach;
     }
@@ -31,9 +44,29 @@ export async function getFighters(filters = {}) {
       query.name = { $regex: filters.search, $options: 'i' };
     }
 
+    let sortObj = { joiningDate: 1, weightClass: 1 };
+    if (filters.sortBy === 'JuniorFirst') {
+      sortObj = { joiningDate: -1, weightClass: 1 };
+    } else if (filters.sortBy === 'WeightAsc') {
+      sortObj = { weightClass: 1, joiningDate: 1 };
+    } else if (filters.sortBy === 'WeightDesc') {
+      sortObj = { weightClass: -1, joiningDate: 1 };
+    } else if (filters.sortBy === 'SeniorFirst_WeightAsc') {
+      sortObj = { joiningDate: 1, weightClass: 1 };
+    } else if (filters.sortBy === 'SeniorFirst_WeightDesc') {
+      sortObj = { joiningDate: 1, weightClass: -1 };
+    } else if (filters.sortBy === 'WeightAsc_SeniorFirst') {
+      sortObj = { weightClass: 1, joiningDate: 1 };
+    } else if (filters.sortBy === 'WeightDesc_SeniorFirst') {
+      sortObj = { weightClass: -1, joiningDate: 1 };
+    } else if (filters.sortBy === 'ExpirySoonest') {
+      sortObj = { nextPaymentDate: 1, joiningDate: 1 };
+    }
+
     let fighters = await Fighter.find(query)
       .populate('assignedCoach', 'name email')
-      .sort({ nextPaymentDate: 1 })
+      .sort(sortObj)
+      .collation({ locale: 'en_US', numericOrdering: true })
       .lean();
 
     // Map through fighters to calculate statuses dynamically and serialize objects
@@ -54,6 +87,7 @@ export async function getFighters(filters = {}) {
         nextPaymentDate: f.nextPaymentDate ? f.nextPaymentDate.toISOString() : null,
         status: computedStatus,
         createdAt: f.createdAt ? f.createdAt.toISOString() : null,
+        eca: f.eca || 'None',
       };
     });
 
@@ -65,6 +99,11 @@ export async function getFighters(filters = {}) {
     // Filter by Martial Style (style)
     if (filters.style && filters.style !== 'All') {
       serializedFighters = serializedFighters.filter(f => f.style === filters.style);
+    }
+
+    // Filter by ECA (eca)
+    if (filters.eca) {
+      serializedFighters = serializedFighters.filter(f => (f.eca || 'None') === filters.eca);
     }
 
     // Filter by Experience Level (experienceLevel)
@@ -137,6 +176,7 @@ export async function addFighter(prevState, formData) {
     const dobStr = formData.get('dob');
     const weightClass = formData.get('weightClass')?.trim();
     const experienceLevel = formData.get('experienceLevel');
+    const eca = formData.get('eca') || 'None';
     const packageDurationMonths = Number(formData.get('packageDurationMonths'));
     const entryDateStr = formData.get('entryDate');
     const joiningDateStr = formData.get('joiningDate');
@@ -145,6 +185,10 @@ export async function addFighter(prevState, formData) {
 
     if (!name || !phone || !email || !dobStr || !weightClass || !experienceLevel || !packageDurationMonths || !style) {
       return { error: 'Please fill in all required fields.' };
+    }
+
+    if (style === 'None' && eca === 'None') {
+      return { error: 'Please select at least a Martial Arts style or an Extra Curricular Activity.' };
     }
 
     if (phone && !phone.startsWith('+')) {
@@ -194,6 +238,7 @@ export async function addFighter(prevState, formData) {
       status,
       password: hashedPassword,
       style,
+      eca,
     });
 
     // Send Welcome Email
@@ -312,9 +357,14 @@ export async function updateFighter(fighterId, prevState, formData) {
     const joiningDateStr = formData.get('joiningDate');
     const password = formData.get('password');
     const style = formData.get('style');
+    const eca = formData.get('eca') || 'None';
 
     if (!name || !phone || !email || !dobStr || !weightClass || !experienceLevel || !style) {
       return { error: 'Please fill in all required fields.' };
+    }
+
+    if (style === 'None' && eca === 'None') {
+      return { error: 'Please select at least a Martial Arts style or an Extra Curricular Activity.' };
     }
 
     if (phone && !phone.startsWith('+')) {
@@ -344,6 +394,7 @@ export async function updateFighter(fighterId, prevState, formData) {
     fighter.weightClass = weightClass;
     fighter.experienceLevel = experienceLevel;
     fighter.style = style;
+    fighter.eca = eca;
     if (assignedCoach) {
       fighter.assignedCoach = assignedCoach;
     }
@@ -440,8 +491,9 @@ export async function setupFighterPassword(prevState, formData) {
     }
 
     // Find fighter by email (case-insensitive)
-    const emailLower = email.toLowerCase();
-    const fighters = await Fighter.find({ email: emailLower });
+    const escapedEmail = email.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+    const emailRegex = new RegExp(`^${escapedEmail}$`, 'i');
+    const fighters = await Fighter.find({ email: emailRegex });
 
     // Loosely check phone number matching the last 10 digits
     const cleanInputPhone = phone.replace(/\D/g, '');
@@ -496,7 +548,9 @@ export async function getPeers(userId = null) {
       experienceLevel: f.experienceLevel,
       joiningDate: f.joiningDate ? f.joiningDate.toISOString() : (f.entryDate ? f.entryDate.toISOString() : null),
       style: f.style || 'MMA',
+      eca: f.eca || 'None',
       bio: f.bio || '',
+      photo: f.photo || '',
       assignedCoach: f.assignedCoach ? {
         name: f.assignedCoach.name,
         email: f.assignedCoach.email,
@@ -510,7 +564,7 @@ export async function getPeers(userId = null) {
   }
 }
 
-export async function updateSelfFighterProfile(style, weightClass, bio = '') {
+export async function updateSelfFighterProfile(style, weightClass, bio = '', photo = '') {
   try {
     await dbConnect();
 
@@ -531,6 +585,9 @@ export async function updateSelfFighterProfile(style, weightClass, bio = '') {
     fighter.style = style;
     fighter.weightClass = weightClass;
     fighter.bio = bio;
+    if (photo !== undefined) {
+      fighter.photo = photo;
+    }
     await fighter.save();
 
     revalidatePath('/fighter');

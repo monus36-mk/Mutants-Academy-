@@ -16,7 +16,7 @@ export async function getCoaches() {
     }
 
     const coaches = await User.find({ role: 'Coach' })
-      .select('_id name email role createdAt')
+      .select('_id name email role category createdAt')
       .sort({ name: 1 })
       .lean();
 
@@ -25,6 +25,7 @@ export async function getCoaches() {
       coaches: coaches.map(c => ({
         ...c,
         _id: c._id.toString(),
+        category: c.category || 'Martial Arts',
         createdAt: c.createdAt ? c.createdAt.toISOString() : null,
       }))
     };
@@ -48,9 +49,14 @@ export async function onboardCoach(prevState, formData) {
     const name = formData.get('name')?.trim();
     const email = formData.get('email')?.trim().toLowerCase();
     const password = formData.get('password');
+    const category = formData.get('category');
 
-    if (!name || !email || !password) {
+    if (!name || !email || !password || !category) {
       return { error: 'All fields are required.' };
+    }
+
+    if (!['Martial Arts', 'Silambam'].includes(category)) {
+      return { error: 'Invalid discipline/category.' };
     }
 
     const existingUser = await User.findOne({ email });
@@ -65,6 +71,7 @@ export async function onboardCoach(prevState, formData) {
       email,
       password: hashedPassword,
       role: 'Coach',
+      category,
     });
 
     revalidatePath('/admin/users');
@@ -97,6 +104,49 @@ export async function deleteCoach(coachId) {
   } catch (err) {
     console.error('Error deleting coach:', err);
     return { error: 'Failed to delete coach. Please try again.' };
+  }
+}
+
+export async function updateCoach(coachId, formData) {
+  try {
+    await dbConnect();
+    
+    // Check permission
+    const currentUser = await getCurrentUser();
+    if (!currentUser || currentUser.role !== 'MainAdmin') {
+      return { error: 'Unauthorized. Only Main Admin can edit coaches.' };
+    }
+
+    const name = formData.get('name')?.trim();
+    const email = formData.get('email')?.trim().toLowerCase();
+    const category = formData.get('category');
+    const password = formData.get('password');
+
+    if (!name || !email || !category) {
+      return { error: 'Name, email, and discipline are required.' };
+    }
+
+    if (!['Martial Arts', 'Silambam'].includes(category)) {
+      return { error: 'Invalid discipline/category.' };
+    }
+
+    const existingUser = await User.findOne({ email, _id: { $ne: coachId } });
+    if (existingUser) {
+      return { error: 'Another user with this email already exists.' };
+    }
+
+    const updateData = { name, email, category };
+    if (password && password.trim() !== '') {
+      updateData.password = await bcrypt.hash(password, 12);
+    }
+
+    await User.findByIdAndUpdate(coachId, updateData);
+
+    revalidatePath('/admin/users');
+    return { success: true };
+  } catch (err) {
+    console.error('Error updating coach:', err);
+    return { error: 'Failed to update coach. Please try again.' };
   }
 }
 

@@ -22,6 +22,8 @@ export default function AddFighterForm({ coaches, currentUser }) {
   const [dob, setDob] = useState('');
   const [duration, setDuration] = useState(1);
   const [showPassword, setShowPassword] = useState(false);
+  const [eca, setEca] = useState('None');
+  const [style, setStyle] = useState('MMA');
 
   const calculateAge = (dobString) => {
     if (!dobString) return null;
@@ -182,11 +184,33 @@ export default function AddFighterForm({ coaches, currentUser }) {
               id="style"
               name="style"
               required
+              value={style}
+              onChange={(e) => setStyle(e.target.value)}
               className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900/50 text-slate-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-red-500 text-sm transition-all font-semibold"
             >
               <option value="MMA">MMA</option>
               <option value="Striking">Striking (Boxing/Muay Thai)</option>
               <option value="Grappling">Grappling (BJJ/Wrestling)</option>
+              <option value="None">None</option>
+            </select>
+          </div>
+
+          {/* Extra Curricular Activity (ECA) */}
+          <div>
+            <label htmlFor="eca" className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400 mb-1.5">
+              Extra Curricular Activity (ECA)
+            </label>
+            <select
+              id="eca"
+              name="eca"
+              value={eca}
+              onChange={(e) => setEca(e.target.value)}
+              className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900/50 text-slate-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-red-500 text-sm transition-all font-semibold"
+            >
+              <option value="None">None</option>
+              <option value="Silambam">Silambam</option>
+              <option value="Zumba">Zumba</option>
+              <option value="Dance">Dance</option>
             </select>
           </div>
 
@@ -322,7 +346,7 @@ export default function AddFighterForm({ coaches, currentUser }) {
         </div>
 
         {/* Next Payment Expiry Preview */}
-        <div className="p-4 bg-slate-50 dark:bg-zinc-950/70 border border-slate-200 dark:border-zinc-850 rounded-2xl flex items-center justify-between">
+        <div className="p-4 bg-slate-50 dark:bg-zinc-950/70 border border-slate-200 dark:border-zinc-800 rounded-2xl flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Calendar className="w-5 h-5 text-red-500" />
             <div>

@@ -11,7 +11,7 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
 
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center p-6 bg-slate-50 dark:bg-zinc-950 text-slate-900 dark:text-zinc-550 transition-colors duration-200">
+    <main className="min-h-screen flex flex-col items-center justify-center p-6 bg-slate-50 dark:bg-zinc-950 text-slate-900 dark:text-zinc-500 transition-colors duration-200">
       
       {/* Floating Theme Toggle */}
       <div className="absolute top-6 right-6">
@@ -34,7 +34,7 @@ export default function LoginPage() {
 
         {/* Login Card */}
         <div className="bg-white dark:bg-zinc-900/50 dark:backdrop-blur-md border border-slate-200 dark:border-zinc-800 rounded-3xl p-8 shadow-xl shadow-slate-100 dark:shadow-none min-h-[340px] flex flex-col justify-center">
-          <h2 className="text-xl font-bold mb-6 text-slate-850 dark:text-zinc-100 flex items-center gap-2">
+          <h2 className="text-xl font-bold mb-6 text-slate-800 dark:text-zinc-100 flex items-center gap-2">
             <LogIn className="w-5 h-5 text-red-500" /> Account Sign In
           </h2>
 
@@ -100,13 +100,13 @@ export default function LoginPage() {
           <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-center border-t border-slate-100 dark:border-zinc-800/80 pt-4">
             <Link
               href="/login/activate"
-              className="text-xs font-bold text-red-500 hover:text-red-655 dark:hover:text-red-400 transition-colors uppercase tracking-wider"
+              className="text-xs font-bold text-red-500 hover:text-red-600 dark:hover:text-red-400 transition-colors uppercase tracking-wider"
             >
               Activate Athlete Account
             </Link>
             <Link
               href="/login/forgot-password"
-              className="text-xs font-bold text-slate-400 hover:text-red-550 dark:hover:text-red-405 transition-colors uppercase tracking-wider"
+              className="text-xs font-bold text-slate-400 hover:text-red-500 dark:hover:text-red-405 transition-colors uppercase tracking-wider"
             >
               Forgot Password?
             </Link>

@@ -4,7 +4,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useTransition } from 'react';
 import { Search, Filter, RefreshCw } from 'lucide-react';
 
-export default function SearchFilters({ coaches, isAdmin }) {
+export default function SearchFilters({ coaches, isAdmin, currentUser }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -17,6 +17,12 @@ export default function SearchFilters({ coaches, isAdmin }) {
     } else {
       params.delete(key);
     }
+    
+    // Automatically reset eca to 'All ECAs' (remove filter) if style is set to 'All Styles' (empty value)
+    if (key === 'style' && !value) {
+      params.delete('eca');
+    }
+    
     // Always reset page if filters change
     params.delete('page');
 
@@ -71,7 +77,7 @@ export default function SearchFilters({ coaches, isAdmin }) {
             Subscription Status
           </label>
           <select
-            defaultValue={searchParams.get('status') || ''}
+            value={searchParams.get('status') || ''}
             onChange={(e) => handleFilterChange('status', e.target.value)}
             className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900/40 text-slate-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-red-500 text-sm transition-all font-semibold"
           >
@@ -83,13 +89,13 @@ export default function SearchFilters({ coaches, isAdmin }) {
         </div>
 
         {/* Coach Filter */}
-        {coaches && coaches.length > 0 && (
+        {isAdmin && coaches && coaches.length > 0 && (
           <div>
             <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400 mb-1.5">
               Assigned Coach
             </label>
             <select
-              defaultValue={searchParams.get('assignedCoach') || ''}
+              value={searchParams.get('assignedCoach') || ''}
               onChange={(e) => handleFilterChange('assignedCoach', e.target.value)}
               className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900/40 text-slate-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-red-500 text-sm transition-all font-semibold"
             >
@@ -104,21 +110,43 @@ export default function SearchFilters({ coaches, isAdmin }) {
         )}
 
         {/* Martial Style */}
-        <div>
-          <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400 mb-1.5">
-            Martial Style
-          </label>
-          <select
-            defaultValue={searchParams.get('style') || ''}
-            onChange={(e) => handleFilterChange('style', e.target.value)}
-            className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900/40 text-slate-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-red-500 text-sm transition-all font-semibold"
-          >
-            <option value="">All Styles</option>
-            <option value="MMA">MMA</option>
-            <option value="Striking">Striking</option>
-            <option value="Grappling">Grappling</option>
-          </select>
-        </div>
+        {(isAdmin || currentUser?.category === 'Martial Arts') && (
+          <div>
+            <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400 mb-1.5">
+              Martial Style
+            </label>
+            <select
+              value={searchParams.get('style') || ''}
+              onChange={(e) => handleFilterChange('style', e.target.value)}
+              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900/40 text-slate-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-red-500 text-sm transition-all font-semibold"
+            >
+              <option value="">All Styles</option>
+              <option value="MMA">MMA</option>
+              <option value="Striking">Striking</option>
+              <option value="Grappling">Grappling</option>
+            </select>
+          </div>
+        )}
+
+        {/* ECA */}
+        {isAdmin && (
+          <div>
+            <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400 mb-1.5">
+              ECA
+            </label>
+            <select
+              value={searchParams.get('eca') || ''}
+              onChange={(e) => handleFilterChange('eca', e.target.value)}
+              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900/40 text-slate-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-red-500 text-sm transition-all font-semibold"
+            >
+              <option value="">All ECAs</option>
+              <option value="None">None</option>
+              <option value="Silambam">Silambam</option>
+              <option value="Zumba">Zumba</option>
+              <option value="Dance">Dance</option>
+            </select>
+          </div>
+        )}
 
         {/* Experience Level */}
         <div>
@@ -126,7 +154,7 @@ export default function SearchFilters({ coaches, isAdmin }) {
             Experience Level
           </label>
           <select
-            defaultValue={searchParams.get('experienceLevel') || ''}
+            value={searchParams.get('experienceLevel') || ''}
             onChange={(e) => handleFilterChange('experienceLevel', e.target.value)}
             className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900/40 text-slate-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-red-500 text-sm transition-all font-semibold"
           >
@@ -143,7 +171,7 @@ export default function SearchFilters({ coaches, isAdmin }) {
             Age Group
           </label>
           <select
-            defaultValue={searchParams.get('ageFilter') || ''}
+            value={searchParams.get('ageFilter') || ''}
             onChange={(e) => handleFilterChange('ageFilter', e.target.value)}
             className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900/40 text-slate-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-red-500 text-sm transition-all font-semibold"
           >
@@ -160,13 +188,35 @@ export default function SearchFilters({ coaches, isAdmin }) {
             Tenure
           </label>
           <select
-            defaultValue={searchParams.get('tenureFilter') || ''}
+            value={searchParams.get('tenureFilter') || ''}
             onChange={(e) => handleFilterChange('tenureFilter', e.target.value)}
             className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900/40 text-slate-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-red-500 text-sm transition-all font-semibold"
           >
             <option value="">All Tenures</option>
             <option value="Newcomer">Newcomer (&lt;6mo)</option>
             <option value="Veteran">Veteran (6mo+)</option>
+          </select>
+        </div>
+
+        {/* Sort */}
+        <div>
+          <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400 mb-1.5">
+            Sort
+          </label>
+          <select
+            value={searchParams.get('sortBy') || 'SeniorFirst'}
+            onChange={(e) => handleFilterChange('sortBy', e.target.value)}
+            className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900/40 text-slate-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-red-500 text-sm transition-all font-semibold"
+          >
+            <option value="SeniorFirst">Seniority: Senior to Junior</option>
+            <option value="JuniorFirst">Seniority: Junior to Senior</option>
+            <option value="WeightAsc">Weight: Lightest First</option>
+            <option value="WeightDesc">Weight: Heaviest First</option>
+            <option value="SeniorFirst_WeightAsc">Seniority & Weight (Senior First, Lightest First)</option>
+            <option value="SeniorFirst_WeightDesc">Seniority & Weight (Senior First, Heaviest First)</option>
+            <option value="WeightAsc_SeniorFirst">Weight & Seniority (Lightest First, Senior First)</option>
+            <option value="WeightDesc_SeniorFirst">Weight & Seniority (Heaviest First, Senior First)</option>
+            <option value="ExpirySoonest">Expiry: Soonest First</option>
           </select>
         </div>
 

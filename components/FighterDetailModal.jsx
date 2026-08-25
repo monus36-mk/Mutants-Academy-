@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { X, Calendar, Phone, Mail, Dumbbell, User, ShieldAlert, Award, Clock, ArrowRight, Edit, Copy, Check } from 'lucide-react';
+import { X, Calendar, Phone, Mail, Dumbbell, User, ShieldAlert, Award, Clock, ArrowRight, Edit, Copy, Check, Activity } from 'lucide-react';
 import Link from 'next/link';
 import { formatWhatsAppNumber } from '@/lib/utils';
 
@@ -15,6 +15,7 @@ export default function FighterDetailModal({ fighter, canEdit = false }) {
   const [isOpen, setIsOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [copiedEmail, setCopiedEmail] = useState(false);
+  const [lightboxImage, setLightboxImage] = useState(null);
 
   const handleCopyPhone = (e) => {
     e.stopPropagation();
@@ -82,61 +83,87 @@ export default function FighterDetailModal({ fighter, canEdit = false }) {
     });
   };
 
+  const hasStyle = fighter.style && fighter.style !== 'None';
+  const hasEca = fighter.eca && fighter.eca !== 'None';
+
+  let displayStyle = null;
+  let displayEca = null;
+
+  if (hasStyle && hasEca) {
+    displayStyle = fighter.style;
+    displayEca = fighter.eca;
+  } else if (hasStyle) {
+    displayStyle = fighter.style;
+  } else if (hasEca) {
+    displayStyle = fighter.eca;
+  }
+
   return (
     <>
       {/* Clickable Table Cell Trigger */}
       <div
         onClick={() => setIsOpen(true)}
-        className="group cursor-pointer hover:bg-slate-100/50 dark:hover:bg-zinc-800/30 p-2.5 rounded-2xl -ml-2.5 transition-all duration-150"
+        className="group cursor-pointer hover:bg-slate-100/50 dark:hover:bg-zinc-800/30 p-2.5 rounded-2xl -ml-2.5 transition-all duration-150 flex items-center gap-3.5"
         title="Click to view full athlete profile"
       >
-        <span className="block font-bold text-slate-800 dark:text-zinc-100 text-sm md:text-base group-hover:text-red-500 transition-colors">
-          {fighter.name}
-        </span>
-        <span className="flex items-center gap-1 text-xs text-slate-400 dark:text-zinc-500 mt-1 font-mono">
-          <a
-            href={`tel:${fighter.phone}`}
-            onClick={(e) => e.stopPropagation()}
-            className="inline-flex items-center gap-1 hover:text-red-500 transition-colors"
-            title="Click to call athlete"
-          >
-            <Phone className="w-3.5 h-3.5 shrink-0" /> {fighter.phone}
-          </a>
-          <button
-            onClick={handleCopyPhone}
-            className="inline-flex items-center justify-center p-0.5 rounded text-slate-400 hover:bg-slate-100 hover:text-slate-650 dark:hover:bg-zinc-800 transition-all ml-1"
-            title={copied ? "Copied!" : "Copy phone number"}
-          >
-            {copied ? (
-              <Check className="w-3 h-3 text-emerald-500" />
-            ) : (
-              <Copy className="w-3 h-3" />
-            )}
-          </button>
-          <a
-            href={getWhatsAppUrl(fighter)}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={(e) => e.stopPropagation()}
-            className="inline-flex items-center justify-center p-0.5 rounded text-emerald-500 hover:bg-emerald-500/10 hover:text-emerald-600 transition-all ml-0.5"
-            title="Send WhatsApp payment reminder"
-          >
-            <WhatsAppIcon className="w-3.5 h-3.5" />
-          </a>
-        </span>
-        {fighter.email && (
-          <span className="flex items-center gap-1 text-xs text-slate-400 dark:text-zinc-500 mt-0.5 font-mono">
-            <Mail className="w-3.5 h-3.5 shrink-0" /> {fighter.email}
-          </span>
+        {fighter.photo ? (
+          <div className="w-9 h-11 bg-slate-50 dark:bg-zinc-950/40 border border-slate-200 dark:border-zinc-800 rounded-lg overflow-hidden shrink-0 shadow-sm">
+            <img src={fighter.photo} alt={fighter.name} className="w-full h-full object-cover" />
+          </div>
+        ) : (
+          <div className="w-9 h-11 bg-red-500/10 text-red-500 rounded-lg flex items-center justify-center shrink-0 border border-red-500/20">
+            <User className="w-5 h-5" />
+          </div>
         )}
-        <span className="block text-[10px] text-slate-455 dark:text-zinc-500 mt-1.5 font-bold uppercase tracking-tight">
-          Joined: {new Date(fighter.joiningDate).toLocaleDateString('en-US', {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric'
-          })}
-          {fighter.dob && ` • Age: ${calculateAge(fighter.dob)}`}
-        </span>
+        <div className="flex-1 min-w-0">
+          <span className="block font-bold text-slate-800 dark:text-zinc-100 text-sm md:text-base group-hover:text-red-500 transition-colors truncate">
+            {fighter.name}
+          </span>
+          <span className="flex items-center gap-1 text-xs text-slate-400 dark:text-zinc-555 mt-1 font-mono">
+            <a
+              href={`tel:${fighter.phone}`}
+              onClick={(e) => e.stopPropagation()}
+              className="inline-flex items-center gap-1 hover:text-red-500 transition-colors"
+              title="Click to call athlete"
+            >
+              <Phone className="w-3.5 h-3.5 shrink-0" /> {fighter.phone}
+            </a>
+            <button
+              onClick={handleCopyPhone}
+              className="inline-flex items-center justify-center p-0.5 rounded text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-zinc-800 transition-all ml-1"
+              title={copied ? "Copied!" : "Copy phone number"}
+            >
+              {copied ? (
+                <Check className="w-3 h-3 text-emerald-500" />
+              ) : (
+                <Copy className="w-3 h-3" />
+              )}
+            </button>
+            <a
+              href={getWhatsAppUrl(fighter)}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="inline-flex items-center justify-center p-0.5 rounded text-emerald-500 hover:bg-emerald-500/10 hover:text-emerald-600 transition-all ml-0.5"
+              title="Send WhatsApp payment reminder"
+            >
+              <WhatsAppIcon className="w-3.5 h-3.5" />
+            </a>
+          </span>
+          {fighter.email && (
+            <span className="flex items-center gap-1 text-xs text-slate-400 dark:text-zinc-555 mt-0.5 font-mono truncate">
+              <Mail className="w-3.5 h-3.5 shrink-0" /> {fighter.email}
+            </span>
+          )}
+          <span className="block text-[10px] text-slate-400 dark:text-zinc-500 mt-1.5 font-bold uppercase tracking-tight">
+            Joined: {new Date(fighter.joiningDate).toLocaleDateString('en-US', {
+              year: 'numeric',
+              month: 'short',
+              day: 'numeric'
+            })}
+            {fighter.dob && ` • Age: ${calculateAge(fighter.dob)}`}
+          </span>
+        </div>
       </div>
 
       {/* Modal Dialog */}
@@ -145,10 +172,20 @@ export default function FighterDetailModal({ fighter, canEdit = false }) {
           <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-3xl w-full max-w-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
             {/* Modal Header */}
             <div className="flex items-center justify-between p-6 md:p-8 border-b border-slate-100 dark:border-zinc-800">
-              <div className="flex items-center gap-3">
-                <div className="p-3 rounded-2xl bg-red-500/10 text-red-600">
-                  <User className="w-6 h-6" />
-                </div>
+              <div className="flex items-center gap-4">
+                {fighter.photo ? (
+                  <div 
+                    className="w-16 h-20 bg-slate-50 dark:bg-zinc-950/40 border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden shadow-sm shrink-0 cursor-zoom-in hover:opacity-90 active:scale-95 transition-all"
+                    onClick={() => setLightboxImage(fighter.photo)}
+                    title="Click to view full photo"
+                  >
+                    <img src={fighter.photo} alt={fighter.name} className="w-full h-full object-cover" />
+                  </div>
+                ) : (
+                  <div className="w-16 h-20 bg-red-500/10 text-red-600 rounded-xl flex items-center justify-center shrink-0 border border-red-500/20">
+                    <User className="w-8 h-8" />
+                  </div>
+                )}
                 <div>
                   <h3 className="font-extrabold text-xl text-slate-800 dark:text-zinc-100 uppercase tracking-tight">
                     {fighter.name}
@@ -196,7 +233,7 @@ export default function FighterDetailModal({ fighter, canEdit = false }) {
                 <div className="flex items-start gap-3">
                   <Calendar className="w-5 h-5 text-red-500 mt-0.5 shrink-0" />
                   <div>
-                    <span className="block text-[10px] font-bold text-slate-400 dark:text-zinc-550 uppercase tracking-wider">Original Joined Date</span>
+                    <span className="block text-[10px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wider">Original Joined Date</span>
                     <span className="text-sm font-bold text-slate-700 dark:text-zinc-200">{formatDate(fighter.joiningDate)}</span>
                   </div>
                 </div>
@@ -205,7 +242,7 @@ export default function FighterDetailModal({ fighter, canEdit = false }) {
                 <div className="flex items-start gap-3">
                   <Award className="w-5 h-5 text-red-500 mt-0.5 shrink-0" />
                   <div>
-                    <span className="block text-[10px] font-bold text-slate-400 dark:text-zinc-550 uppercase tracking-wider">Date of Birth & Age</span>
+                    <span className="block text-[10px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wider">Date of Birth & Age</span>
                     <span className="text-sm font-bold text-slate-700 dark:text-zinc-200">
                       {formatDate(fighter.dob)} {fighter.dob && `(${calculateAge(fighter.dob)} years old)`}
                     </span>
@@ -216,7 +253,7 @@ export default function FighterDetailModal({ fighter, canEdit = false }) {
                 <div className="flex items-start gap-3">
                   <Dumbbell className="w-5 h-5 text-red-500 mt-0.5 shrink-0" />
                   <div>
-                    <span className="block text-[10px] font-bold text-slate-400 dark:text-zinc-550 uppercase tracking-wider">Weight Class</span>
+                    <span className="block text-[10px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wider">Weight Class</span>
                     <span className="text-sm font-bold text-slate-700 dark:text-zinc-200">{fighter.weightClass}</span>
                   </div>
                 </div>
@@ -225,20 +262,44 @@ export default function FighterDetailModal({ fighter, canEdit = false }) {
                 <div className="flex items-start gap-3">
                   <User className="w-5 h-5 text-red-500 mt-0.5 shrink-0" />
                   <div>
-                    <span className="block text-[10px] font-bold text-slate-400 dark:text-zinc-550 uppercase tracking-wider">Assigned Coach</span>
+                    <span className="block text-[10px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wider">Assigned Coach</span>
                     <span className="text-sm font-bold text-slate-700 dark:text-zinc-200">
                       {fighter.assignedCoach?.name || 'Self'}
                     </span>
                   </div>
-                </div>
+                </div>                 {/* Martial Arts Style */}
+                {displayStyle && (
+                  <div className="flex items-start gap-3">
+                    <Award className="w-5 h-5 text-red-500 mt-0.5 shrink-0" />
+                    <div>
+                      <span className="block text-[10px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wider">Martial Arts Style</span>
+                      <span className="text-sm font-bold text-slate-700 dark:text-zinc-200">
+                        {displayStyle}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* ECA */}
+                {displayEca && (
+                  <div className="flex items-start gap-3">
+                    <Activity className="w-5 h-5 text-red-500 mt-0.5 shrink-0" />
+                    <div>
+                      <span className="block text-[10px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wider">Extra Curricular Activity (ECA)</span>
+                      <span className="text-sm font-bold text-slate-700 dark:text-zinc-200">
+                        {displayEca}
+                      </span>
+                    </div>
+                  </div>
+                )}
 
                 {/* Phone */}
                 <div className="flex items-start gap-3">
                   <Phone className="w-5 h-5 text-red-500 mt-0.5 shrink-0" />
                   <div>
-                    <span className="block text-[10px] font-bold text-slate-400 dark:text-zinc-550 uppercase tracking-wider">Phone Number</span>
+                    <span className="block text-[10px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wider">Phone Number</span>
                     <div className="flex items-center gap-2">
-                      <a href={`tel:${fighter.phone}`} className="text-sm font-bold text-slate-750 dark:text-zinc-200 hover:text-red-500 font-mono transition-colors">
+                      <a href={`tel:${fighter.phone}`} className="text-sm font-bold text-slate-700 dark:text-zinc-200 hover:text-red-500 font-mono transition-colors">
                         {fighter.phone}
                       </a>
                       <a
@@ -258,14 +319,14 @@ export default function FighterDetailModal({ fighter, canEdit = false }) {
                 <div className="flex items-start gap-3">
                   <Mail className="w-5 h-5 text-red-500 mt-0.5 shrink-0" />
                   <div>
-                    <span className="block text-[10px] font-bold text-slate-400 dark:text-zinc-550 uppercase tracking-wider">Email Address</span>
+                    <span className="block text-[10px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wider">Email Address</span>
                     <div className="flex items-center gap-2">
-                      <a href={`mailto:${fighter.email}`} className="text-sm font-bold text-slate-750 dark:text-zinc-200 hover:text-red-500 font-mono transition-colors break-all">
+                      <a href={`mailto:${fighter.email}`} className="text-sm font-bold text-slate-700 dark:text-zinc-200 hover:text-red-500 font-mono transition-colors break-all">
                         {fighter.email}
                       </a>
                       <button
                         onClick={handleCopyEmail}
-                        className="inline-flex items-center justify-center p-0.5 rounded text-slate-400 hover:bg-slate-100 hover:text-slate-650 dark:hover:bg-zinc-800 transition-all shrink-0"
+                        className="inline-flex items-center justify-center p-0.5 rounded text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-zinc-800 transition-all shrink-0"
                         title={copiedEmail ? "Copied!" : "Copy email address"}
                       >
                         {copiedEmail ? (
@@ -281,10 +342,10 @@ export default function FighterDetailModal({ fighter, canEdit = false }) {
               </div>
 
               <div className="border-t border-slate-100 dark:border-zinc-800/80 pt-5 mt-5">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-550 mb-3 flex items-center gap-1.5">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500 mb-3 flex items-center gap-1.5">
                   <Clock className="w-4 h-4 text-slate-400" /> Subscription Billing Information
                 </h4>
-                <div className="grid grid-cols-3 gap-4 bg-slate-50 dark:bg-zinc-950/40 border border-slate-100 dark:border-zinc-850 p-4 rounded-2xl">
+                <div className="grid grid-cols-3 gap-4 bg-slate-50 dark:bg-zinc-950/40 border border-slate-100 dark:border-zinc-800 p-4 rounded-2xl">
                   <div>
                     <span className="block text-[8px] font-black text-slate-400 dark:text-zinc-500 uppercase tracking-widest">Active Cycle Start</span>
                     <span className="text-xs font-bold text-slate-700 dark:text-zinc-300 font-mono">{formatDate(fighter.entryDate)}</span>
@@ -308,7 +369,7 @@ export default function FighterDetailModal({ fighter, canEdit = false }) {
             <div className="bg-slate-50 dark:bg-zinc-900/60 p-4 border-t border-slate-100 dark:border-zinc-800 flex items-center justify-end gap-3">
               <button
                 onClick={() => setIsOpen(false)}
-                className="px-5 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 text-slate-650 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-800 text-xs font-bold cursor-pointer"
+                className="px-5 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-800 text-xs font-bold cursor-pointer"
               >
                 Close Profile
               </button>
@@ -323,6 +384,29 @@ export default function FighterDetailModal({ fighter, canEdit = false }) {
             </div>
 
           </div>
+        </div>
+      )}
+
+      {lightboxImage && (
+        <div 
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
+          style={{ backgroundColor: 'rgba(0, 0, 0, 0.9)' }}
+          onClick={() => setLightboxImage(null)}
+        >
+          <div className="relative max-w-4xl max-h-[85vh] w-full h-full flex items-center justify-center">
+            <img 
+              src={lightboxImage} 
+              alt="Preview" 
+              className="max-w-full max-h-full object-contain rounded-2xl shadow-2xl animate-in zoom-in-95 duration-200"
+            />
+          </div>
+          <button
+            onClick={() => setLightboxImage(null)}
+            className="absolute top-4 right-4 p-3 rounded-full bg-zinc-900/90 hover:bg-zinc-800 text-white transition-all cursor-pointer z-[10000] border border-zinc-800 shadow-md flex items-center justify-center"
+            title="Close image viewer"
+          >
+            <X className="w-6 h-6" />
+          </button>
         </div>
       )}
     </>

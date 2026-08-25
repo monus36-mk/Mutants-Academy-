@@ -94,7 +94,7 @@ export default async function FighterProfilePage() {
             </Link>
 
             <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-2xl bg-slate-105 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-855">
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-2xl bg-slate-100 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800">
                 <span className="text-[10px] font-black text-slate-500 dark:text-zinc-400 uppercase tracking-widest">
                   Athlete Profile
                 </span>
@@ -137,7 +137,7 @@ export default async function FighterProfilePage() {
             <span className={`inline-flex px-4 py-2 rounded-full text-xs font-black uppercase tracking-widest shadow-md ${statusConfig.badge}`}>
               {fighter.status}
             </span>
-            <span className="text-[10px] text-slate-400 dark:text-zinc-550 font-bold uppercase tracking-wider">
+            <span className="text-[10px] text-slate-400 dark:text-zinc-500 font-bold uppercase tracking-wider">
               VALID UNTIL: {formatDate(fighter.nextPaymentDate)}
             </span>
           </div>
@@ -150,7 +150,7 @@ export default async function FighterProfilePage() {
             <h3 className="font-extrabold text-sm uppercase tracking-wider text-slate-800 dark:text-zinc-200">
               Subscription Status Advisory
             </h3>
-            <p className="text-xs font-medium text-slate-655 dark:text-zinc-400 mt-0.5 leading-relaxed">
+            <p className="text-xs font-medium text-slate-600 dark:text-zinc-400 mt-0.5 leading-relaxed">
               {statusConfig.text}
             </p>
           </div>
@@ -162,34 +162,34 @@ export default async function FighterProfilePage() {
           {/* Card 1: Subscription Info */}
           <div className="bg-white dark:bg-zinc-900/50 border border-slate-200 dark:border-zinc-800 rounded-3xl p-6 md:p-8 shadow-sm flex flex-col justify-between transition-colors">
             <div>
-              <h2 className="text-base font-black text-slate-800 dark:text-zinc-150 uppercase tracking-wider mb-6 flex items-center gap-2">
+              <h2 className="text-base font-black text-slate-800 dark:text-zinc-100 uppercase tracking-wider mb-6 flex items-center gap-2">
                 <Clock className="w-5 h-5 text-red-500" /> Subscription Details
               </h2>
               
               <div className="space-y-4">
-                <div className="flex justify-between py-2.5 border-b border-slate-105 dark:border-zinc-800/80">
-                  <span className="text-xs font-bold text-slate-450 dark:text-zinc-500 uppercase tracking-wide">Membership Package</span>
+                <div className="flex justify-between py-2.5 border-b border-slate-100 dark:border-zinc-800/80">
+                  <span className="text-xs font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wide">Membership Package</span>
                   <span className="text-sm font-extrabold text-slate-700 dark:text-zinc-200 uppercase">
                     {fighter.packageDurationMonths} Month{fighter.packageDurationMonths > 1 ? 's' : ''} Cycle
                   </span>
                 </div>
                 
-                <div className="flex justify-between py-2.5 border-b border-slate-105 dark:border-zinc-800/80">
-                  <span className="text-xs font-bold text-slate-455 dark:text-zinc-500 uppercase tracking-wide">Current Cycle Started</span>
+                <div className="flex justify-between py-2.5 border-b border-slate-100 dark:border-zinc-800/80">
+                  <span className="text-xs font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wide">Current Cycle Started</span>
                   <span className="text-sm font-bold text-slate-700 dark:text-zinc-200 font-mono">
                     {formatDate(fighter.entryDate)}
                   </span>
                 </div>
 
-                <div className="flex justify-between py-2.5 border-b border-slate-105 dark:border-zinc-800/80">
-                  <span className="text-xs font-bold text-slate-455 dark:text-zinc-500 uppercase tracking-wide">Next Expiry Renewal Date</span>
+                <div className="flex justify-between py-2.5 border-b border-slate-100 dark:border-zinc-800/80">
+                  <span className="text-xs font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wide">Next Expiry Renewal Date</span>
                   <span className="text-sm font-extrabold text-red-500 dark:text-red-400 font-mono">
                     {formatDate(fighter.nextPaymentDate)}
                   </span>
                 </div>
 
                 <div className="flex justify-between py-2.5">
-                  <span className="text-xs font-bold text-slate-455 dark:text-zinc-500 uppercase tracking-wide">Original Joined Date</span>
+                  <span className="text-xs font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wide">Original Joined Date</span>
                   <span className="text-sm font-bold text-slate-700 dark:text-zinc-200 font-mono">
                     {formatDate(fighter.joiningDate)}
                   </span>
@@ -197,7 +197,7 @@ export default async function FighterProfilePage() {
               </div>
             </div>
             
-            <div className="bg-slate-50 dark:bg-zinc-950/40 border border-slate-100 dark:border-zinc-850 p-4 rounded-2xl text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-550 leading-relaxed mt-6">
+            <div className="bg-slate-50 dark:bg-zinc-950/40 border border-slate-100 dark:border-zinc-800 p-4 rounded-2xl text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500 leading-relaxed mt-6">
               ⚠️ Note: All packages automatically freeze upon expiration. Please coordinate payment updates directly with your coach.
             </div>
           </div>

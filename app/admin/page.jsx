@@ -1,11 +1,14 @@
 import { getCurrentUser } from '@/app/actions/authActions';
 import { getCoaches } from '@/app/actions/coachActions';
 import { getFighters } from '@/app/actions/fighterActions';
+import dbConnect from '@/lib/db';
+import User from '@/models/User';
 import SearchFilters from '@/components/SearchFilters';
 import RenewalModal from '@/components/RenewalModal';
 import DeleteButton from '@/components/DeleteButton';
 import FighterDetailModal from '@/components/FighterDetailModal';
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
 import { Dumbbell, Users, Clock, AlertCircle, Plus, Phone, UserCheck, ShieldAlert, Edit3, Mail } from 'lucide-react';
 
 export default async function AdminDashboard({ searchParams }) {
@@ -18,8 +21,24 @@ export default async function AdminDashboard({ searchParams }) {
   const experienceLevel = params.experienceLevel || '';
   const ageFilter = params.ageFilter || '';
   const tenureFilter = params.tenureFilter || '';
+  const eca = params.eca || '';
+  const sortBy = params.sortBy || 'SeniorFirst';
 
-  const user = await getCurrentUser();
+   const userPayload = await getCurrentUser();
+  if (!userPayload) {
+    return redirect('/login');
+  }
+
+  await dbConnect();
+  const dbUser = await User.findById(userPayload.id).lean();
+  const user = dbUser ? {
+    id: dbUser._id.toString(),
+    name: dbUser.name,
+    email: dbUser.email,
+    role: dbUser.role,
+    category: dbUser.category
+  } : userPayload;
+
   const isAdmin = user?.role === 'MainAdmin';
 
   // Fetch coach list for filtering (if admin or coach)
@@ -31,7 +50,6 @@ export default async function AdminDashboard({ searchParams }) {
     }
   }
 
-  // Fetch filtered list
   const fightersRes = await getFighters({ 
     search, 
     status, 
@@ -39,24 +57,40 @@ export default async function AdminDashboard({ searchParams }) {
     style,
     experienceLevel,
     ageFilter,
-    tenureFilter
+    tenureFilter,
+    eca,
+    sortBy
   });
   const fighters = fightersRes.success ? fightersRes.fighters : [];
 
-  // Fetch unfiltered list for overall gym stats
-  const allFightersRes = await getFighters({});
-  const allFighters = allFightersRes.success ? allFightersRes.fighters : [];
+  // Fetch list of fighters matching current filters except status, to compute stats metrics
+  const statsFightersRes = await getFighters({
+    search,
+    assignedCoach,
+    style,
+    experienceLevel,
+    ageFilter,
+    tenureFilter,
+    eca
+  });
+  const statsFighters = statsFightersRes.success ? statsFightersRes.fighters : [];
 
-  // Compute metrics
-  const totalCount = allFighters.length;
-  const activeCount = allFighters.filter(f => f.status === 'Active').length;
-  const dueCount = allFighters.filter(f => f.status === 'Due Soon').length;
-  const expiredCount = allFighters.filter(f => f.status === 'Expired').length;
+  // Compute metrics dynamically based on search/filters
+  const totalCount = statsFighters.length;
+  const activeCount = statsFighters.filter(f => f.status === 'Active').length;
+  const dueCount = statsFighters.filter(f => f.status === 'Due Soon').length;
+  const expiredCount = statsFighters.filter(f => f.status === 'Expired').length;
 
   const buildStatusLink = (newStatus) => {
     const query = new URLSearchParams();
     if (search) query.set('search', search);
     if (assignedCoach) query.set('assignedCoach', assignedCoach);
+    if (style) query.set('style', style);
+    if (experienceLevel) query.set('experienceLevel', experienceLevel);
+    if (ageFilter) query.set('ageFilter', ageFilter);
+    if (tenureFilter) query.set('tenureFilter', tenureFilter);
+    if (eca) query.set('eca', eca);
+    if (sortBy) query.set('sortBy', sortBy);
     if (newStatus) query.set('status', newStatus);
     return `/admin?${query.toString()}`;
   };
@@ -117,7 +151,7 @@ export default async function AdminDashboard({ searchParams }) {
           href={buildStatusLink('')}
           className={`bg-white dark:bg-zinc-900/50 border rounded-3xl p-5 md:p-6 shadow-sm flex items-center gap-4 transition-all duration-200 hover:scale-[1.02] hover:shadow-md cursor-pointer ${status === ''
               ? 'border-red-500/50 ring-2 ring-red-500/10'
-              : 'border-slate-200 dark:border-zinc-800 hover:border-slate-350 dark:hover:border-zinc-700'
+              : 'border-slate-200 dark:border-zinc-800 hover:border-slate-300 dark:hover:border-zinc-700'
             }`}
         >
           <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-zinc-800 flex items-center justify-center text-slate-600 dark:text-zinc-300 shrink-0">
@@ -199,7 +233,7 @@ export default async function AdminDashboard({ searchParams }) {
       </div>
 
       {/* Filters */}
-      <SearchFilters coaches={coaches} isAdmin={isAdmin} />
+      <SearchFilters coaches={coaches} isAdmin={isAdmin} currentUser={user} />
 
       {/* Expiry Radar Table */}
       <div className="bg-white dark:bg-zinc-900/50 border border-slate-200 dark:border-zinc-800 rounded-3xl shadow-sm overflow-hidden transition-colors duration-200">
@@ -326,7 +360,7 @@ export default async function AdminDashboard({ searchParams }) {
                           <>
                             <Link
                               href={`/admin/edit-fighter/${fighter._id}`}
-                              className="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-300 transition-all cursor-pointer flex items-center gap-1 border border-slate-200 dark:border-zinc-750"
+                              className="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-300 transition-all cursor-pointer flex items-center gap-1 border border-slate-200 dark:border-zinc-700"
                               title="Edit Fighter"
                             >
                               <Edit3 className="w-3.5 h-3.5 text-red-500" /> Edit
@@ -335,7 +369,7 @@ export default async function AdminDashboard({ searchParams }) {
                             <DeleteButton fighterId={fighter._id} />
                           </>
                         ) : (
-                          <span className="text-xs text-slate-400 dark:text-zinc-650 font-bold italic tracking-wide select-none px-2 py-1 bg-slate-100/50 dark:bg-zinc-900/30 rounded-lg border border-slate-200/50 dark:border-zinc-800/40">View Only</span>
+                          <span className="text-xs text-slate-400 dark:text-zinc-600 font-bold italic tracking-wide select-none px-2 py-1 bg-slate-100/50 dark:bg-zinc-900/30 rounded-lg border border-slate-200/50 dark:border-zinc-800/40">View Only</span>
                         )}
                       </div>
                     </td>

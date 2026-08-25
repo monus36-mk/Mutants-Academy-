@@ -25,12 +25,13 @@ export async function login(prevState, formData) {
       return { error: 'Please enter all fields' };
     }
 
-    const emailLower = email.toLowerCase();
+    const escapedEmail = email.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+    const emailRegex = new RegExp(`^${escapedEmail}$`, 'i');
     
     // Query both collections in parallel to optimize lookup latency
     const [userAccount, fighterAccount] = await Promise.all([
-      User.findOne({ email: emailLower }).lean(),
-      Fighter.findOne({ email: emailLower }).lean()
+      User.findOne({ email: emailRegex }).lean(),
+      Fighter.findOne({ email: emailRegex }).lean()
     ]);
 
     let account = userAccount || fighterAccount;
@@ -109,12 +110,13 @@ export async function sendResetOtp(prevState, formData) {
       return { error: 'Please enter your email address' };
     }
 
-    const emailLower = email.toLowerCase();
+    const escapedEmail = email.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+    const emailRegex = new RegExp(`^${escapedEmail}$`, 'i');
 
     // Query User and Fighter models
     const [userAccount, fighterAccount] = await Promise.all([
-      User.findOne({ email: emailLower }),
-      Fighter.findOne({ email: emailLower })
+      User.findOne({ email: emailRegex }),
+      Fighter.findOne({ email: emailRegex })
     ]);
 
     const account = userAccount || fighterAccount;
@@ -161,12 +163,13 @@ export async function verifyOtpAndResetPassword(prevState, formData) {
       return { error: 'Password must be at least 6 characters long' };
     }
 
-    const emailLower = email.toLowerCase();
+    const escapedEmail = email.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+    const emailRegex = new RegExp(`^${escapedEmail}$`, 'i');
 
     // Query User and Fighter models
     const [userAccount, fighterAccount] = await Promise.all([
-      User.findOne({ email: emailLower }),
-      Fighter.findOne({ email: emailLower })
+      User.findOne({ email: emailRegex }),
+      Fighter.findOne({ email: emailRegex })
     ]);
 
     const account = userAccount || fighterAccount;
