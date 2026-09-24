@@ -7,6 +7,7 @@ import SearchFilters from '@/components/SearchFilters';
 import RenewalModal from '@/components/RenewalModal';
 import DeleteButton from '@/components/DeleteButton';
 import FighterDetailModal from '@/components/FighterDetailModal';
+import RosterExportActions from '@/components/RosterExportActions';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { Dumbbell, Users, Clock, AlertCircle, Plus, Phone, UserCheck, ShieldAlert, Edit3, Mail } from 'lucide-react';
@@ -21,7 +22,7 @@ export default async function AdminDashboard({ searchParams }) {
   const experienceLevel = params.experienceLevel || '';
   const ageFilter = params.ageFilter || '';
   const tenureFilter = params.tenureFilter || '';
-  const eca = params.eca || '';
+  const eca = params.eca !== undefined ? params.eca : 'None';
   const sortBy = params.sortBy || 'SeniorFirst';
 
    const userPayload = await getCurrentUser();
@@ -237,17 +238,22 @@ export default async function AdminDashboard({ searchParams }) {
 
       {/* Expiry Radar Table */}
       <div className="bg-white dark:bg-zinc-900/50 border border-slate-200 dark:border-zinc-800 rounded-3xl shadow-sm overflow-hidden transition-colors duration-200">
-        <div className="px-6 py-5 border-b border-slate-100 dark:border-zinc-800 flex items-center justify-between">
-          <h2 className="text-lg font-bold text-slate-800 dark:text-zinc-100">
-            Fighters Roster ({fighters.length})
-          </h2>
-          <span className="text-xs text-slate-400 dark:text-zinc-500 font-semibold font-mono uppercase">
-            TODAY: {new Date().toLocaleDateString('en-US', {
-              month: 'long',
-              day: 'numeric',
-              year: 'numeric'
-            })}
-          </span>
+        <div className="px-6 py-5 border-b border-slate-100 dark:border-zinc-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <h2 className="text-lg font-bold text-slate-800 dark:text-zinc-100">
+              Fighters Roster ({fighters.length})
+            </h2>
+            <span className="hidden sm:inline-block text-xs text-slate-400 dark:text-zinc-500 font-semibold font-mono uppercase">
+              • TODAY: {new Date().toLocaleDateString('en-US', {
+                month: 'long',
+                day: 'numeric',
+                year: 'numeric'
+              })}
+            </span>
+          </div>
+
+          {/* Export & WhatsApp Share Actions */}
+          <RosterExportActions fighters={fighters} />
         </div>
 
         {fighters.length === 0 ? (
@@ -267,17 +273,17 @@ export default async function AdminDashboard({ searchParams }) {
             </Link>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+          <div className="overflow-x-auto w-full">
+            <table className="w-full text-left border-collapse min-w-[850px] xl:min-w-full">
               <thead>
                 <tr className="bg-slate-50 dark:bg-zinc-900/80 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400 border-b border-slate-100 dark:border-zinc-800/80">
-                  <th className="px-6 py-4">Fighter Info</th>
-                  <th className="hidden sm:table-cell px-6 py-4">Weight Class</th>
-                  <th className="hidden sm:table-cell px-6 py-4">Exp Level</th>
-                  <th className="px-6 py-4">Assigned Coach</th>
-                  <th className="px-6 py-4">Next Payment</th>
-                  <th className="px-6 py-4">Status</th>
-                  <th className="px-6 py-4 text-right">Actions</th>
+                  <th className="px-6 py-4 min-w-[220px]">Fighter Info</th>
+                  <th className="hidden sm:table-cell px-5 py-4 whitespace-nowrap">Weight Class</th>
+                  <th className="hidden sm:table-cell px-5 py-4 whitespace-nowrap">Exp Level</th>
+                  <th className="px-5 py-4 whitespace-nowrap">Assigned Coach</th>
+                  <th className="px-5 py-4 whitespace-nowrap">Next Payment</th>
+                  <th className="px-5 py-4 whitespace-nowrap">Status</th>
+                  <th className="px-6 py-4 text-right whitespace-nowrap min-w-[200px]">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-zinc-800">
@@ -293,88 +299,88 @@ export default async function AdminDashboard({ searchParams }) {
                         <FighterDetailModal fighter={fighter} canEdit={canEdit} />
                       </td>
 
-                    {/* Weight Class */}
-                    <td className="hidden sm:table-cell px-6 py-4.5 text-sm font-semibold text-slate-700 dark:text-zinc-300">
-                      {fighter.weightClass}
-                    </td>
+                      {/* Weight Class */}
+                      <td className="hidden sm:table-cell px-5 py-4.5 text-sm font-semibold text-slate-700 dark:text-zinc-300 whitespace-nowrap">
+                        {fighter.weightClass} kg
+                      </td>
 
-                    {/* Experience Level */}
-                    <td className="hidden sm:table-cell px-6 py-4.5">
-                      <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-bold ${fighter.experienceLevel === 'Pro'
-                          ? 'bg-purple-100 text-purple-700 dark:bg-purple-950/20 dark:text-purple-400 border border-purple-200 dark:border-purple-900/30'
-                          : fighter.experienceLevel === 'Intermediate'
-                            ? 'bg-blue-100 text-blue-700 dark:bg-blue-950/20 dark:text-blue-400 border border-blue-200 dark:border-blue-900/30'
-                            : 'bg-slate-100 text-slate-700 dark:bg-zinc-800 dark:text-zinc-400 border border-slate-200 dark:border-zinc-700/50'
-                        }`}>
-                        {fighter.experienceLevel}
-                      </span>
-                    </td>
-
-                    {/* Assigned Coach */}
-                    <td className="px-6 py-4.5 text-sm font-semibold text-slate-700 dark:text-zinc-300">
-                      {fighter.assignedCoach ? fighter.assignedCoach.name : <span className="text-red-500 font-bold">Unassigned</span>}
-                    </td>
-
-                    {/* Next Payment Date */}
-                    <td className="px-6 py-4.5">
-                      <div>
-                        <span className="block text-sm font-bold text-slate-700 dark:text-zinc-300 font-mono">
-                          {new Date(fighter.nextPaymentDate).toLocaleDateString('en-US', {
-                            year: 'numeric',
-                            month: 'short',
-                            day: 'numeric'
-                          })}
-                        </span>
-                        <span className="block text-[10px] text-slate-400 dark:text-zinc-500 font-medium uppercase mt-0.5">
-                          Package: {fighter.packageDurationMonths} Month{fighter.packageDurationMonths > 1 ? 's' : ''}
-                        </span>
-                      </div>
-                    </td>
-
-                    {/* Status Badge */}
-                    <td className="px-6 py-4.5">
-                      <div className="flex flex-col items-start gap-1">
-                        <span className={`inline-flex px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider ${fighter.status === 'Expired'
-                            ? 'bg-red-500/15 text-red-600 dark:text-red-400 border border-red-500/20'
-                            : fighter.status === 'Due Soon'
-                              ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/20'
-                              : 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                      {/* Experience Level */}
+                      <td className="hidden sm:table-cell px-5 py-4.5 whitespace-nowrap">
+                        <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-bold ${fighter.experienceLevel === 'Pro'
+                            ? 'bg-purple-100 text-purple-700 dark:bg-purple-950/20 dark:text-purple-400 border border-purple-200 dark:border-purple-900/30'
+                            : fighter.experienceLevel === 'Intermediate'
+                              ? 'bg-blue-100 text-blue-700 dark:bg-blue-950/20 dark:text-blue-400 border border-blue-200 dark:border-blue-900/30'
+                              : 'bg-slate-100 text-slate-700 dark:bg-zinc-800 dark:text-zinc-400 border border-slate-200 dark:border-zinc-700/50'
                           }`}>
-                          {fighter.status}
+                          {fighter.experienceLevel}
                         </span>
-                        {fighter.status === 'Expired' && (
-                          <span className="text-[10px] text-red-500 dark:text-red-400 font-bold uppercase ml-1 mt-0.5">
-                            {(() => {
-                              const days = getExpiredDays(fighter.nextPaymentDate);
-                              return days <= 0 ? 'Expires today' : `Expired ${days} day${days > 1 ? 's' : ''} ago`;
-                            })()}
-                          </span>
-                        )}
-                      </div>
-                    </td>
+                      </td>
 
-                    {/* Action Buttons */}
-                    <td className="px-6 py-4.5">
-                      <div className="flex items-center justify-end gap-2">
-                        {canEdit ? (
-                          <>
-                            <Link
-                              href={`/admin/edit-fighter/${fighter._id}`}
-                              className="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-300 transition-all cursor-pointer flex items-center gap-1 border border-slate-200 dark:border-zinc-700"
-                              title="Edit Fighter"
-                            >
-                              <Edit3 className="w-3.5 h-3.5 text-red-500" /> Edit
-                            </Link>
-                            <RenewalModal fighter={fighter} />
-                            <DeleteButton fighterId={fighter._id} />
-                          </>
-                        ) : (
-                          <span className="text-xs text-slate-400 dark:text-zinc-600 font-bold italic tracking-wide select-none px-2 py-1 bg-slate-100/50 dark:bg-zinc-900/30 rounded-lg border border-slate-200/50 dark:border-zinc-800/40">View Only</span>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                )})}
+                      {/* Assigned Coach */}
+                      <td className="px-5 py-4.5 text-sm font-semibold text-slate-700 dark:text-zinc-300 whitespace-nowrap">
+                        {fighter.assignedCoach ? fighter.assignedCoach.name : <span className="text-red-500 font-bold">Unassigned</span>}
+                      </td>
+
+                      {/* Next Payment Date */}
+                      <td className="px-5 py-4.5 whitespace-nowrap">
+                        <div>
+                          <span className="block text-sm font-bold text-slate-700 dark:text-zinc-300 font-mono">
+                            {new Date(fighter.nextPaymentDate).toLocaleDateString('en-US', {
+                              year: 'numeric',
+                              month: 'short',
+                              day: 'numeric'
+                            })}
+                          </span>
+                          <span className="block text-[10px] text-slate-400 dark:text-zinc-500 font-medium uppercase mt-0.5">
+                            Package: {fighter.packageDurationMonths} Month{fighter.packageDurationMonths > 1 ? 's' : ''}
+                          </span>
+                        </div>
+                      </td>
+
+                      {/* Status Badge */}
+                      <td className="px-5 py-4.5 whitespace-nowrap">
+                        <div className="flex flex-col items-start gap-1">
+                          <span className={`inline-flex px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider ${fighter.status === 'Expired'
+                              ? 'bg-red-500/15 text-red-600 dark:text-red-400 border border-red-500/20'
+                              : fighter.status === 'Due Soon'
+                                ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/20'
+                                : 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                            }`}>
+                            {fighter.status}
+                          </span>
+                          {fighter.status === 'Expired' && (
+                            <span className="text-[10px] text-red-500 dark:text-red-400 font-bold uppercase ml-1 mt-0.5">
+                              {(() => {
+                                const days = getExpiredDays(fighter.nextPaymentDate);
+                                return days <= 0 ? 'Expires today' : `Expired ${days} day${days > 1 ? 's' : ''} ago`;
+                              })()}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+
+                      {/* Action Buttons */}
+                      <td className="px-6 py-4.5 whitespace-nowrap text-right">
+                        <div className="flex items-center justify-end gap-2 shrink-0">
+                          {canEdit ? (
+                            <>
+                              <Link
+                                href={`/admin/edit-fighter/${fighter._id}`}
+                                className="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-300 transition-all cursor-pointer flex items-center gap-1 border border-slate-200 dark:border-zinc-700"
+                                title="Edit Fighter"
+                              >
+                                <Edit3 className="w-3.5 h-3.5 text-red-500" /> Edit
+                              </Link>
+                              <RenewalModal fighter={fighter} />
+                              <DeleteButton fighterId={fighter._id} />
+                            </>
+                          ) : (
+                            <span className="text-xs text-slate-400 dark:text-zinc-600 font-bold italic tracking-wide select-none px-2 py-1 bg-slate-100/50 dark:bg-zinc-900/30 rounded-lg border border-slate-200/50 dark:border-zinc-800/40">View Only</span>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  )})}
               </tbody>
             </table>
           </div>

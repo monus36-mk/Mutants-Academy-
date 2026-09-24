@@ -31,15 +31,15 @@ export default async function ManageCoachesPage() {
       </div>
 
       {/* Main Layout Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 xl:grid-cols-4 gap-8">
         
         {/* Onboarding Form */}
-        <div className="lg:col-span-1">
+        <div className="lg:col-span-1 xl:col-span-1">
           <OnboardCoachForm />
         </div>
 
         {/* Coach Table List */}
-        <div className="lg:col-span-2">
+        <div className="lg:col-span-2 xl:col-span-3">
           <div className="bg-white dark:bg-zinc-900/50 border border-slate-200 dark:border-zinc-800 rounded-3xl shadow-sm overflow-hidden transition-colors duration-200">
             
             <div className="px-6 py-5 border-b border-slate-100 dark:border-zinc-800">
@@ -59,15 +59,15 @@ export default async function ManageCoachesPage() {
                 </p>
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
+              <div className="overflow-x-auto w-full">
+                <table className="w-full text-left border-collapse min-w-[650px] xl:min-w-full">
                   <thead>
                     <tr className="bg-slate-50 dark:bg-zinc-900/80 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400 border-b border-slate-100 dark:border-zinc-800/80">
-                      <th className="px-6 py-4">Coach Info</th>
-                      <th className="px-6 py-4">Discipline</th>
-                      <th className="px-6 py-4">System Role</th>
-                      <th className="px-6 py-4">Onboarding Date</th>
-                      <th className="px-6 py-4 text-right">Actions</th>
+                      <th className="px-6 py-4 min-w-[200px]">Coach Info</th>
+                      <th className="px-6 py-4 whitespace-nowrap">Discipline</th>
+                      <th className="px-6 py-4 whitespace-nowrap">System Role</th>
+                      <th className="px-6 py-4 whitespace-nowrap">Onboarding Date</th>
+                      <th className="px-6 py-4 text-right whitespace-nowrap">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-zinc-800">
@@ -89,7 +89,7 @@ export default async function ManageCoachesPage() {
                         </td>
 
                         {/* Discipline */}
-                        <td className="px-6 py-4 text-xs font-bold">
+                        <td className="px-6 py-4 text-xs font-bold whitespace-nowrap">
                           <span className={`inline-flex px-2 py-0.5 rounded-md text-[11px] font-bold border ${
                             coach.category === 'Silambam' 
                               ? 'bg-amber-105 text-amber-700 dark:bg-amber-950/20 dark:text-amber-400 border-amber-200 dark:border-amber-900/30' 
@@ -100,15 +100,15 @@ export default async function ManageCoachesPage() {
                         </td>
 
                         {/* System Role */}
-                        <td className="px-6 py-4 text-xs font-bold">
+                        <td className="px-6 py-4 text-xs font-bold whitespace-nowrap">
                           <span className="inline-flex px-2 py-0.5 rounded-md bg-red-500/10 text-red-500 border border-red-500/10 uppercase tracking-wide">
                             {coach.role === 'MainAdmin' ? 'Main Admin' : 'Coach / Sub-Admin'}
                           </span>
                         </td>
 
                         {/* Onboarding Date */}
-                        <td className="px-6 py-4 text-xs text-slate-500 dark:text-zinc-400 font-mono">
-                          <div className="flex items-center gap-1.5 mt-2">
+                        <td className="px-6 py-4 text-xs text-slate-500 dark:text-zinc-400 font-mono whitespace-nowrap">
+                          <div className="flex items-center gap-1.5 mt-1">
                             <Calendar className="w-3.5 h-3.5" />
                             {coach.createdAt 
                               ? new Date(coach.createdAt).toLocaleDateString('en-US', {
@@ -121,8 +121,8 @@ export default async function ManageCoachesPage() {
                         </td>
 
                         {/* Actions */}
-                        <td className="px-6 py-4 text-right">
-                          <div className="flex justify-end items-center">
+                        <td className="px-6 py-4 text-right whitespace-nowrap">
+                          <div className="flex justify-end items-center gap-1 shrink-0">
                             <EditCoachModal coach={coach} />
                             <DeleteCoachButton coachId={coach._id} coachName={coach.name} />
                           </div>

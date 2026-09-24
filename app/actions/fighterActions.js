@@ -102,7 +102,7 @@ export async function getFighters(filters = {}) {
     }
 
     // Filter by ECA (eca)
-    if (filters.eca) {
+    if (filters.eca && filters.eca !== 'All') {
       serializedFighters = serializedFighters.filter(f => (f.eca || 'None') === filters.eca);
     }
 

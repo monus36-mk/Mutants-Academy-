@@ -351,10 +351,10 @@ export default function EventsManager({ initialEvents, user }) {
   const activeSelectedEvent = selectedEvent ? initialEvents.find(e => e._id === selectedEvent._id) : null;
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 md:gap-10 animate-in fade-in duration-300">
+    <div className="grid grid-cols-1 lg:grid-cols-3 xl:grid-cols-4 gap-8 md:gap-10 animate-in fade-in duration-300">
       
       {/* Column 1: Post Event Form */}
-      <div className="lg:col-span-1 bg-white dark:bg-zinc-900/50 border border-slate-200 dark:border-zinc-800 rounded-3xl p-6 md:p-8 shadow-xl h-fit">
+      <div className="lg:col-span-1 xl:col-span-1 bg-white dark:bg-zinc-900/50 border border-slate-200 dark:border-zinc-800 rounded-3xl p-6 md:p-8 shadow-xl h-fit">
         <div className="flex items-center gap-3 border-b border-slate-100 dark:border-zinc-800 pb-5 mb-6">
           <div className="p-3 rounded-2xl bg-red-500/10 text-red-600">
             <Megaphone className="w-6 h-6" />
@@ -603,7 +603,7 @@ export default function EventsManager({ initialEvents, user }) {
       </div>
 
       {/* Column 2: Events List */}
-      <div className="lg:col-span-2 space-y-6">
+      <div className="lg:col-span-2 xl:col-span-3 space-y-6">
         <div className="bg-white dark:bg-zinc-900/50 border border-slate-200 dark:border-zinc-800 rounded-3xl p-6 shadow-sm">
           <div className="flex items-center justify-between border-b border-slate-100 dark:border-zinc-800 pb-4 mb-5">
             <h2 className="text-lg font-bold text-slate-800 dark:text-zinc-100 uppercase tracking-tight flex items-center gap-2">

@@ -21,8 +21,8 @@ export default function LoginPage() {
       <div className="w-full max-w-md">
         {/* Gym Branding */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-red-600 text-white shadow-lg shadow-red-600/30 mb-4 transform hover:scale-105 transition-transform duration-200">
-            <Dumbbell className="w-8 h-8" />
+          <div className="inline-flex items-center justify-center w-28 h-24 mb-3 transform hover:scale-105 transition-transform duration-200">
+            <img src="/logo.png" alt="Mutants Academy" className="w-full h-full object-contain drop-shadow-xl" />
           </div>
           <h1 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-red-600 to-amber-500 bg-clip-text text-transparent uppercase">
             Mutants Academy

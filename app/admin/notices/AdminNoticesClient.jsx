@@ -135,7 +135,7 @@ export default function AdminNoticesClient({ initialEvents, user }) {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 lg:gap-8">
           {initialEvents.map((event) => (
             <div
               key={event._id}
@@ -143,7 +143,7 @@ export default function AdminNoticesClient({ initialEvents, user }) {
                 setSelectedEvent(event);
                 setActiveModalTab('comments');
               }}
-              className="bg-white dark:bg-zinc-900/50 border border-slate-200 dark:border-zinc-800 hover:border-slate-300 dark:hover:border-zinc-700 rounded-3xl p-6 md:p-8 flex flex-col justify-between shadow-sm hover:shadow-md transition-all cursor-pointer group max-w-2xl w-full"
+              className="bg-white dark:bg-zinc-900/50 border border-slate-200 dark:border-zinc-800 hover:border-slate-300 dark:hover:border-zinc-700 rounded-3xl p-6 md:p-8 flex flex-col justify-between shadow-sm hover:shadow-md transition-all cursor-pointer group w-full"
             >
               <div className="space-y-4">
                 {/* Event Photo/Image if uploaded */}

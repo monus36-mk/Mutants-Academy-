@@ -37,13 +37,13 @@ export default function AdminHeader({ user }) {
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-slate-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-md transition-colors duration-200">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="w-full max-w-7xl xl:max-w-[1440px] 2xl:max-w-[1720px] 3xl:max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12">
         <div className="flex h-16 items-center justify-between">
           {/* Logo & Brand */}
           <div className="flex items-center gap-8">
-            <Link href="/admin" className="flex items-center gap-2.5 group">
-              <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-red-600 text-white shadow-md shadow-red-600/20 group-hover:scale-105 transition-transform">
-                <Dumbbell className="w-5 h-5" />
+            <Link href="/admin" className="flex items-center gap-3 group">
+              <div className="w-10 h-10 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                <img src="/logo.png" alt="Mutants Academy" className="w-full h-full object-contain drop-shadow-md" />
               </div>
               <span className="font-black tracking-tight text-xl text-slate-900 dark:text-white uppercase">
                 Mutants <span className="text-red-600">Academy</span>

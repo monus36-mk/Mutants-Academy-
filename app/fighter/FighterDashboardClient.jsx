@@ -363,12 +363,12 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
       
       {/* Header */}
       <header className="sticky top-0 z-40 w-full border-b border-slate-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-md transition-colors duration-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="w-full max-w-7xl xl:max-w-[1440px] 2xl:max-w-[1720px] 3xl:max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12">
           <div className="flex h-16 items-center justify-between flex-nowrap">
             {/* Logo */}
-            <div className="flex items-center gap-2 md:gap-2.5">
-              <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-red-600 text-white shadow-md shadow-red-600/20">
-                <Dumbbell className="w-5 h-5" />
+            <div className="flex items-center gap-2.5 md:gap-3">
+              <div className="w-10 h-10 flex items-center justify-center shrink-0">
+                <img src="/logo.png" alt="Mutants Academy" className="w-full h-full object-contain drop-shadow-md" />
               </div>
               <span className="font-black tracking-tight text-lg md:text-xl text-slate-900 dark:text-white uppercase">
                 Mutants <span className="text-red-600">Academy</span>
@@ -492,7 +492,7 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
       {/* Announcements Ticker Banner */}
       {tickerNotices.length > 0 && (
         <div className="w-full bg-red-600 text-white py-2 px-4 shadow-inner overflow-hidden border-b border-red-700 select-none">
-          <div className="max-w-7xl mx-auto flex items-center gap-3">
+          <div className="w-full max-w-7xl xl:max-w-[1440px] 2xl:max-w-[1720px] 3xl:max-w-[1920px] mx-auto flex items-center gap-3">
             <span className="inline-flex px-2 py-0.5 rounded bg-white text-red-600 text-[9px] font-black uppercase tracking-wider shrink-0 shadow-sm animate-pulse">
               ANNOUNCEMENT
             </span>
@@ -510,7 +510,7 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
       )}
 
       {/* Main Content */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 animate-in fade-in duration-300">
+      <main className="flex-1 w-full max-w-7xl xl:max-w-[1440px] 2xl:max-w-[1720px] 3xl:max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 py-6 md:py-8 space-y-8 animate-in fade-in duration-300">
         
         {/* Athlete Banner */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-gradient-to-r from-slate-900 to-zinc-900 dark:from-zinc-900 dark:to-black rounded-3xl p-6 md:p-8 text-white shadow-xl border border-slate-800 dark:border-zinc-800">
@@ -579,13 +579,13 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
                 </p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 lg:gap-8">
                 {upcomingEvents.map((event) => {
                   const isAttending = event.rsvps.includes(fighter._id);
                   return (
                      <div
                       key={event._id}
-                      className="bg-white dark:bg-zinc-900/50 border border-slate-200 dark:border-zinc-800 hover:border-slate-300 dark:hover:border-zinc-700 rounded-3xl p-6 md:p-8 flex flex-col justify-between shadow-sm hover:shadow-md transition-all group max-w-2xl w-full"
+                      className="bg-white dark:bg-zinc-900/50 border border-slate-200 dark:border-zinc-800 hover:border-slate-300 dark:hover:border-zinc-700 rounded-3xl p-6 md:p-8 flex flex-col justify-between shadow-sm hover:shadow-md transition-all group w-full"
                     >
                       <div 
                         className="space-y-4 cursor-pointer"
@@ -744,7 +744,7 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
                 </span>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 min-[1900px]:grid-cols-8 gap-3.5 sm:gap-4">
                 {/* Name search */}
                 <div>
                   <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400 mb-1.5">
@@ -888,7 +888,7 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
                 </p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 min-[1900px]:grid-cols-5 gap-6">
                 {filteredPeers.map((peer) => (
                   <div
                     key={peer._id}

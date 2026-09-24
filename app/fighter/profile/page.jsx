@@ -87,7 +87,7 @@ export default async function FighterProfilePage() {
       
       {/* Header */}
       <header className="sticky top-0 z-40 w-full border-b border-slate-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-md transition-colors duration-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="w-full max-w-7xl xl:max-w-[1440px] 2xl:max-w-[1720px] 3xl:max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12">
           <div className="flex h-16 items-center justify-between">
             <Link href="/fighter" className="flex items-center gap-2 text-xs font-bold text-slate-500 hover:text-red-500 transition-colors uppercase tracking-wider">
               <ArrowLeft className="w-4 h-4" /> Back to Dashboard
@@ -117,7 +117,7 @@ export default async function FighterProfilePage() {
       </header>
 
       {/* Main Profile View */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 animate-in fade-in duration-300">
+      <main className="flex-1 w-full max-w-7xl xl:max-w-[1440px] 2xl:max-w-[1720px] 3xl:max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 py-6 md:py-8 space-y-8 animate-in fade-in duration-300">
         
         {/* Profile Welcome Banner */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-gradient-to-r from-slate-900 to-zinc-900 dark:from-zinc-900 dark:to-black rounded-3xl p-6 md:p-8 text-white shadow-xl border border-slate-800 dark:border-zinc-800">
