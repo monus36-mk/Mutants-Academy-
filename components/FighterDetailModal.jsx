@@ -163,6 +163,41 @@ export default function FighterDetailModal({ fighter, canEdit = false }) {
             })}
             {fighter.dob && ` • Age: ${calculateAge(fighter.dob)}`}
           </span>
+
+          {/* Mobile-Only Subscription Status & Expiry Indicator */}
+          <div className="flex sm:hidden flex-wrap items-center gap-1.5 mt-2 pt-1.5 border-t border-slate-100 dark:border-zinc-800">
+            <span
+              className={`inline-flex px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider ${
+                fighter.status === 'Expired'
+                  ? 'bg-red-500/15 text-red-600 dark:text-red-400 border border-red-500/30'
+                  : fighter.status === 'Due Soon'
+                  ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30'
+                  : 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30'
+              }`}
+            >
+              {fighter.status}
+            </span>
+            <span className="text-[10px] font-bold text-slate-500 dark:text-zinc-400">
+              {fighter.status === 'Expired' ? (
+                <span className="text-red-600 dark:text-red-400">
+                  {(() => {
+                    const days = getExpiredDays(fighter.nextPaymentDate);
+                    return days <= 0
+                      ? 'Expires today'
+                      : `Expired ${days}d ago (${new Date(fighter.nextPaymentDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })})`;
+                  })()}
+                </span>
+              ) : fighter.status === 'Due Soon' ? (
+                <span className="text-amber-600 dark:text-amber-400">
+                  Due {new Date(fighter.nextPaymentDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                </span>
+              ) : (
+                <span>
+                  Due: {new Date(fighter.nextPaymentDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                </span>
+              )}
+            </span>
+          </div>
         </div>
       </div>
 
