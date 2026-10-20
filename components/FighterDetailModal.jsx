@@ -1,9 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import { X, Calendar, Phone, Mail, Dumbbell, User, ShieldAlert, Award, Clock, ArrowRight, Edit, Copy, Check, Activity } from 'lucide-react';
+import { X, Calendar, Phone, Mail, Dumbbell, User, ShieldAlert, Award, Clock, ArrowRight, Edit, Copy, Check, Activity, KeyRound, CheckCircle2, AlertCircle, Send, UserX } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { formatWhatsAppNumber } from '@/lib/utils';
+import { resendFighterActivationEmail, getFighterActivationLink, toggleFighterInactive } from '@/app/actions/fighterActions';
 
 const WhatsAppIcon = ({ className }) => (
   <svg className={className} fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -16,6 +18,32 @@ export default function FighterDetailModal({ fighter, canEdit = false }) {
   const [copied, setCopied] = useState(false);
   const [copiedEmail, setCopiedEmail] = useState(false);
   const [lightboxImage, setLightboxImage] = useState(null);
+  const [isResending, setIsResending] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
+  const [actionMessage, setActionMessage] = useState(null);
+  const [isInactive, setIsInactive] = useState(Boolean(fighter.isInactive));
+  const [isTogglingInactive, setIsTogglingInactive] = useState(false);
+  const router = useRouter();
+
+  const handleToggleInactive = async (e) => {
+    e.stopPropagation();
+    setIsTogglingInactive(true);
+    setActionMessage(null);
+    try {
+      const res = await toggleFighterInactive(fighter._id);
+      if (res?.success) {
+        setIsInactive(res.isInactive);
+        setActionMessage({ type: 'success', text: res.message });
+        router.refresh();
+      } else {
+        setActionMessage({ type: 'error', text: res?.error || 'Failed to update inactive status' });
+      }
+    } catch (err) {
+      setActionMessage({ type: 'error', text: 'Error toggling inactive status' });
+    } finally {
+      setIsTogglingInactive(false);
+    }
+  };
 
   const handleCopyPhone = (e) => {
     e.stopPropagation();
@@ -29,6 +57,41 @@ export default function FighterDetailModal({ fighter, canEdit = false }) {
     navigator.clipboard.writeText(fighter.email);
     setCopiedEmail(true);
     setTimeout(() => setCopiedEmail(false), 2000);
+  };
+
+  const handleResendActivation = async (e) => {
+    e.stopPropagation();
+    setIsResending(true);
+    setActionMessage(null);
+    try {
+      const res = await resendFighterActivationEmail(fighter._id);
+      if (res?.success) {
+        setActionMessage({ type: 'success', text: res.message || 'Activation email sent successfully!' });
+      } else {
+        setActionMessage({ type: 'error', text: res?.error || 'Failed to send activation email' });
+      }
+    } catch (err) {
+      setActionMessage({ type: 'error', text: 'Error sending activation email' });
+    } finally {
+      setIsResending(false);
+    }
+  };
+
+  const handleCopyActivationLink = async (e) => {
+    e.stopPropagation();
+    setActionMessage(null);
+    try {
+      const res = await getFighterActivationLink(fighter._id);
+      if (res?.activationLink) {
+        await navigator.clipboard.writeText(res.activationLink);
+        setCopiedLink(true);
+        setTimeout(() => setCopiedLink(false), 2500);
+      } else {
+        setActionMessage({ type: 'error', text: res?.error || 'Could not generate link' });
+      }
+    } catch (err) {
+      console.error('Failed to copy link:', err);
+    }
   };
 
   const getExpiredDays = (nextPaymentDate) => {
@@ -118,6 +181,11 @@ export default function FighterDetailModal({ fighter, canEdit = false }) {
         <div className="flex-1 min-w-0">
           <span className="block font-bold text-slate-800 dark:text-zinc-100 text-sm md:text-base group-hover:text-red-500 transition-colors truncate">
             {fighter.name}
+            {isInactive && (
+              <span className="ml-2 inline-flex px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-purple-500/15 text-purple-600 dark:text-purple-400 border border-purple-500/30">
+                Inactive
+              </span>
+            )}
           </span>
           <span className="flex items-center gap-1 text-xs text-slate-400 dark:text-zinc-555 mt-1 font-mono">
             <a
@@ -238,15 +306,21 @@ export default function FighterDetailModal({ fighter, canEdit = false }) {
                     </span>
                     
                     {/* Status Badge */}
-                    <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${
-                      fighter.status === 'Expired'
-                        ? 'bg-red-500/15 text-red-600 dark:text-red-400 border border-red-500/20'
-                        : fighter.status === 'Due Soon'
-                        ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/20'
-                        : 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
-                    }`}>
-                      {fighter.status}
-                    </span>
+                    {isInactive ? (
+                      <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-purple-500/15 text-purple-600 dark:text-purple-400 border border-purple-500/30">
+                        Inactive Member
+                      </span>
+                    ) : (
+                      <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${
+                        fighter.status === 'Expired'
+                          ? 'bg-red-500/15 text-red-600 dark:text-red-400 border border-red-500/20'
+                          : fighter.status === 'Due Soon'
+                          ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/20'
+                          : 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                      }`}>
+                        {fighter.status}
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -398,24 +472,133 @@ export default function FighterDetailModal({ fighter, canEdit = false }) {
                 </div>
               </div>
 
+              {/* Portal Account Activation Status & Action Bar */}
+              <div className="border-t border-slate-100 dark:border-zinc-800/80 pt-5 mt-5">
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500 flex items-center gap-1.5">
+                    <KeyRound className="w-4 h-4 text-slate-400" /> Athlete Portal Access
+                  </h4>
+                  {fighter.isActivated ? (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                      <CheckCircle2 className="w-3 h-3" /> Account Activated
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30">
+                      <AlertCircle className="w-3 h-3" /> Activation Pending
+                    </span>
+                  )}
+                </div>
+
+                {!fighter.isActivated ? (
+                  <div className="bg-amber-50/80 dark:bg-amber-950/20 border border-amber-200/80 dark:border-amber-900/30 rounded-2xl p-4">
+                    <p className="text-xs text-amber-900 dark:text-amber-300 font-medium">
+                      This athlete has not set their password or activated their portal account yet.
+                    </p>
+                    <div className="flex flex-wrap items-center gap-2 mt-3">
+                      {fighter.email && (
+                        <button
+                          type="button"
+                          onClick={handleResendActivation}
+                          disabled={isResending}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white text-xs font-bold shadow-sm transition-all cursor-pointer"
+                        >
+                          {isResending ? (
+                            <>
+                              <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                              <span>Sending...</span>
+                            </>
+                          ) : (
+                            <>
+                              <Send className="w-3.5 h-3.5" />
+                              <span>Resend Activation Email</span>
+                            </>
+                          )}
+                        </button>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={handleCopyActivationLink}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-slate-700 dark:text-zinc-200 hover:bg-slate-50 dark:hover:bg-zinc-750 text-xs font-bold transition-all cursor-pointer"
+                      >
+                        {copiedLink ? (
+                          <>
+                            <Check className="w-3.5 h-3.5 text-emerald-500" />
+                            <span className="text-emerald-600 dark:text-emerald-400">Link Copied!</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-3.5 h-3.5" />
+                            <span>Copy Activation Link</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                    {actionMessage && (
+                      <div className={`mt-2.5 text-xs font-bold ${actionMessage.type === 'success' ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500'}`}>
+                        {actionMessage.text}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="bg-slate-50 dark:bg-zinc-950/40 border border-slate-100 dark:border-zinc-800 p-3 rounded-2xl flex items-center justify-between">
+                    <span className="text-xs text-slate-500 dark:text-zinc-400 font-medium">
+                      Account password configured. Athlete can log in at anytime.
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleCopyActivationLink}
+                      className="text-[11px] font-bold text-slate-400 hover:text-red-500 transition-colors inline-flex items-center gap-1 cursor-pointer"
+                      title="Copy setup link in case athlete needs to re-setup password"
+                    >
+                      <Copy className="w-3 h-3" /> {copiedLink ? 'Copied Link' : 'Copy Setup Link'}
+                    </button>
+                  </div>
+                )}
+              </div>
+
             </div>
 
             {/* Footer Actions */}
-            <div className="bg-slate-50 dark:bg-zinc-900/60 p-4 border-t border-slate-100 dark:border-zinc-800 flex items-center justify-end gap-3">
-              <button
-                onClick={() => setIsOpen(false)}
-                className="px-5 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-800 text-xs font-bold cursor-pointer"
-              >
-                Close Profile
-              </button>
-              {canEdit && (
-                <Link
-                  href={`/admin/edit-fighter/${fighter._id}`}
-                  className="px-5 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-extrabold shadow-md shadow-red-500/10 flex items-center gap-1.5 cursor-pointer"
+            <div className="bg-slate-50 dark:bg-zinc-900/60 p-4 border-t border-slate-100 dark:border-zinc-800 flex items-center justify-between gap-3">
+              <div>
+                {canEdit && (
+                  <button
+                    type="button"
+                    disabled={isTogglingInactive}
+                    onClick={handleToggleInactive}
+                    className={`px-3.5 py-2.5 rounded-xl text-xs font-extrabold flex items-center gap-1.5 transition-all cursor-pointer border ${
+                      isInactive
+                        ? 'bg-purple-600 hover:bg-purple-500 text-white border-transparent shadow-md shadow-purple-600/20'
+                        : 'border-purple-300 dark:border-purple-900/50 text-purple-600 dark:text-purple-400 bg-purple-500/10 hover:bg-purple-500/20'
+                    }`}
+                    title={isInactive ? 'Reactivate this athlete into active roster' : 'Mark as inactive (leaves active filters & stops reminders)'}
+                  >
+                    {isTogglingInactive ? (
+                      <div className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <UserX className="w-3.5 h-3.5" />
+                    )}
+                    <span>{isInactive ? 'Reactivate Athlete' : 'Mark Inactive'}</span>
+                  </button>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setIsOpen(false)}
+                  className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-800 text-xs font-bold cursor-pointer"
                 >
-                  <Edit className="w-3.5 h-3.5" /> Edit Profile
-                </Link>
-              )}
+                  Close
+                </button>
+                {canEdit && (
+                  <Link
+                    href={`/admin/edit-fighter/${fighter._id}`}
+                    className="px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-extrabold shadow-md shadow-red-500/10 flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Edit className="w-3.5 h-3.5" /> Edit Profile
+                  </Link>
+                )}
+              </div>
             </div>
 
           </div>

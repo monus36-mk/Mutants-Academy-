@@ -4,6 +4,7 @@ import { useState, useTransition, useMemo, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { toggleEventRSVP, toggleEventLike, addEventComment } from '@/app/actions/eventActions';
+import { logout } from '@/app/actions/authActions';
 import ThemeToggle from '@/components/ThemeToggle';
 import { 
   Dumbbell, Calendar, Phone, Mail, Award, Clock, LogOut, 
@@ -12,6 +13,7 @@ import {
   MapPin, HelpCircle, User, Mic, X, Heart, Send, Pin
 } from 'lucide-react';
 import { formatWhatsAppNumber } from '@/lib/utils';
+import PeerSearchFilters from '@/components/PeerSearchFilters';
 
 const WhatsAppIcon = ({ className }) => (
   <svg className={className} fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -446,9 +448,9 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
               {/* Theme Toggle */}
               <ThemeToggle />
 
-              {/* Profile Avatar Page Link with Athlete Name */}
-              <div className="flex items-center gap-2.5 sm:gap-3 pl-1">
-                <div className="flex flex-col text-right">
+              {/* Profile Avatar Page Link with Athlete Name (Name hidden on mobile to prevent navbar overflow) */}
+              <div className="flex items-center gap-2 sm:gap-3 pl-1 shrink-0">
+                <div className="hidden sm:flex flex-col text-right">
                   <span className="text-xs font-extrabold text-slate-900 dark:text-zinc-100 uppercase tracking-tight leading-tight">{fighter.name}</span>
                   <span className="text-[9px] font-black text-red-500 uppercase tracking-widest leading-none mt-0.5">Athlete</span>
                 </div>
@@ -458,22 +460,20 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
                     setShowBellDropdown(false);
                     setSelectedEvent(null);
                   }}
-                  className="w-10 h-10 rounded-2xl bg-white hover:bg-slate-50 dark:bg-zinc-900 dark:hover:bg-zinc-800 border border-slate-200 dark:border-zinc-800 flex items-center justify-center text-slate-700 dark:text-zinc-300 transition-all cursor-pointer shadow-sm relative shrink-0"
+                  className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-white hover:bg-slate-50 dark:bg-zinc-900 dark:hover:bg-zinc-800 border border-slate-200 dark:border-zinc-800 flex items-center justify-center text-slate-700 dark:text-zinc-300 transition-all cursor-pointer shadow-sm relative shrink-0"
                   title="View Profile & Membership details"
                 >
-                  <User className="w-5 h-5 text-red-500" />
+                  <User className="w-4.5 h-4.5 sm:w-5 sm:h-5 text-red-500" />
                 </Link>
               </div>
 
-              {/* Logout */}
-              <form action="/api/auth/logout" method="POST" className="m-0">
-                <input type="hidden" name="logout" value="true" />
+              {/* Logout (Desktop Only - on phones it is placed cleanly inside the Profile page) */}
+              <div className="hidden sm:block shrink-0">
                 <button
-                  type="submit"
-                  formAction={async () => {
+                  type="button"
+                  onClick={async () => {
                     setShowBellDropdown(false);
                     setSelectedEvent(null);
-                    const { logout } = require('@/app/actions/authActions');
                     await logout();
                     window.location.href = '/login';
                   }}
@@ -482,7 +482,7 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
                 >
                   <LogOut className="w-5 h-5" />
                 </button>
-              </form>
+              </div>
 
             </div>
           </div>
@@ -735,146 +735,23 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
         {activeTab === 'directory' && (
           <div className="space-y-6">
             
-            {/* Filter controls */}
-            <div className="bg-white dark:bg-zinc-900/50 border border-slate-200 dark:border-zinc-800 rounded-3xl p-5 md:p-6 shadow-sm space-y-4">
-              <div className="flex items-center gap-2 border-b border-slate-100 dark:border-zinc-800 pb-3">
-                <Filter className="w-4.5 h-4.5 text-red-500" />
-                <span className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-zinc-200">
-                  Search & Filter Peers
-                </span>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 min-[1900px]:grid-cols-8 gap-3.5 sm:gap-4">
-                {/* Name search */}
-                <div>
-                  <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400 mb-1.5">
-                    Search Name
-                  </label>
-                  <div className="relative">
-                    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                    <input
-                      type="text"
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950/20 text-slate-900 dark:text-zinc-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-red-500 text-xs transition-all font-semibold"
-                      placeholder="e.g. Monus"
-                    />
-                  </div>
-                </div>
-
-                {/* Style */}
-                <div>
-                  <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400 mb-1.5">
-                    Martial Style
-                  </label>
-                  <select
-                    value={styleFilter}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      setStyleFilter(val);
-                      if (val === 'All') {
-                        setEcaFilter('All');
-                      }
-                    }}
-                    className="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900/20 text-slate-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-red-500 text-xs font-semibold"
-                  >
-                    <option value="All" className="bg-white dark:bg-zinc-900 text-slate-900 dark:text-zinc-100">All styles</option>
-                    <option value="MMA" className="bg-white dark:bg-zinc-900 text-slate-900 dark:text-zinc-100">MMA</option>
-                    <option value="Striking" className="bg-white dark:bg-zinc-900 text-slate-900 dark:text-zinc-100">Striking</option>
-                    <option value="Grappling" className="bg-white dark:bg-zinc-900 text-slate-900 dark:text-zinc-100">Grappling</option>
-                  </select>
-                </div>
-
-                {/* ECA Filter */}
-                <div>
-                  <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400 mb-1.5">
-                    ECA
-                  </label>
-                  <select
-                    value={ecaFilter}
-                    onChange={(e) => setEcaFilter(e.target.value)}
-                    className="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900/20 text-slate-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-red-500 text-xs font-semibold"
-                  >
-                    <option value="All" className="bg-white dark:bg-zinc-900 text-slate-900 dark:text-zinc-100">All ECAs</option>
-                    <option value="None" className="bg-white dark:bg-zinc-900 text-slate-900 dark:text-zinc-100">None</option>
-                    <option value="Silambam" className="bg-white dark:bg-zinc-900 text-slate-900 dark:text-zinc-100">Silambam</option>
-                    <option value="Zumba" className="bg-white dark:bg-zinc-900 text-slate-900 dark:text-zinc-100">Zumba</option>
-                    <option value="Dance" className="bg-white dark:bg-zinc-900 text-slate-900 dark:text-zinc-100">Dance</option>
-                  </select>
-                </div>
-
-                {/* Level */}
-                <div>
-                  <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400 mb-1.5">
-                    Experience Level
-                  </label>
-                  <select
-                    value={levelFilter}
-                    onChange={(e) => setLevelFilter(e.target.value)}
-                    className="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900/20 text-slate-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-red-500 text-xs font-semibold"
-                  >
-                    <option value="All" className="bg-white dark:bg-zinc-900 text-slate-900 dark:text-zinc-100">All levels</option>
-                    <option value="Beginner" className="bg-white dark:bg-zinc-900 text-slate-900 dark:text-zinc-100">Beginner</option>
-                    <option value="Intermediate" className="bg-white dark:bg-zinc-900 text-slate-900 dark:text-zinc-100">Intermediate</option>
-                    <option value="Pro" className="bg-white dark:bg-zinc-900 text-slate-900 dark:text-zinc-100">Pro</option>
-                  </select>
-                </div>
-
-                {/* Age */}
-                <div>
-                  <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400 mb-1.5">
-                    Age Group
-                  </label>
-                  <select
-                    value={ageFilter}
-                    onChange={(e) => setAgeFilter(e.target.value)}
-                    className="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900/20 text-slate-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-red-500 text-xs font-semibold"
-                  >
-                    <option value="All" className="bg-white dark:bg-zinc-900 text-slate-900 dark:text-zinc-100">All ages</option>
-                    <option value="Youth" className="bg-white dark:bg-zinc-900 text-slate-900 dark:text-zinc-100">Youth (&lt;18)</option>
-                    <option value="Adult" className="bg-white dark:bg-zinc-900 text-slate-900 dark:text-zinc-100">Adult (18-35)</option>
-                    <option value="Master" className="bg-white dark:bg-zinc-900 text-slate-900 dark:text-zinc-100">Master (35+)</option>
-                  </select>
-                </div>
-
-                {/* Tenure */}
-                <div>
-                  <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400 mb-1.5">
-                    Tenure
-                  </label>
-                  <select
-                    value={tenureFilter}
-                    onChange={(e) => setTenureFilter(e.target.value)}
-                    className="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900/20 text-slate-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-red-500 text-xs font-semibold"
-                  >
-                    <option value="All" className="bg-white dark:bg-zinc-900 text-slate-900 dark:text-zinc-100">All tenures</option>
-                    <option value="Newcomer" className="bg-white dark:bg-zinc-900 text-slate-900 dark:text-zinc-100">Newcomer (&lt;6mo)</option>
-                    <option value="Veteran" className="bg-white dark:bg-zinc-900 text-slate-900 dark:text-zinc-100">Veteran (6mo+)</option>
-                  </select>
-                </div>
-
-                {/* Sort */}
-                <div>
-                  <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400 mb-1.5">
-                    Sort
-                  </label>
-                  <select
-                    value={sortBy}
-                    onChange={(e) => setSortBy(e.target.value)}
-                    className="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900/20 text-slate-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-red-500 text-xs font-semibold"
-                  >
-                    <option value="SeniorFirst" className="bg-white dark:bg-zinc-900 text-slate-900 dark:text-zinc-100">Seniority: Senior to Junior</option>
-                    <option value="JuniorFirst" className="bg-white dark:bg-zinc-900 text-slate-900 dark:text-zinc-100">Seniority: Junior to Senior</option>
-                    <option value="WeightAsc" className="bg-white dark:bg-zinc-900 text-slate-900 dark:text-zinc-100">Weight: Lightest First</option>
-                    <option value="WeightDesc" className="bg-white dark:bg-zinc-900 text-slate-900 dark:text-zinc-100">Weight: Heaviest First</option>
-                    <option value="SeniorFirst_WeightAsc" className="bg-white dark:bg-zinc-900 text-slate-900 dark:text-zinc-100">Seniority & Weight (Senior First, Lightest First)</option>
-                    <option value="SeniorFirst_WeightDesc" className="bg-white dark:bg-zinc-900 text-slate-900 dark:text-zinc-100">Seniority & Weight (Senior First, Heaviest First)</option>
-                    <option value="WeightAsc_SeniorFirst" className="bg-white dark:bg-zinc-900 text-slate-900 dark:text-zinc-100">Weight & Seniority (Lightest First, Senior First)</option>
-                    <option value="WeightDesc_SeniorFirst" className="bg-white dark:bg-zinc-900 text-slate-900 dark:text-zinc-100">Weight & Seniority (Heaviest First, Senior First)</option>
-                  </select>
-                </div>
-              </div>
-            </div>
+            {/* Sleek Search & Filters Modal */}
+            <PeerSearchFilters
+              searchQuery={searchQuery}
+              setSearchQuery={setSearchQuery}
+              styleFilter={styleFilter}
+              setStyleFilter={setStyleFilter}
+              ecaFilter={ecaFilter}
+              setEcaFilter={setEcaFilter}
+              levelFilter={levelFilter}
+              setLevelFilter={setLevelFilter}
+              ageFilter={ageFilter}
+              setAgeFilter={setAgeFilter}
+              tenureFilter={tenureFilter}
+              setTenureFilter={setTenureFilter}
+              sortBy={sortBy}
+              setSortBy={setSortBy}
+            />
 
             {/* Roster display grid */}
             {filteredPeers.length === 0 ? (
@@ -918,10 +795,17 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
                           </div>
                         </div>
 
-                        {/* Style Badge */}
-                        <span className="inline-flex px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-wider bg-red-500/10 text-red-500 border border-red-500/20">
-                          {peer.style}
-                        </span>
+                        {/* Badges: Style + Inactive indicator if inactive */}
+                        <div className="flex items-center gap-1.5">
+                          {peer.isInactive && (
+                            <span className="inline-flex px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-wider bg-purple-500/15 text-purple-600 dark:text-purple-400 border border-purple-500/30">
+                              Inactive
+                            </span>
+                          )}
+                          <span className="inline-flex px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-wider bg-red-500/10 text-red-500 border border-red-500/20">
+                            {peer.style}
+                          </span>
+                        </div>
                       </div>
 
                       {/* Detail attributes grid */}
@@ -951,23 +835,36 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
 
                     {/* Sparring Connect controls */}
                     <div className="flex items-center gap-3 pt-5 mt-6 border-t border-slate-100 dark:border-zinc-800 justify-end" onClick={(e) => e.stopPropagation()}>
-                      <a
-                        href={`tel:${peer.phone}`}
-                        className="p-2 rounded-xl bg-slate-50 hover:bg-slate-100 dark:bg-zinc-950/40 dark:hover:bg-zinc-950 text-slate-500 dark:text-zinc-400 hover:text-slate-700 transition-all border border-slate-200 dark:border-zinc-800"
-                        title={`Call ${peer.name}`}
-                      >
-                        <Phone className="w-4 h-4" />
-                      </a>
-                      <a
-                        href={getWhatsAppSparringUrl(peer)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center justify-center p-2 rounded-xl text-emerald-500 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 transition-all gap-1.5 text-xs font-bold"
-                        title={`Chat on WhatsApp to request sparring`}
-                      >
-                        <WhatsAppIcon className="w-4.5 h-4.5" />
-                        <span>Spar Invite</span>
-                      </a>
+                      {peer.isInactive ? (
+                        <div className="w-full flex items-center justify-between py-1">
+                          <span className="text-[10px] font-black text-purple-600 dark:text-purple-400 uppercase tracking-wider">
+                            Inactive
+                          </span>
+                          <span className="text-[10px] font-semibold text-slate-400 dark:text-zinc-500 italic select-none">
+                            Sparring unavailable
+                          </span>
+                        </div>
+                      ) : (
+                        <>
+                          <a
+                            href={`tel:${peer.phone}`}
+                            className="p-2 rounded-xl bg-slate-50 hover:bg-slate-100 dark:bg-zinc-950/40 dark:hover:bg-zinc-950 text-slate-500 dark:text-zinc-400 hover:text-slate-700 transition-all border border-slate-200 dark:border-zinc-800"
+                            title={`Call ${peer.name}`}
+                          >
+                            <Phone className="w-4 h-4" />
+                          </a>
+                          <a
+                            href={getWhatsAppSparringUrl(peer)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center justify-center p-2 rounded-xl text-emerald-500 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 transition-all gap-1.5 text-xs font-bold"
+                            title={`Chat on WhatsApp to request sparring`}
+                          >
+                            <WhatsAppIcon className="w-4.5 h-4.5" />
+                            <span>Spar Invite</span>
+                          </a>
+                        </>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -1255,11 +1152,16 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
                   </div>
                 )}
                 <div>
-                  <h3 className="font-extrabold text-base text-slate-800 dark:text-zinc-100 uppercase tracking-tight">
+                  <h3 className="font-extrabold text-base text-slate-800 dark:text-zinc-100 uppercase tracking-tight flex items-center gap-2">
                     {selectedPeer.name}
+                    {selectedPeer.isInactive && (
+                      <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-purple-500/15 text-purple-600 dark:text-purple-400 border border-purple-500/30">
+                        Inactive
+                      </span>
+                    )}
                   </h3>
                   <span className="text-[10px] text-slate-400 dark:text-zinc-500 font-semibold uppercase tracking-wider block mt-0.5">
-                    Academy Peer
+                    {selectedPeer.isInactive ? 'Former Academy Athlete' : 'Academy Peer'}
                   </span>
                 </div>
               </div>
@@ -1364,23 +1266,39 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
             </div>
 
             {/* Modal Actions Footer */}
-            <div className="p-6 border-t border-slate-100 dark:border-zinc-800 bg-slate-50/50 dark:bg-zinc-950/20 flex items-center gap-3 justify-end shrink-0">
-              <a
-                href={`tel:${selectedPeer.phone}`}
-                className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 text-slate-500 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-900 transition-all font-bold text-xs flex items-center gap-1.5"
-              >
-                <Phone className="w-4 h-4" />
-                <span>Call Athlete</span>
-              </a>
-              <a
-                href={getWhatsAppSparringUrl(selectedPeer)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center justify-center px-4 py-2.5 rounded-xl text-white bg-emerald-600 hover:bg-emerald-500 transition-all gap-1.5 text-xs font-bold shadow-md shadow-emerald-500/10 active:scale-95 cursor-pointer"
-              >
-                <WhatsAppIcon className="w-4.5 h-4.5" />
-                <span>Request Sparring</span>
-              </a>
+            <div className="p-6 border-t border-slate-100 dark:border-zinc-800 bg-slate-50/50 dark:bg-zinc-950/20 flex items-center justify-between gap-3 shrink-0">
+              {selectedPeer.isInactive ? (
+                <div className="flex items-center justify-between w-full">
+                  <span className="text-xs font-bold text-purple-600 dark:text-purple-400">
+                    Inactive Athlete • Sparring requests disabled
+                  </span>
+                  <button
+                    onClick={() => setSelectedPeer(null)}
+                    className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-900 font-bold text-xs cursor-pointer"
+                  >
+                    Close
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-3 ml-auto">
+                  <a
+                    href={`tel:${selectedPeer.phone}`}
+                    className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 text-slate-500 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-900 transition-all font-bold text-xs flex items-center gap-1.5"
+                  >
+                    <Phone className="w-4 h-4" />
+                    <span>Call Athlete</span>
+                  </a>
+                  <a
+                    href={getWhatsAppSparringUrl(selectedPeer)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center justify-center px-4 py-2.5 rounded-xl text-white bg-emerald-600 hover:bg-emerald-500 transition-all gap-1.5 text-xs font-bold shadow-md shadow-emerald-500/10 active:scale-95 cursor-pointer"
+                  >
+                    <WhatsAppIcon className="w-4.5 h-4.5" />
+                    <span>Request Sparring</span>
+                  </a>
+                </div>
+              )}
             </div>
 
           </div>

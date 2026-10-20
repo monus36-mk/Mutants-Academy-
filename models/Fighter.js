@@ -72,6 +72,10 @@ const FighterSchema = new mongoose.Schema(
       enum: ['Active', 'Due Soon', 'Expired'],
       default: 'Active',
     },
+    isInactive: {
+      type: Boolean,
+      default: false,
+    },
     bio: {
       type: String,
       default: '',

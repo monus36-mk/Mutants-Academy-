@@ -1,11 +1,12 @@
-const CACHE_NAME = 'mutants-academy-v1';
+const CACHE_NAME = 'mutants-academy-v2';
 const STATIC_ASSETS = [
   '/',
   '/manifest.json',
   '/icons/icon-192.png',
   '/icons/icon-512.png',
-  '/icons/icon.svg',
+  '/icons/maskable-icon-512.png',
   '/icons/apple-touch-icon.png',
+  '/logo.png',
 ];
 
 // Install Event

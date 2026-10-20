@@ -15,7 +15,12 @@ export async function GET(request) {
   try {
     await dbConnect();
     
-    const fighters = await Fighter.find({}).lean();
+    // Determine base URL from incoming request or environment
+    const requestHost = request.headers.get('x-forwarded-host') || request.headers.get('host');
+    const requestProto = request.headers.get('x-forwarded-proto') || (requestHost?.includes('localhost') ? 'http' : 'https');
+    const cronAppUrl = requestHost ? `${requestProto}://${requestHost}` : null;
+
+    const fighters = await Fighter.find({ isInactive: { $ne: true } }).lean();
     let sentCount = 0;
     const details = [];
 
@@ -38,7 +43,7 @@ export async function GET(request) {
       // - 3 days after expiry (-3 days)
       if (diffDays === 3 || diffDays === 1 || diffDays === 0 || diffDays === -3) {
         try {
-          await sendPaymentReminderEmail(f.email, f.name, f.nextPaymentDate, diffDays);
+          await sendPaymentReminderEmail(f.email, f.name, f.nextPaymentDate, diffDays, cronAppUrl);
           sentCount++;
           details.push({ email: f.email, name: f.name, diffDays, success: true });
         } catch (mailErr) {

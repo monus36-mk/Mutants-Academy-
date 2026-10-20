@@ -65,7 +65,7 @@ export async function login(prevState, formData) {
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       path: '/',
-      maxAge: 60 * 60 * 24, // 1 day
+      maxAge: 60 * 60 * 24 * 365, // 1 year (persistent login)
     });
 
     if (role === 'Fighter') {

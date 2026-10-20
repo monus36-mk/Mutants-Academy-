@@ -9,6 +9,7 @@ import bcrypt from 'bcryptjs';
 
 import { calculateStatus } from '@/lib/utils';
 import { sendWelcomeEmail } from '@/lib/mail';
+import { getBaseUrl } from '@/lib/url';
 
 export async function getFighters(filters = {}) {
   try {
@@ -86,10 +87,19 @@ export async function getFighters(filters = {}) {
         dob: f.dob ? f.dob.toISOString() : null,
         nextPaymentDate: f.nextPaymentDate ? f.nextPaymentDate.toISOString() : null,
         status: computedStatus,
+        isInactive: Boolean(f.isInactive),
+        isActivated: Boolean(f.password && f.password.trim() !== ''),
         createdAt: f.createdAt ? f.createdAt.toISOString() : null,
         eca: f.eca || 'None',
       };
     });
+
+    // Partition / filter inactive members
+    if (filters.inactiveOnly) {
+      serializedFighters = serializedFighters.filter(f => f.isInactive);
+    } else if (!filters.includeInactive) {
+      serializedFighters = serializedFighters.filter(f => !f.isInactive);
+    }
 
     // Client-side status filtering if specified
     if (filters.status) {
@@ -243,8 +253,8 @@ export async function addFighter(prevState, formData) {
 
     // Send Welcome Email
     try {
-      const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-      const activationLink = `${appUrl}/login/activate?email=${encodeURIComponent(email)}&phone=${encodeURIComponent(phone)}`;
+      const baseUrl = await getBaseUrl();
+      const activationLink = `${baseUrl}/login/activate?email=${encodeURIComponent(email)}&phone=${encodeURIComponent(phone)}`;
       await sendWelcomeEmail(email, name, activationLink);
     } catch (mailErr) {
       console.error('Failed to send welcome email to fighter:', mailErr);
@@ -470,6 +480,7 @@ export async function getFighterProfile(userId = null) {
         dob: fighter.dob ? fighter.dob.toISOString() : null,
         nextPaymentDate: fighter.nextPaymentDate ? fighter.nextPaymentDate.toISOString() : null,
         status: computedStatus,
+        isInactive: Boolean(fighter.isInactive),
       }
     };
   } catch (err) {
@@ -551,6 +562,7 @@ export async function getPeers(userId = null) {
       eca: f.eca || 'None',
       bio: f.bio || '',
       photo: f.photo || '',
+      isInactive: Boolean(f.isInactive),
       assignedCoach: f.assignedCoach ? {
         name: f.assignedCoach.name,
         email: f.assignedCoach.email,
@@ -597,6 +609,97 @@ export async function updateSelfFighterProfile(style, weightClass, bio = '', pho
   } catch (err) {
     console.error('Error updating self profile:', err);
     return { error: 'Failed to update profile details' };
+  }
+}
+
+export async function resendFighterActivationEmail(fighterId) {
+  try {
+    await dbConnect();
+    const user = await getCurrentUser();
+    if (!user) {
+      return { error: 'Unauthorized' };
+    }
+
+    const fighter = await Fighter.findById(fighterId);
+    if (!fighter) {
+      return { error: 'Fighter profile not found' };
+    }
+
+    if (!fighter.email) {
+      return { error: 'This athlete does not have an email address on file' };
+    }
+
+    // Permission check: Coach can only resend for their own fighters
+    if (user.role === 'Coach' && fighter.assignedCoach && fighter.assignedCoach.toString() !== user.id) {
+      return { error: 'Unauthorized to resend activation for this athlete.' };
+    }
+
+    const baseUrl = await getBaseUrl();
+    const activationLink = `${baseUrl}/login/activate?email=${encodeURIComponent(fighter.email)}&phone=${encodeURIComponent(fighter.phone || '')}`;
+
+    await sendWelcomeEmail(fighter.email, fighter.name, activationLink);
+
+    return { 
+      success: true, 
+      message: `Activation email sent successfully to ${fighter.email}`,
+      activationLink 
+    };
+  } catch (err) {
+    console.error('Error resending activation email:', err);
+    return { error: 'Failed to resend activation email. Please try again.' };
+  }
+}
+
+export async function getFighterActivationLink(fighterId) {
+  try {
+    await dbConnect();
+    const user = await getCurrentUser();
+    if (!user) {
+      return { error: 'Unauthorized' };
+    }
+
+    const fighter = await Fighter.findById(fighterId);
+    if (!fighter) {
+      return { error: 'Fighter profile not found' };
+    }
+
+    const baseUrl = await getBaseUrl();
+    const activationLink = `${baseUrl}/login/activate?email=${encodeURIComponent(fighter.email || '')}&phone=${encodeURIComponent(fighter.phone || '')}`;
+
+    return { success: true, activationLink };
+  } catch (err) {
+    console.error('Error generating activation link:', err);
+    return { error: 'Failed to generate activation link.' };
+  }
+}
+
+export async function toggleFighterInactive(fighterId) {
+  try {
+    await dbConnect();
+    const user = await getCurrentUser();
+    if (!user || (user.role !== 'MainAdmin' && user.role !== 'Coach')) {
+      return { error: 'Unauthorized to change member status' };
+    }
+
+    const fighter = await Fighter.findById(fighterId);
+    if (!fighter) {
+      return { error: 'Athlete profile not found' };
+    }
+
+    fighter.isInactive = !fighter.isInactive;
+    await fighter.save();
+
+    revalidatePath('/admin');
+    revalidatePath('/fighter');
+
+    return { 
+      success: true, 
+      isInactive: fighter.isInactive,
+      message: fighter.isInactive ? `${fighter.name} marked as Inactive.` : `${fighter.name} reactivated.` 
+    };
+  } catch (err) {
+    console.error('Error toggling inactive status:', err);
+    return { error: 'Failed to update inactive status' };
   }
 }
 

@@ -90,9 +90,9 @@ master_logo_path = os.path.join(public_dir, 'logo.png')
 cropped_logo.save(master_logo_path, 'PNG', optimize=True)
 print(f'Saved master transparent logo to {master_logo_path} size: {cropped_logo.size}')
 
-# Function to create centered square icon with transparent background
-def make_square_icon(image, target_size, padding_ratio=0.08):
-    icon_canvas = Image.new('RGBA', (target_size, target_size), (0, 0, 0, 0))
+# Function to create centered square icon with configurable background
+def make_square_icon(image, target_size, padding_ratio=0.08, bg_color=(0, 0, 0, 0)):
+    icon_canvas = Image.new('RGBA', (target_size, target_size), bg_color)
     usable_size = int(target_size * (1.0 - 2 * padding_ratio))
 
     img_w, img_h = image.size
@@ -107,22 +107,23 @@ def make_square_icon(image, target_size, padding_ratio=0.08):
     icon_canvas.paste(resized, (pos_x, pos_y), resized)
     return icon_canvas
 
-# 2. Generate PWA App Icons (Transparent PNGs)
+# 2. Generate PWA App Icons
 icon_192 = make_square_icon(cropped_logo, 192, padding_ratio=0.05)
 icon_192.save(os.path.join(icons_dir, 'icon-192.png'), 'PNG', optimize=True)
 
 icon_512 = make_square_icon(cropped_logo, 512, padding_ratio=0.05)
 icon_512.save(os.path.join(icons_dir, 'icon-512.png'), 'PNG', optimize=True)
 
-maskable_512 = make_square_icon(cropped_logo, 512, padding_ratio=0.15)
-maskable_512.save(os.path.join(icons_dir, 'maskable-icon-512.png'), 'PNG', optimize=True)
+# Maskable and Apple icons MUST have solid background (white to match site branding and avoid black corners)
+maskable_512 = make_square_icon(cropped_logo, 512, padding_ratio=0.18, bg_color=(255, 255, 255, 255))
+maskable_512.convert('RGB').save(os.path.join(icons_dir, 'maskable-icon-512.png'), 'PNG', optimize=True)
 
-apple_icon = make_square_icon(cropped_logo, 180, padding_ratio=0.05)
-apple_icon.save(os.path.join(icons_dir, 'apple-touch-icon.png'), 'PNG', optimize=True)
+apple_icon = make_square_icon(cropped_logo, 180, padding_ratio=0.08, bg_color=(255, 255, 255, 255))
+apple_icon.convert('RGB').save(os.path.join(icons_dir, 'apple-touch-icon.png'), 'PNG', optimize=True)
 
 # Also create favicon
 favicon_img = make_square_icon(cropped_logo, 64, padding_ratio=0.02)
 favicon_img.save(os.path.join(public_dir, 'favicon.ico'), format='ICO')
 favicon_img.save(os.path.join(public_dir, 'favicon.png'), format='PNG')
 
-print('All transparent PWA and website logo icons generated successfully!')
+print('All PWA and website logo icons generated successfully with clean white background!')

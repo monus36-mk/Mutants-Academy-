@@ -76,6 +76,13 @@ export default async function AdminDashboard({ searchParams }) {
   });
   const statsFighters = statsFightersRes.success ? statsFightersRes.fighters : [];
 
+  // Fetch inactive/former members (sitting separately at the bottom)
+  const inactiveFightersRes = await getFighters({
+    inactiveOnly: true,
+    assignedCoach,
+  });
+  const inactiveFighters = inactiveFightersRes.success ? inactiveFightersRes.fighters : [];
+
   // Compute metrics dynamically based on search/filters
   const totalCount = statsFighters.length;
   const activeCount = statsFighters.filter(f => f.status === 'Active').length;
@@ -386,6 +393,96 @@ export default async function AdminDashboard({ searchParams }) {
           </div>
         )}
       </div>
+
+      {/* Inactive / Left Members Section (Sitting at the bottom, separate from active sorting/filters) */}
+      {inactiveFighters.length > 0 && (
+        <div className="space-y-4 pt-10 border-t border-slate-200/80 dark:border-zinc-800">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div className="flex items-center gap-2.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-purple-500"></span>
+              <h2 className="text-base font-black text-slate-800 dark:text-zinc-100 uppercase tracking-wider">
+                Inactive / Left Members ({inactiveFighters.length})
+              </h2>
+            </div>
+            <span className="text-[10px] font-bold text-purple-600 dark:text-purple-400 uppercase tracking-wider bg-purple-500/10 border border-purple-500/20 px-3 py-1 rounded-full w-fit">
+              Excluded from active sorting & fee reminders
+            </span>
+          </div>
+
+          <div className="bg-white dark:bg-zinc-900/50 border border-slate-200 dark:border-zinc-800 rounded-3xl overflow-hidden shadow-sm">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-200 dark:border-zinc-800 text-[10px] font-black text-slate-400 dark:text-zinc-500 uppercase tracking-widest bg-slate-50/50 dark:bg-zinc-950/40">
+                    <th className="px-6 py-4 whitespace-nowrap">Athlete</th>
+                    <th className="hidden sm:table-cell px-5 py-4 whitespace-nowrap">Weight</th>
+                    <th className="hidden sm:table-cell px-5 py-4 whitespace-nowrap">Level</th>
+                    <th className="px-5 py-4 whitespace-nowrap">Coach</th>
+                    <th className="px-5 py-4 whitespace-nowrap">Last Payment Expiry</th>
+                    <th className="px-5 py-4 whitespace-nowrap">Status</th>
+                    <th className="px-6 py-4 whitespace-nowrap text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-zinc-800/60">
+                  {inactiveFighters.map((fighter) => {
+                    const canEdit = isAdmin || (user?.role === 'Coach' && fighter.assignedCoach?._id?.toString() === user.id);
+                    return (
+                      <tr
+                        key={fighter._id}
+                        className="hover:bg-purple-50/20 dark:hover:bg-purple-950/10 transition-all duration-150 opacity-85 hover:opacity-100"
+                      >
+                        <td className="px-6 py-4">
+                          <FighterDetailModal fighter={fighter} canEdit={canEdit} />
+                        </td>
+                        <td className="hidden sm:table-cell px-5 py-4 text-sm font-semibold text-slate-700 dark:text-zinc-300 font-mono whitespace-nowrap">
+                          {fighter.weightClass} kg
+                        </td>
+                        <td className="hidden sm:table-cell px-5 py-4 whitespace-nowrap">
+                          <span className="inline-flex px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-700 dark:bg-zinc-800 dark:text-zinc-400 border border-slate-200 dark:border-zinc-700/50">
+                            {fighter.experienceLevel}
+                          </span>
+                        </td>
+                        <td className="px-5 py-4 text-sm font-semibold text-slate-700 dark:text-zinc-300 whitespace-nowrap">
+                          {fighter.assignedCoach ? fighter.assignedCoach.name : <span className="text-red-500 font-bold">Unassigned</span>}
+                        </td>
+                        <td className="px-5 py-4 whitespace-nowrap">
+                          <span className="text-sm font-mono text-slate-500 dark:text-zinc-400">
+                            {fighter.nextPaymentDate ? new Date(fighter.nextPaymentDate).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : 'N/A'}
+                          </span>
+                        </td>
+                        <td className="px-5 py-4 whitespace-nowrap">
+                          <span className="inline-flex px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-purple-500/15 text-purple-600 dark:text-purple-400 border border-purple-500/30">
+                            Inactive
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right">
+                          <div className="flex items-center justify-end gap-2 shrink-0">
+                            {canEdit ? (
+                              <>
+                                <Link
+                                  href={`/admin/edit-fighter/${fighter._id}`}
+                                  className="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-300 transition-all cursor-pointer flex items-center gap-1 border border-slate-200 dark:border-zinc-700"
+                                  title="Edit Fighter"
+                                >
+                                  <Edit3 className="w-3.5 h-3.5 text-red-500" /> Edit
+                                </Link>
+                                <RenewalModal fighter={fighter} />
+                                <DeleteButton fighterId={fighter._id} />
+                              </>
+                            ) : (
+                              <span className="text-xs text-slate-400 dark:text-zinc-600 font-bold italic select-none">View Only</span>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

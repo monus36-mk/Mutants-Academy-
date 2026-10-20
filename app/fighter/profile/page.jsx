@@ -207,6 +207,30 @@ export default async function FighterProfilePage() {
 
         </div>
 
+        {/* Card 3: Session & Device Sign Out (Specially positioned for clean mobile & PWA use) */}
+        <div className="bg-white dark:bg-zinc-900/50 border border-slate-200 dark:border-zinc-800 rounded-3xl p-6 md:p-8 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5 transition-colors">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+              <h3 className="text-sm font-black text-slate-800 dark:text-zinc-100 uppercase tracking-wider">
+                Active Session & Device Access
+              </h3>
+            </div>
+            <p className="text-xs text-slate-500 dark:text-zinc-400 max-w-xl">
+              Persistent login is active. You will stay signed in on this phone/device like Instagram until you choose to log out.
+            </p>
+          </div>
+          
+          <form action={handleLogout} className="w-full sm:w-auto">
+            <button
+              type="submit"
+              className="w-full sm:w-auto px-6 py-3.5 rounded-2xl bg-red-600 hover:bg-red-700 active:scale-95 text-white font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-2.5 transition-all shadow-lg shadow-red-600/20 cursor-pointer"
+            >
+              <LogOut className="w-4 h-4" /> Log Out of Athlete Portal
+            </button>
+          </form>
+        </div>
+
       </main>
 
       <footer className="border-t border-slate-200 dark:border-zinc-900 bg-white dark:bg-zinc-950 py-6 text-center text-xs text-slate-400 dark:text-zinc-500 transition-colors duration-200">

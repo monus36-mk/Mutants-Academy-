@@ -285,21 +285,18 @@ export default function SearchFilters({ coaches, isAdmin, currentUser }) {
       {/* FILTER & SORT MODAL / BOTTOM SHEET DIALOG                  */}
       {/* ========================================================= */}
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
           {/* Backdrop Blur */}
           <div
             className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
             onClick={() => setIsOpen(false)}
           />
 
-          {/* Modal / Bottom Sheet Box */}
-          <div className="relative w-full sm:max-w-2xl bg-white dark:bg-zinc-900 border-t sm:border border-slate-200 dark:border-zinc-800 rounded-t-3xl sm:rounded-3xl shadow-2xl z-10 flex flex-col max-h-[90vh] sm:max-h-[85vh] overflow-hidden animate-in slide-in-from-bottom sm:zoom-in-95 duration-200">
-            
-            {/* Mobile Sheet Handle */}
-            <div className="sm:hidden flex justify-center pt-3 pb-1">
-              <div className="w-12 h-1.5 bg-slate-300 dark:bg-zinc-700 rounded-full" />
-            </div>
-
+          {/* Modal Box */}
+          <div
+            className="relative w-full max-w-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-3xl shadow-2xl z-10 flex flex-col max-h-[85vh] overflow-hidden animate-in zoom-in-95 duration-200"
+            style={{ maxWidth: '672px' }}
+          >
             {/* Header */}
             <div className="px-5 py-4 border-b border-slate-100 dark:border-zinc-800 flex items-center justify-between">
               <div className="flex items-center gap-2.5">
@@ -334,7 +331,7 @@ export default function SearchFilters({ coaches, isAdmin, currentUser }) {
                   <ArrowUpDown className="w-3.5 h-3.5 text-red-500" />
                   <span>Sort Order</span>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div className="grid grid-cols-2 gap-2">
                   {[
                     { id: 'SeniorFirst', label: 'Seniority: Senior to Junior' },
                     { id: 'JuniorFirst', label: 'Seniority: Junior to Senior' },
@@ -387,9 +384,10 @@ export default function SearchFilters({ coaches, isAdmin, currentUser }) {
                         onClick={() => setStagedFilters({ ...stagedFilters, status: opt.id })}
                         className={`px-3.5 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
                           isSelected
-                            ? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 border-zinc-900 dark:border-zinc-100 shadow-sm'
+                            ? 'bg-slate-900 text-white border-slate-900 shadow-sm dark:bg-zinc-100 dark:text-zinc-900 dark:border-zinc-100'
                             : 'bg-slate-100 dark:bg-zinc-800/60 text-slate-700 dark:text-zinc-300 border-slate-200 dark:border-zinc-700 hover:bg-slate-200 dark:hover:bg-zinc-700'
                         }`}
+                        style={isSelected ? { backgroundColor: '#0f172a', color: '#ffffff', borderColor: '#0f172a' } : undefined}
                       >
                         {opt.label}
                       </button>
@@ -455,9 +453,10 @@ export default function SearchFilters({ coaches, isAdmin, currentUser }) {
                           onClick={() => setStagedFilters({ ...stagedFilters, style: opt.id })}
                           className={`px-3.5 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
                             isSelected
-                              ? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 border-zinc-900 dark:border-zinc-100 shadow-sm'
-                            : 'bg-slate-100 dark:bg-zinc-800/60 text-slate-700 dark:text-zinc-300 border-slate-200 dark:border-zinc-700 hover:bg-slate-200 dark:hover:bg-zinc-700'
+                              ? 'bg-slate-900 text-white border-slate-900 shadow-sm dark:bg-zinc-100 dark:text-zinc-900 dark:border-zinc-100'
+                              : 'bg-slate-100 dark:bg-zinc-800/60 text-slate-700 dark:text-zinc-300 border-slate-200 dark:border-zinc-700 hover:bg-slate-200 dark:hover:bg-zinc-700'
                           }`}
+                          style={isSelected ? { backgroundColor: '#0f172a', color: '#ffffff', borderColor: '#0f172a' } : undefined}
                         >
                           {opt.label}
                         </button>
@@ -490,7 +489,7 @@ export default function SearchFilters({ coaches, isAdmin, currentUser }) {
               )}
 
               {/* Section: Experience Level, Age Group, & Tenure */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="grid grid-cols-3 gap-3">
                 {/* Experience Level */}
                 <div className="space-y-1.5">
                   <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">

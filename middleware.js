@@ -46,9 +46,24 @@ export async function middleware(request) {
     }
   }
 
+  // If already logged in and visits /login, redirect to their dashboard
+  if (pathname === '/login') {
+    const sessionCookie = request.cookies.get('session');
+    if (sessionCookie) {
+      const payload = await verifyToken(sessionCookie.value);
+      if (payload) {
+        if (payload.role === 'Fighter') {
+          return NextResponse.redirect(new URL('/fighter', request.url));
+        } else {
+          return NextResponse.redirect(new URL('/admin', request.url));
+        }
+      }
+    }
+  }
+
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: ['/admin/:path*', '/fighter/:path*'],
+  matcher: ['/admin/:path*', '/fighter/:path*', '/login'],
 };

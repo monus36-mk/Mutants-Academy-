@@ -14,7 +14,7 @@ export const metadata = {
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
-    statusBarStyle: "black-translucent",
+    statusBarStyle: "default",
     title: "Mutants Academy",
   },
   icons: {
@@ -24,7 +24,7 @@ export const metadata = {
 };
 
 export const viewport = {
-  themeColor: "#dc2626",
+  themeColor: "#ffffff",
   width: "device-width",
   initialScale: 1,
   maximumScale: 5,
@@ -38,9 +38,9 @@ export default function RootLayout({ children }) {
         <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <meta name="apple-mobile-web-app-title" content="Mutants Academy" />
-        <meta name="theme-color" content="#dc2626" />
+        <meta name="theme-color" content="#ffffff" />
       </head>
       <body className="min-h-full font-sans antialiased bg-gray-50 dark:bg-zinc-950 text-slate-900 dark:text-zinc-50 transition-colors duration-200">
         <ThemeProvider>
