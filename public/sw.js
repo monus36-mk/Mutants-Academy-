@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mutants-academy-v2';
+const CACHE_NAME = 'mutants-academy-v3';
 const STATIC_ASSETS = [
   '/',
   '/manifest.json',
@@ -6,6 +6,12 @@ const STATIC_ASSETS = [
   '/icons/icon-512.png',
   '/icons/maskable-icon-512.png',
   '/icons/apple-touch-icon.png',
+  '/icons/apple-splash.png',
+  '/icons/apple-splash-1290-2796.png',
+  '/icons/apple-splash-1179-2556.png',
+  '/icons/apple-splash-1170-2532.png',
+  '/icons/apple-splash-828-1792.png',
+  '/icons/apple-splash-750-1334.png',
   '/logo.png',
 ];
 
