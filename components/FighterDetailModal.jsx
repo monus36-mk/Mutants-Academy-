@@ -271,29 +271,35 @@ export default function FighterDetailModal({ fighter, canEdit = false }) {
 
       {/* Modal Dialog */}
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md transition-all duration-300">
-          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-3xl w-full max-w-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-            {/* Modal Header */}
-            <div className="flex items-center justify-between p-6 md:p-8 border-b border-slate-100 dark:border-zinc-800">
-              <div className="flex items-center gap-4">
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/70 backdrop-blur-md transition-all duration-300"
+          onClick={() => setIsOpen(false)}
+        >
+          <div 
+            className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl sm:rounded-3xl w-full max-w-xl shadow-2xl overflow-hidden flex flex-col max-h-[92dvh] sm:max-h-[88vh] animate-in fade-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header (Pinned at top) */}
+            <div className="shrink-0 flex items-center justify-between px-4 py-3 sm:px-6 sm:py-4 border-b border-slate-100 dark:border-zinc-800 bg-white dark:bg-zinc-900 z-10">
+              <div className="flex items-center gap-3">
                 {fighter.photo ? (
                   <div 
-                    className="w-16 h-20 bg-slate-50 dark:bg-zinc-950/40 border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden shadow-sm shrink-0 cursor-zoom-in hover:opacity-90 active:scale-95 transition-all"
+                    className="w-11 h-14 sm:w-14 sm:h-16 bg-slate-50 dark:bg-zinc-950/40 border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden shadow-sm shrink-0 cursor-zoom-in hover:opacity-90 active:scale-95 transition-all"
                     onClick={() => setLightboxImage(fighter.photo)}
                     title="Click to view full photo"
                   >
                     <img src={fighter.photo} alt={fighter.name} className="w-full h-full object-cover" />
                   </div>
                 ) : (
-                  <div className="w-16 h-20 bg-red-500/10 text-red-600 rounded-xl flex items-center justify-center shrink-0 border border-red-500/20">
-                    <User className="w-8 h-8" />
+                  <div className="w-11 h-14 sm:w-14 sm:h-16 bg-red-500/10 text-red-600 rounded-xl flex items-center justify-center shrink-0 border border-red-500/20">
+                    <User className="w-6 h-6" />
                   </div>
                 )}
-                <div>
-                  <h3 className="font-extrabold text-xl text-slate-800 dark:text-zinc-100 uppercase tracking-tight">
+                <div className="min-w-0">
+                  <h3 className="font-extrabold text-base sm:text-lg text-slate-800 dark:text-zinc-100 uppercase tracking-tight truncate">
                     {fighter.name}
                   </h3>
-                  <div className="flex items-center gap-2 mt-1">
+                  <div className="flex flex-wrap items-center gap-1.5 mt-1">
                     {/* Experience Level Badge */}
                     <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${
                       fighter.experienceLevel === 'Pro' 
@@ -327,62 +333,65 @@ export default function FighterDetailModal({ fighter, canEdit = false }) {
               
               <button
                 onClick={() => setIsOpen(false)}
-                className="p-2 rounded-xl text-slate-400 hover:bg-slate-100 dark:hover:bg-zinc-800 hover:text-slate-600 dark:hover:text-zinc-200 transition-all cursor-pointer"
+                className="p-1.5 sm:p-2 rounded-xl text-slate-400 hover:bg-slate-100 dark:hover:bg-zinc-800 hover:text-slate-600 dark:hover:text-zinc-200 transition-all cursor-pointer shrink-0"
+                title="Close"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            {/* Profile Grid */}
-            <div className="p-6 md:p-8 space-y-6">
+            {/* Profile Grid (Scrollable Body) */}
+            <div className="flex-1 overflow-y-auto px-4 py-3 sm:px-6 sm:py-5 space-y-3.5 sm:space-y-4">
 
-              <div className="grid grid-cols-2 gap-6">
+              <div className="grid grid-cols-2 gap-x-3 gap-y-2.5 sm:gap-4">
 
                 {/* original joined */}
-                <div className="flex items-start gap-3">
-                  <Calendar className="w-5 h-5 text-red-500 mt-0.5 shrink-0" />
-                  <div>
-                    <span className="block text-[10px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wider">Original Joined Date</span>
-                    <span className="text-sm font-bold text-slate-700 dark:text-zinc-200">{formatDate(fighter.joiningDate)}</span>
+                <div className="flex items-start gap-2 sm:gap-2.5">
+                  <Calendar className="w-4 h-4 text-red-500 mt-0.5 shrink-0" />
+                  <div className="min-w-0">
+                    <span className="block text-[9px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wider">Original Joined</span>
+                    <span className="text-xs sm:text-sm font-bold text-slate-700 dark:text-zinc-200 block truncate">{formatDate(fighter.joiningDate)}</span>
                   </div>
                 </div>
 
                 {/* date of birth */}
-                <div className="flex items-start gap-3">
-                  <Award className="w-5 h-5 text-red-500 mt-0.5 shrink-0" />
-                  <div>
-                    <span className="block text-[10px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wider">Date of Birth & Age</span>
-                    <span className="text-sm font-bold text-slate-700 dark:text-zinc-200">
-                      {formatDate(fighter.dob)} {fighter.dob && `(${calculateAge(fighter.dob)} years old)`}
+                <div className="flex items-start gap-2 sm:gap-2.5">
+                  <Award className="w-4 h-4 text-red-500 mt-0.5 shrink-0" />
+                  <div className="min-w-0">
+                    <span className="block text-[9px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wider">DOB & Age</span>
+                    <span className="text-xs sm:text-sm font-bold text-slate-700 dark:text-zinc-200 block truncate">
+                      {formatDate(fighter.dob)} {fighter.dob && `(${calculateAge(fighter.dob)}y)`}
                     </span>
                   </div>
                 </div>
 
                 {/* Weight Class */}
-                <div className="flex items-start gap-3">
-                  <Dumbbell className="w-5 h-5 text-red-500 mt-0.5 shrink-0" />
-                  <div>
-                    <span className="block text-[10px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wider">Weight Class</span>
-                    <span className="text-sm font-bold text-slate-700 dark:text-zinc-200">{fighter.weightClass}</span>
+                <div className="flex items-start gap-2 sm:gap-2.5">
+                  <Dumbbell className="w-4 h-4 text-red-500 mt-0.5 shrink-0" />
+                  <div className="min-w-0">
+                    <span className="block text-[9px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wider">Weight Class</span>
+                    <span className="text-xs sm:text-sm font-bold text-slate-700 dark:text-zinc-200 block">{fighter.weightClass} kg</span>
                   </div>
                 </div>
 
                 {/* Assigned Coach */}
-                <div className="flex items-start gap-3">
-                  <User className="w-5 h-5 text-red-500 mt-0.5 shrink-0" />
-                  <div>
-                    <span className="block text-[10px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wider">Assigned Coach</span>
-                    <span className="text-sm font-bold text-slate-700 dark:text-zinc-200">
+                <div className="flex items-start gap-2 sm:gap-2.5">
+                  <User className="w-4 h-4 text-red-500 mt-0.5 shrink-0" />
+                  <div className="min-w-0">
+                    <span className="block text-[9px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wider">Assigned Coach</span>
+                    <span className="text-xs sm:text-sm font-bold text-slate-700 dark:text-zinc-200 block truncate">
                       {fighter.assignedCoach?.name || 'Self'}
                     </span>
                   </div>
-                </div>                 {/* Martial Arts Style */}
+                </div>
+
+                {/* Martial Arts Style */}
                 {displayStyle && (
-                  <div className="flex items-start gap-3">
-                    <Award className="w-5 h-5 text-red-500 mt-0.5 shrink-0" />
-                    <div>
-                      <span className="block text-[10px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wider">Martial Arts Style</span>
-                      <span className="text-sm font-bold text-slate-700 dark:text-zinc-200">
+                  <div className="flex items-start gap-2 sm:gap-2.5">
+                    <Award className="w-4 h-4 text-red-500 mt-0.5 shrink-0" />
+                    <div className="min-w-0">
+                      <span className="block text-[9px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wider">Style</span>
+                      <span className="text-xs sm:text-sm font-bold text-slate-700 dark:text-zinc-200 block truncate">
                         {displayStyle}
                       </span>
                     </div>
@@ -391,11 +400,11 @@ export default function FighterDetailModal({ fighter, canEdit = false }) {
 
                 {/* ECA */}
                 {displayEca && (
-                  <div className="flex items-start gap-3">
-                    <Activity className="w-5 h-5 text-red-500 mt-0.5 shrink-0" />
-                    <div>
-                      <span className="block text-[10px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wider">Extra Curricular Activity (ECA)</span>
-                      <span className="text-sm font-bold text-slate-700 dark:text-zinc-200">
+                  <div className="flex items-start gap-2 sm:gap-2.5">
+                    <Activity className="w-4 h-4 text-red-500 mt-0.5 shrink-0" />
+                    <div className="min-w-0">
+                      <span className="block text-[9px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wider">ECA</span>
+                      <span className="text-xs sm:text-sm font-bold text-slate-700 dark:text-zinc-200 block truncate">
                         {displayEca}
                       </span>
                     </div>
@@ -403,39 +412,39 @@ export default function FighterDetailModal({ fighter, canEdit = false }) {
                 )}
 
                 {/* Phone */}
-                <div className="flex items-start gap-3">
-                  <Phone className="w-5 h-5 text-red-500 mt-0.5 shrink-0" />
-                  <div>
-                    <span className="block text-[10px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wider">Phone Number</span>
-                    <div className="flex items-center gap-2">
-                      <a href={`tel:${fighter.phone}`} className="text-sm font-bold text-slate-700 dark:text-zinc-200 hover:text-red-500 font-mono transition-colors">
+                <div className="flex items-start gap-2 sm:gap-2.5">
+                  <Phone className="w-4 h-4 text-red-500 mt-0.5 shrink-0" />
+                  <div className="min-w-0">
+                    <span className="block text-[9px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wider">Phone Number</span>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <a href={`tel:${fighter.phone}`} className="text-xs sm:text-sm font-bold text-slate-700 dark:text-zinc-200 hover:text-red-500 font-mono transition-colors truncate">
                         {fighter.phone}
                       </a>
                       <a
                         href={getWhatsAppUrl(fighter)}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center justify-center p-1 rounded-md text-emerald-500 hover:bg-emerald-500/10 hover:text-emerald-600 transition-all"
+                        className="inline-flex items-center justify-center p-0.5 rounded-md text-emerald-500 hover:bg-emerald-500/10 hover:text-emerald-600 transition-all shrink-0"
                         title="Send WhatsApp payment reminder"
                       >
-                        <WhatsAppIcon className="w-4 h-4" />
+                        <WhatsAppIcon className="w-3.5 h-3.5" />
                       </a>
                     </div>
                   </div>
                 </div>
 
-                {/* Email */}
-                <div className="flex items-start gap-3">
-                  <Mail className="w-5 h-5 text-red-500 mt-0.5 shrink-0" />
-                  <div>
-                    <span className="block text-[10px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wider">Email Address</span>
-                    <div className="flex items-center gap-2">
-                      <a href={`mailto:${fighter.email}`} className="text-sm font-bold text-slate-700 dark:text-zinc-200 hover:text-red-500 font-mono transition-colors break-all">
+                {/* Email (Spans 2 columns on mobile so long emails fit cleanly) */}
+                <div className="flex items-start gap-2 sm:gap-2.5 col-span-2 sm:col-span-1">
+                  <Mail className="w-4 h-4 text-red-500 mt-0.5 shrink-0" />
+                  <div className="min-w-0 flex-1">
+                    <span className="block text-[9px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wider">Email Address</span>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <a href={`mailto:${fighter.email}`} className="text-xs sm:text-sm font-bold text-slate-700 dark:text-zinc-200 hover:text-red-500 font-mono transition-colors truncate">
                         {fighter.email}
                       </a>
                       <button
                         onClick={handleCopyEmail}
-                        className="inline-flex items-center justify-center p-0.5 rounded text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-zinc-800 transition-all shrink-0"
+                        className="inline-flex items-center justify-center p-0.5 rounded text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-zinc-800 transition-all shrink-0 cursor-pointer"
                         title={copiedEmail ? "Copied!" : "Copy email address"}
                       >
                         {copiedEmail ? (
@@ -450,57 +459,58 @@ export default function FighterDetailModal({ fighter, canEdit = false }) {
 
               </div>
 
-              <div className="border-t border-slate-100 dark:border-zinc-800/80 pt-5 mt-5">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500 mb-3 flex items-center gap-1.5">
-                  <Clock className="w-4 h-4 text-slate-400" /> Subscription Billing Information
+              {/* Subscription Billing Information */}
+              <div className="border-t border-slate-100 dark:border-zinc-800/80 pt-3 mt-1">
+                <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500 mb-1.5 flex items-center gap-1.5">
+                  <Clock className="w-3.5 h-3.5 text-slate-400" /> Subscription Billing Information
                 </h4>
-                <div className="grid grid-cols-3 gap-4 bg-slate-50 dark:bg-zinc-950/40 border border-slate-100 dark:border-zinc-800 p-4 rounded-2xl">
+                <div className="grid grid-cols-3 gap-2 bg-slate-50 dark:bg-zinc-950/40 border border-slate-100 dark:border-zinc-800 p-2.5 rounded-xl">
                   <div>
-                    <span className="block text-[8px] font-black text-slate-400 dark:text-zinc-500 uppercase tracking-widest">Active Cycle Start</span>
-                    <span className="text-xs font-bold text-slate-700 dark:text-zinc-300 font-mono">{formatDate(fighter.entryDate)}</span>
+                    <span className="block text-[8px] font-black text-slate-400 dark:text-zinc-500 uppercase tracking-widest truncate">Cycle Start</span>
+                    <span className="text-[11px] sm:text-xs font-bold text-slate-700 dark:text-zinc-300 font-mono block truncate">{formatDate(fighter.entryDate)}</span>
                   </div>
                   <div>
-                    <span className="block text-[8px] font-black text-slate-400 dark:text-zinc-500 uppercase tracking-widest">Package Duration</span>
-                    <span className="text-xs font-extrabold text-slate-700 dark:text-zinc-300 uppercase tracking-wide">
-                      {fighter.packageDurationMonths} Month{fighter.packageDurationMonths > 1 ? 's' : ''}
+                    <span className="block text-[8px] font-black text-slate-400 dark:text-zinc-500 uppercase tracking-widest truncate">Duration</span>
+                    <span className="text-[11px] sm:text-xs font-extrabold text-slate-700 dark:text-zinc-300 uppercase tracking-wide block truncate">
+                      {fighter.packageDurationMonths} Mo{fighter.packageDurationMonths > 1 ? 's' : ''}
                     </span>
                   </div>
                   <div>
-                    <span className="block text-[8px] font-black text-slate-400 dark:text-zinc-500 uppercase tracking-widest">Next Expiry Due</span>
-                    <span className="text-xs font-bold text-red-500 dark:text-red-400 font-mono">{formatDate(fighter.nextPaymentDate)}</span>
+                    <span className="block text-[8px] font-black text-slate-400 dark:text-zinc-500 uppercase tracking-widest truncate">Next Expiry</span>
+                    <span className="text-[11px] sm:text-xs font-bold text-red-500 dark:text-red-400 font-mono block truncate">{formatDate(fighter.nextPaymentDate)}</span>
                   </div>
                 </div>
               </div>
 
               {/* Portal Account Activation Status & Action Bar */}
-              <div className="border-t border-slate-100 dark:border-zinc-800/80 pt-5 mt-5">
-                <div className="flex items-center justify-between mb-3">
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500 flex items-center gap-1.5">
-                    <KeyRound className="w-4 h-4 text-slate-400" /> Athlete Portal Access
+              <div className="border-t border-slate-100 dark:border-zinc-800/80 pt-3 mt-1">
+                <div className="flex items-center justify-between mb-1.5">
+                  <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500 flex items-center gap-1.5">
+                    <KeyRound className="w-3.5 h-3.5 text-slate-400" /> Athlete Portal Access
                   </h4>
                   {fighter.isActivated ? (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
                       <CheckCircle2 className="w-3 h-3" /> Account Activated
                     </span>
                   ) : (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30">
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30">
                       <AlertCircle className="w-3 h-3" /> Activation Pending
                     </span>
                   )}
                 </div>
 
                 {!fighter.isActivated ? (
-                  <div className="bg-amber-50/80 dark:bg-amber-950/20 border border-amber-200/80 dark:border-amber-900/30 rounded-2xl p-4">
-                    <p className="text-xs text-amber-900 dark:text-amber-300 font-medium">
-                      This athlete has not set their password or activated their portal account yet.
+                  <div className="bg-amber-50/80 dark:bg-amber-950/20 border border-amber-200/80 dark:border-amber-900/30 rounded-xl p-2.5">
+                    <p className="text-[11px] text-amber-900 dark:text-amber-300 font-medium leading-relaxed">
+                      Athlete has not configured password or logged in yet.
                     </p>
-                    <div className="flex flex-wrap items-center gap-2 mt-3">
+                    <div className="flex flex-wrap items-center gap-1.5 mt-2">
                       {fighter.email && (
                         <button
                           type="button"
                           onClick={handleResendActivation}
                           disabled={isResending}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white text-xs font-bold shadow-sm transition-all cursor-pointer"
+                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white text-[11px] font-bold shadow-sm transition-all cursor-pointer"
                         >
                           {isResending ? (
                             <>
@@ -509,8 +519,8 @@ export default function FighterDetailModal({ fighter, canEdit = false }) {
                             </>
                           ) : (
                             <>
-                              <Send className="w-3.5 h-3.5" />
-                              <span>Resend Activation Email</span>
+                              <Send className="w-3 h-3" />
+                              <span>Resend Email</span>
                             </>
                           )}
                         </button>
@@ -519,39 +529,39 @@ export default function FighterDetailModal({ fighter, canEdit = false }) {
                       <button
                         type="button"
                         onClick={handleCopyActivationLink}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-slate-700 dark:text-zinc-200 hover:bg-slate-50 dark:hover:bg-zinc-750 text-xs font-bold transition-all cursor-pointer"
+                        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-slate-700 dark:text-zinc-200 hover:bg-slate-50 dark:hover:bg-zinc-750 text-[11px] font-bold transition-all cursor-pointer"
                       >
                         {copiedLink ? (
                           <>
-                            <Check className="w-3.5 h-3.5 text-emerald-500" />
-                            <span className="text-emerald-600 dark:text-emerald-400">Link Copied!</span>
+                            <Check className="w-3 h-3 text-emerald-500" />
+                            <span className="text-emerald-600 dark:text-emerald-400">Copied!</span>
                           </>
                         ) : (
                           <>
-                            <Copy className="w-3.5 h-3.5" />
-                            <span>Copy Activation Link</span>
+                            <Copy className="w-3 h-3" />
+                            <span>Copy Setup Link</span>
                           </>
                         )}
                       </button>
                     </div>
                     {actionMessage && (
-                      <div className={`mt-2.5 text-xs font-bold ${actionMessage.type === 'success' ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500'}`}>
+                      <div className={`mt-2 text-[11px] font-bold ${actionMessage.type === 'success' ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500'}`}>
                         {actionMessage.text}
                       </div>
                     )}
                   </div>
                 ) : (
-                  <div className="bg-slate-50 dark:bg-zinc-950/40 border border-slate-100 dark:border-zinc-800 p-3 rounded-2xl flex items-center justify-between">
-                    <span className="text-xs text-slate-500 dark:text-zinc-400 font-medium">
-                      Account password configured. Athlete can log in at anytime.
+                  <div className="bg-slate-50 dark:bg-zinc-950/40 border border-slate-100 dark:border-zinc-800 p-2.5 rounded-xl flex items-center justify-between gap-2">
+                    <span className="text-[11px] text-slate-500 dark:text-zinc-400 font-medium truncate">
+                      Account password configured. Athlete can log in.
                     </span>
                     <button
                       type="button"
                       onClick={handleCopyActivationLink}
-                      className="text-[11px] font-bold text-slate-400 hover:text-red-500 transition-colors inline-flex items-center gap-1 cursor-pointer"
+                      className="text-[10px] font-bold text-slate-500 hover:text-red-500 transition-colors inline-flex items-center gap-1 cursor-pointer shrink-0"
                       title="Copy setup link in case athlete needs to re-setup password"
                     >
-                      <Copy className="w-3 h-3" /> {copiedLink ? 'Copied Link' : 'Copy Setup Link'}
+                      <Copy className="w-3 h-3" /> {copiedLink ? 'Copied' : 'Copy Setup Link'}
                     </button>
                   </div>
                 )}
@@ -559,15 +569,15 @@ export default function FighterDetailModal({ fighter, canEdit = false }) {
 
             </div>
 
-            {/* Footer Actions */}
-            <div className="bg-slate-50 dark:bg-zinc-900/60 p-4 border-t border-slate-100 dark:border-zinc-800 flex items-center justify-between gap-3">
+            {/* Footer Actions (Sticky at bottom, ALWAYS visible on both Mobile & Desktop) */}
+            <div className="shrink-0 bg-slate-50 dark:bg-zinc-900 border-t border-slate-100 dark:border-zinc-800 px-3 py-2.5 sm:px-4 sm:py-3 flex items-center justify-between gap-2 z-10">
               <div>
                 {canEdit && (
                   <button
                     type="button"
                     disabled={isTogglingInactive}
                     onClick={handleToggleInactive}
-                    className={`px-3.5 py-2.5 rounded-xl text-xs font-extrabold flex items-center gap-1.5 transition-all cursor-pointer border ${
+                    className={`px-3 py-2 sm:px-3.5 sm:py-2.5 rounded-xl text-xs font-extrabold flex items-center gap-1.5 transition-all cursor-pointer border ${
                       isInactive
                         ? 'bg-purple-600 hover:bg-purple-500 text-white border-transparent shadow-md shadow-purple-600/20'
                         : 'border-purple-300 dark:border-purple-900/50 text-purple-600 dark:text-purple-400 bg-purple-500/10 hover:bg-purple-500/20'
@@ -579,23 +589,23 @@ export default function FighterDetailModal({ fighter, canEdit = false }) {
                     ) : (
                       <UserX className="w-3.5 h-3.5" />
                     )}
-                    <span>{isInactive ? 'Reactivate Athlete' : 'Mark Inactive'}</span>
+                    <span>{isInactive ? 'Reactivate' : 'Mark Inactive'}</span>
                   </button>
                 )}
               </div>
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => setIsOpen(false)}
-                  className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-800 text-xs font-bold cursor-pointer"
+                  className="px-3.5 py-2 sm:px-4 sm:py-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-800 text-xs font-bold cursor-pointer transition-colors"
                 >
                   Close
                 </button>
                 {canEdit && (
                   <Link
                     href={`/admin/edit-fighter/${fighter._id}`}
-                    className="px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-extrabold shadow-md shadow-red-500/10 flex items-center gap-1.5 cursor-pointer"
+                    className="px-3.5 py-2 sm:px-4 sm:py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-extrabold shadow-md shadow-red-500/10 flex items-center gap-1.5 cursor-pointer transition-colors"
                   >
-                    <Edit className="w-3.5 h-3.5" /> Edit Profile
+                    <Edit className="w-3.5 h-3.5" /> <span>Edit Profile</span>
                   </Link>
                 )}
               </div>
