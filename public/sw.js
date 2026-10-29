@@ -1,6 +1,5 @@
-const CACHE_NAME = 'mutants-academy-v3';
+const CACHE_NAME = 'mutants-academy-v4';
 const STATIC_ASSETS = [
-  '/',
   '/manifest.json',
   '/icons/icon-192.png',
   '/icons/icon-512.png',
@@ -84,7 +83,11 @@ self.addEventListener('fetch', (event) => {
   event.respondWith(
     fetch(event.request)
       .then((networkResponse) => {
-        if (networkResponse && networkResponse.status === 200) {
+        if (
+          networkResponse &&
+          networkResponse.status === 200 &&
+          !url.pathname.startsWith('/login')
+        ) {
           const responseToCache = networkResponse.clone();
           caches.open(CACHE_NAME).then((cache) => {
             cache.put(event.request, responseToCache);
@@ -95,11 +98,10 @@ self.addEventListener('fetch', (event) => {
       .catch(async () => {
         const cached = await caches.match(event.request);
         if (cached) return cached;
-        // Fallback to home page if navigating
-        if (event.request.mode === 'navigate') {
-          return caches.match('/');
-        }
-        return new Response('Offline mode', { status: 503, statusText: 'Service Unavailable' });
+        return new Response('Network unavailable. Please reconnect to access the latest roster.', {
+          status: 503,
+          headers: { 'Content-Type': 'text/plain' },
+        });
       })
   );
 });

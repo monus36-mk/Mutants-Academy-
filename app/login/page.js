@@ -1,14 +1,57 @@
 'use client';
 
-import { useActionState, useState } from 'react';
-import { login } from '@/app/actions/authActions';
+import { useActionState, useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { login, restoreSession } from '@/app/actions/authActions';
 import { Dumbbell, LogIn, Eye, EyeOff } from 'lucide-react';
 import ThemeToggle from '@/components/ThemeToggle';
 import Link from 'next/link';
 
 export default function LoginPage() {
+  const router = useRouter();
   const [state, formAction, isPending] = useActionState(login, null);
   const [showPassword, setShowPassword] = useState(false);
+  const [isRestoring, setIsRestoring] = useState(true);
+
+  // 1. Check for saved persistent token on mount (Instagram-like auto-login)
+  useEffect(() => {
+    let isMounted = true;
+    const checkAutoLogin = async () => {
+      try {
+        const savedToken = localStorage.getItem('mutants_auth_token');
+        if (!savedToken) {
+          if (isMounted) setIsRestoring(false);
+          return;
+        }
+
+        const res = await restoreSession(savedToken);
+        if (res?.success && res?.redirectUrl) {
+          router.replace(res.redirectUrl);
+          return;
+        } else {
+          localStorage.removeItem('mutants_auth_token');
+          localStorage.removeItem('mutants_user_role');
+          if (isMounted) setIsRestoring(false);
+        }
+      } catch (e) {
+        if (isMounted) setIsRestoring(false);
+      }
+    };
+
+    checkAutoLogin();
+    return () => { isMounted = false; };
+  }, [router]);
+
+  // 2. On successful login, save token into localStorage and navigate
+  useEffect(() => {
+    if (state?.success && state?.token) {
+      try {
+        localStorage.setItem('mutants_auth_token', state.token);
+        if (state.role) localStorage.setItem('mutants_user_role', state.role);
+      } catch (e) {}
+      router.replace(state.redirectUrl || '/admin');
+    }
+  }, [state, router]);
 
   return (
     <main className="min-h-screen flex flex-col items-center justify-center p-6 bg-slate-50 dark:bg-zinc-950 text-slate-900 dark:text-zinc-500 transition-colors duration-200">
@@ -34,9 +77,24 @@ export default function LoginPage() {
 
         {/* Login Card */}
         <div className="bg-white dark:bg-zinc-900/50 dark:backdrop-blur-md border border-slate-200 dark:border-zinc-800 rounded-3xl p-8 shadow-xl shadow-slate-100 dark:shadow-none min-h-[340px] flex flex-col justify-center">
-          <h2 className="text-xl font-bold mb-6 text-slate-800 dark:text-zinc-100 flex items-center gap-2">
-            <LogIn className="w-5 h-5 text-red-500" /> Account Sign In
-          </h2>
+          {isRestoring ? (
+            <div className="flex flex-col items-center justify-center py-10 text-center space-y-4">
+              <div className="relative w-14 h-14">
+                <div className="w-14 h-14 rounded-full border-4 border-red-500/20 border-t-red-600 animate-spin" />
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="w-2.5 h-2.5 rounded-full bg-red-600 animate-ping" />
+                </div>
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-800 dark:text-zinc-100">Welcome Back</h3>
+                <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1">Restoring your session...</p>
+              </div>
+            </div>
+          ) : (
+            <>
+              <h2 className="text-xl font-bold mb-6 text-slate-800 dark:text-zinc-100 flex items-center gap-2">
+                <LogIn className="w-5 h-5 text-red-500" /> Account Sign In
+              </h2>
 
           <form action={formAction} className="space-y-5">
             <div>
@@ -111,8 +169,10 @@ export default function LoginPage() {
               Forgot Password?
             </Link>
           </div>
-        </div>
-      </div>
-    </main>
+        </>
+      )}
+    </div>
+  </div>
+</main>
   );
 }

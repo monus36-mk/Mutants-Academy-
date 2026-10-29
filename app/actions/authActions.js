@@ -58,27 +58,73 @@ export async function login(prevState, formData) {
       role: role,
     });
 
-    // Set cookie
+    // Set persistent 1-year session cookie with explicit expiry date
     const cookieStore = await cookies();
+    const oneYearFromNow = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
     cookieStore.set('session', token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       path: '/',
-      maxAge: 60 * 60 * 24 * 365, // 1 year (persistent login)
+      maxAge: 60 * 60 * 24 * 365, // 1 year
+      expires: oneYearFromNow,
     });
 
-    if (role === 'Fighter') {
-      redirect('/fighter');
-    } else {
-      redirect('/admin');
-    }
+    return {
+      success: true,
+      token,
+      role,
+      redirectUrl: role === 'Fighter' ? '/fighter' : '/admin',
+    };
   } catch (err) {
-    if (err.digest?.startsWith('NEXT_REDIRECT')) {
-      throw err;
-    }
     console.error('Login action error:', err);
     return { error: 'Something went wrong. Please try again.' };
+  }
+}
+
+export async function restoreSession(token) {
+  try {
+    if (!token) return { error: 'No session token provided' };
+    const payload = await verifyToken(token);
+    if (!payload || !payload.id || !payload.role) {
+      return { error: 'Invalid or expired session token' };
+    }
+
+    // Refresh and persist cookie for another 1 year
+    const cookieStore = await cookies();
+    const oneYearFromNow = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
+    cookieStore.set('session', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 60 * 60 * 24 * 365,
+      expires: oneYearFromNow,
+    });
+
+    return {
+      success: true,
+      role: payload.role,
+      redirectUrl: payload.role === 'Fighter' ? '/fighter' : '/admin',
+    };
+  } catch (err) {
+    console.error('Restore session error:', err);
+    return { error: 'Session restoration failed' };
+  }
+}
+
+export async function getSessionTokenForSync() {
+  try {
+    const cookieStore = await cookies();
+    const sessionToken = cookieStore.get('session')?.value;
+    if (!sessionToken) return null;
+
+    const payload = await verifyToken(sessionToken);
+    if (!payload) return null;
+
+    return { token: sessionToken, role: payload.role };
+  } catch (err) {
+    return null;
   }
 }
 

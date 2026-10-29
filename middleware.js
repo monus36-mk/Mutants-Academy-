@@ -14,11 +14,16 @@ export async function middleware(request) {
     }
 
     const payload = await verifyToken(sessionCookie.value);
-    if (!payload || (payload.role !== 'MainAdmin' && payload.role !== 'Coach')) {
+    if (!payload) {
       const loginUrl = new URL('/login', request.url);
       const response = NextResponse.redirect(loginUrl);
       response.cookies.delete('session');
       return response;
+    }
+
+    // Role check: If logged in as Fighter, redirect to fighter dashboard without wiping session
+    if (payload.role !== 'MainAdmin' && payload.role !== 'Coach') {
+      return NextResponse.redirect(new URL('/fighter', request.url));
     }
 
     // Role check for users management (MainAdmin Only)
@@ -38,11 +43,16 @@ export async function middleware(request) {
     }
 
     const payload = await verifyToken(sessionCookie.value);
-    if (!payload || payload.role !== 'Fighter') {
+    if (!payload) {
       const loginUrl = new URL('/login', request.url);
       const response = NextResponse.redirect(loginUrl);
       response.cookies.delete('session');
       return response;
+    }
+
+    // Role check: If logged in as Admin or Coach, redirect to admin dashboard without wiping session
+    if (payload.role !== 'Fighter') {
+      return NextResponse.redirect(new URL('/admin', request.url));
     }
   }
 

@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { formatWhatsAppNumber } from '@/lib/utils';
 import PeerSearchFilters from '@/components/PeerSearchFilters';
+import { useModalBackHandler } from '@/hooks/useModalBackHandler';
 
 const WhatsAppIcon = ({ className }) => (
   <svg className={className} fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -50,6 +51,11 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
   const [readNoticesCount, setReadNoticesCount] = useState(0);
   const commentInputRef = useRef(null);
   const [selectedPeer, setSelectedPeer] = useState(null);
+
+  useModalBackHandler(Boolean(selectedEvent), (val) => !val && setSelectedEvent(null), 'fighterEventModal');
+  useModalBackHandler(Boolean(selectedPeer), (val) => !val && setSelectedPeer(null), 'fighterPeerModal');
+  useModalBackHandler(Boolean(lightboxImage), (val) => !val && setLightboxImage(null), 'fighterDashboardLightbox');
+  useModalBackHandler(showBellDropdown, setShowBellDropdown, 'fighterBellDropdown');
 
   const peerHasStyle = selectedPeer?.style && selectedPeer.style !== 'None';
   const peerHasEca = selectedPeer?.eca && selectedPeer.eca !== 'None';
@@ -474,6 +480,10 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
                   onClick={async () => {
                     setShowBellDropdown(false);
                     setSelectedEvent(null);
+                    try {
+                      localStorage.removeItem('mutants_auth_token');
+                      localStorage.removeItem('mutants_user_role');
+                    } catch (e) {}
                     await logout();
                     window.location.href = '/login';
                   }}

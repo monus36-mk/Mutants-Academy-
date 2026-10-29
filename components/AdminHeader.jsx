@@ -6,6 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { logout } from '@/app/actions/authActions';
 import ThemeToggle from './ThemeToggle';
 import { Dumbbell, Users, PlusCircle, LayoutDashboard, LogOut, Menu, X, ShieldAlert, Calendar, Megaphone } from 'lucide-react';
+import { useModalBackHandler } from '@/hooks/useModalBackHandler';
 
 export default function AdminHeader({ user }) {
   const pathname = usePathname();
@@ -13,10 +14,16 @@ export default function AdminHeader({ user }) {
   const [isOpen, setIsOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
 
+  useModalBackHandler(isOpen, setIsOpen, 'adminMobileMenu');
+
   const handleLogout = () => {
     startTransition(async () => {
+      try {
+        localStorage.removeItem('mutants_auth_token');
+        localStorage.removeItem('mutants_user_role');
+      } catch (e) {}
       const res = await logout();
-      if (res.success) {
+      if (res?.success) {
         router.push('/login');
         router.refresh();
       }

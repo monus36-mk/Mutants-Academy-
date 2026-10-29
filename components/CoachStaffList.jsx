@@ -3,6 +3,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import EditCoachModal from '@/components/EditCoachModal';
 import DeleteCoachButton from '@/components/DeleteCoachButton';
+import { useModalBackHandler } from '@/hooks/useModalBackHandler';
 import {
   Users,
   Calendar,
@@ -23,6 +24,8 @@ export default function CoachStaffList({ initialCoaches = [] }) {
   const [role, setRole] = useState('All');
   const [sortBy, setSortBy] = useState('Newest');
   const [isOpen, setIsOpen] = useState(false);
+
+  useModalBackHandler(isOpen, setIsOpen, 'coachStaffModal');
 
   // Staged state for modal
   const [staged, setStaged] = useState({

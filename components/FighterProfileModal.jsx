@@ -2,10 +2,14 @@
 
 import { useState } from 'react';
 import { X, Calendar, Phone, Mail, Dumbbell, User, ShieldAlert, Award, Clock, CheckCircle2, AlertTriangle, XCircle } from 'lucide-react';
+import { useModalBackHandler } from '@/hooks/useModalBackHandler';
 
 export default function FighterProfileModal({ fighter }) {
   const [isOpen, setIsOpen] = useState(false);
   const [lightboxImage, setLightboxImage] = useState(null);
+
+  useModalBackHandler(isOpen, setIsOpen, `profileModal_${fighter._id}`);
+  useModalBackHandler(Boolean(lightboxImage), (val) => !val && setLightboxImage(null), 'profileLightbox');
 
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';

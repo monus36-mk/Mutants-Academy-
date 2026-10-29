@@ -14,9 +14,11 @@ export default async function FighterProfilePage() {
 
   const profileRes = await getFighterProfile();
   if (!profileRes.success) {
-    const { logout } = require('@/app/actions/authActions');
-    await logout();
-    redirect('/login');
+    if (profileRes.error === 'Fighter profile not found') {
+      const { logout } = require('@/app/actions/authActions');
+      await logout();
+      redirect('/login');
+    }
   }
 
   const fighter = profileRes.fighter;

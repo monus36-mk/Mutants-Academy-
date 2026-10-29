@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useModalBackHandler } from '@/hooks/useModalBackHandler';
 import {
   Search,
   SlidersHorizontal,
@@ -89,6 +90,8 @@ export default function PeerSearchFilters({
   setSortBy,
 }) {
   const [isOpen, setIsOpen] = useState(false);
+
+  useModalBackHandler(isOpen, setIsOpen, 'peerSearchFiltersModal');
 
   // Staged filter state for modal dialog
   const [staged, setStaged] = useState({

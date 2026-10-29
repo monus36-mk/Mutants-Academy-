@@ -3,6 +3,7 @@
 import { useState, useTransition, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { createEvent, deleteEvent, updateEvent, toggleEventPin, addEventComment } from '@/app/actions/eventActions';
+import { useModalBackHandler } from '@/hooks/useModalBackHandler';
 import { 
   Calendar, MapPin, Trash2, Megaphone, Users, Clock, Plus, 
   AlertCircle, CalendarRange, Image as ImageIcon, Mic, Square, Play, Trash, Info, Pencil, X,
@@ -38,6 +39,9 @@ export default function EventsManager({ initialEvents, user }) {
   const [commentText, setCommentText] = useState('');
   const [activeModalTab, setActiveModalTab] = useState('comments');
   const commentInputRef = useRef(null);
+
+  useModalBackHandler(Boolean(selectedEvent), (val) => !val && setSelectedEvent(null), 'adminEventDetails');
+  useModalBackHandler(Boolean(editingEvent), (val) => !val && setEditingEvent(null), 'adminEditEvent');
 
   // Form input states
   const [title, setTitle] = useState('');

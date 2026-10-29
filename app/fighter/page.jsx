@@ -18,10 +18,12 @@ export default async function FighterDashboardPage() {
   ]);
 
   if (!profileRes.success) {
-    // Session is invalid or fighter was deleted, log out
-    const { logout } = require('@/app/actions/authActions');
-    await logout();
-    redirect('/login');
+    if (profileRes.error === 'Fighter profile not found') {
+      // Session is invalid or fighter was deleted, log out
+      const { logout } = require('@/app/actions/authActions');
+      await logout();
+      redirect('/login');
+    }
   }
 
   const peers = peersRes.success ? peersRes.fighters : [];

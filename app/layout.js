@@ -1,6 +1,7 @@
 import { Outfit } from "next/font/google";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import PWAInstallPrompt from "@/components/PWAInstallPrompt";
+import PWABackButtonHandler from "@/components/PWABackButtonHandler";
 import "./globals.css";
 
 const outfit = Outfit({
@@ -11,7 +12,7 @@ const outfit = Outfit({
 export const metadata = {
   title: "Mutants Academy | MMA Gym Portal",
   description: "Advanced Multi-Role Management System for Mutants Academy Coaches & Athletes",
-  manifest: "/manifest.json?v=3",
+  manifest: "/manifest.json?v=4",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
@@ -57,7 +58,7 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en" className={`${outfit.variable} h-full`} style={{ backgroundColor: "#ffffff" }}>
       <head>
-        <link rel="manifest" href="/manifest.json?v=3" />
+        <link rel="manifest" href="/manifest.json?v=4" />
         <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
         <link rel="apple-touch-startup-image" href="/icons/apple-splash.png" />
         <link rel="apple-touch-startup-image" href="/icons/apple-splash-1290-2796.png" media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" />
@@ -90,6 +91,7 @@ export default function RootLayout({ children }) {
       <body className="min-h-full font-sans antialiased bg-white dark:bg-zinc-950 text-slate-900 dark:text-zinc-50 transition-colors duration-200" style={{ backgroundColor: "#ffffff" }}>
         <ThemeProvider>
           {children}
+          <PWABackButtonHandler />
           <PWAInstallPrompt />
         </ThemeProvider>
       </body>

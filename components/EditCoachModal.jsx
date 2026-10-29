@@ -4,10 +4,13 @@ import { useState, useEffect, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { updateCoach } from '@/app/actions/coachActions';
 import { X, User, Mail, Key, Eye, EyeOff, Edit, Save } from 'lucide-react';
+import { useModalBackHandler } from '@/hooks/useModalBackHandler';
 
 export default function EditCoachModal({ coach }) {
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
+
+  useModalBackHandler(isOpen, setIsOpen, `editCoach_${coach._id}`);
   const [showPassword, setShowPassword] = useState(false);
   const [name, setName] = useState(coach.name || '');
   const [email, setEmail] = useState(coach.email || '');

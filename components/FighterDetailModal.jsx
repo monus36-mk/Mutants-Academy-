@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { formatWhatsAppNumber } from '@/lib/utils';
 import { resendFighterActivationEmail, getFighterActivationLink, toggleFighterInactive } from '@/app/actions/fighterActions';
+import { useModalBackHandler } from '@/hooks/useModalBackHandler';
 
 const WhatsAppIcon = ({ className }) => (
   <svg className={className} fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -24,6 +25,9 @@ export default function FighterDetailModal({ fighter, canEdit = false }) {
   const [isInactive, setIsInactive] = useState(Boolean(fighter.isInactive));
   const [isTogglingInactive, setIsTogglingInactive] = useState(false);
   const router = useRouter();
+
+  useModalBackHandler(isOpen, setIsOpen, `fighterDetail_${fighter._id}`);
+  useModalBackHandler(Boolean(lightboxImage), (val) => !val && setLightboxImage(null), 'fighterLightbox');
 
   const handleToggleInactive = async (e) => {
     e.stopPropagation();

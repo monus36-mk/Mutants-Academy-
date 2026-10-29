@@ -3,6 +3,7 @@
 import { useState, useTransition, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { toggleEventPin, addEventComment } from '@/app/actions/eventActions';
+import { useModalBackHandler } from '@/hooks/useModalBackHandler';
 import { 
   Calendar, MapPin, Clock, Users, Bell, MessageSquare, Heart, Send, Pin, UserCheck, X, Mic, Sparkles 
 } from 'lucide-react';
@@ -32,6 +33,8 @@ export default function AdminNoticesClient({ initialEvents, user }) {
   const [commentText, setCommentText] = useState('');
   const [activeModalTab, setActiveModalTab] = useState('comments');
   const commentInputRef = useRef(null);
+
+  useModalBackHandler(Boolean(selectedEvent), (val) => !val && setSelectedEvent(null), 'adminNoticeDetails');
 
   // Sync selectedEvent with the latest from initialEvents to get live updates
   const activeEvent = selectedEvent ? initialEvents.find(e => e._id === selectedEvent._id) : null;

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useTransition } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { useModalBackHandler } from '@/hooks/useModalBackHandler';
 import {
   Search,
   Filter,
@@ -25,6 +26,8 @@ export default function SearchFilters({ coaches, isAdmin, currentUser }) {
   const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
   const [isOpen, setIsOpen] = useState(false);
+
+  useModalBackHandler(isOpen, setIsOpen, 'searchFiltersModal');
 
   // URL State
   const search = searchParams.get('search') || '';

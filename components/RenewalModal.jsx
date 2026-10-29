@@ -4,10 +4,13 @@ import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { renewFighterSubscription } from '@/app/actions/fighterActions';
 import { RefreshCw, Calendar, X } from 'lucide-react';
+import { useModalBackHandler } from '@/hooks/useModalBackHandler';
 
 export default function RenewalModal({ fighter }) {
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
+
+  useModalBackHandler(isOpen, setIsOpen, `renewal_${fighter._id}`);
   const [months, setMonths] = useState(1);
   const [error, setError] = useState('');
   const [isPending, startTransition] = useTransition();
