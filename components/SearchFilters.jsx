@@ -375,9 +375,9 @@ export default function SearchFilters({ coaches, isAdmin, currentUser }) {
                 <div className="flex flex-wrap gap-2">
                   {[
                     { id: '', label: 'All Statuses' },
-                    { id: 'Active', label: '🟢 Active' },
-                    { id: 'Due Soon', label: '🟡 Due Soon' },
-                    { id: 'Expired', label: '🔴 Expired' },
+                    { id: 'Active', label: 'Active' },
+                    { id: 'Due Soon', label: 'Due Soon' },
+                    { id: 'Expired', label: 'Expired' },
                   ].map((opt) => {
                     const isSelected = stagedFilters.status === opt.id;
                     return (

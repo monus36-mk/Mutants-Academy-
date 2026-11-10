@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { getCurrentUser } from '@/app/actions/authActions';
 import { getFighterProfile, getPeers } from '@/app/actions/fighterActions';
 import { getEvents } from '@/app/actions/eventActions';
+import { getFighterPayments } from '@/app/actions/paymentActions';
 import FighterDashboardClient from './FighterDashboardClient';
 
 export default async function FighterDashboardPage() {
@@ -11,10 +12,11 @@ export default async function FighterDashboardPage() {
   }
 
   // Fetch initial dashboard data concurrently in parallel
-  const [profileRes, peersRes, eventsRes] = await Promise.all([
+  const [profileRes, peersRes, eventsRes, paymentsRes] = await Promise.all([
     getFighterProfile(user.id),
     getPeers(user.id),
     getEvents(),
+    getFighterPayments(user.id),
   ]);
 
   if (!profileRes.success) {
@@ -28,12 +30,14 @@ export default async function FighterDashboardPage() {
 
   const peers = peersRes.success ? peersRes.fighters : [];
   const events = eventsRes.success ? eventsRes.events : [];
+  const payments = paymentsRes.success ? paymentsRes.payments : [];
 
   return (
     <FighterDashboardClient
       fighter={profileRes.fighter}
       initialPeers={peers}
       initialEvents={events}
+      initialPayments={payments}
     />
   );
 }

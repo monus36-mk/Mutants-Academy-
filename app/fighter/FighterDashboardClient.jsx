@@ -10,7 +10,8 @@ import {
   Dumbbell, Calendar, Phone, Mail, Award, Clock, LogOut, 
   CheckCircle2, AlertTriangle, XCircle, Users, Bell, 
   MessageSquare, UserCheck, Sparkles, Filter, Search, ShieldAlert,
-  MapPin, HelpCircle, User, Mic, X, Heart, Send, Pin
+  MapPin, HelpCircle, User, Mic, X, Heart, Send, Pin,
+  CreditCard, Banknote, QrCode, ArrowUpRight
 } from 'lucide-react';
 import { formatWhatsAppNumber } from '@/lib/utils';
 import PeerSearchFilters from '@/components/PeerSearchFilters';
@@ -39,9 +40,9 @@ const getTitleColorClass = (colorKey) => {
   }
 };
 
-export default function FighterDashboardClient({ fighter, initialPeers, initialEvents }) {
+export default function FighterDashboardClient({ fighter, initialPeers, initialEvents, initialPayments = [] }) {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState('events'); // 'events' or 'directory'
+  const [activeTab, setActiveTab] = useState('events'); // 'events', 'directory', or 'billing'
   const [isPendingRSVP, startRSVPTransition] = useTransition();
   const [isPendingLike, startLikeTransition] = useTransition();
   const [showBellDropdown, setShowBellDropdown] = useState(false);
@@ -451,6 +452,16 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
                 )}
               </div>
 
+              {/* Pay Gym CTA Header Button */}
+              <Link
+                href={`/renew/${fighter._id}`}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl bg-gradient-to-r from-red-600 to-red-500 hover:from-red-500 hover:to-red-600 text-white text-xs font-black uppercase tracking-wider shadow-md shadow-red-600/25 transition-all hover:scale-105 active:scale-95 shrink-0 cursor-pointer"
+                title="Pay membership fees or renew online via UPI"
+              >
+                <CreditCard className="w-3.5 h-3.5" />
+                <span>Pay Gym</span>
+              </Link>
+
               {/* Theme Toggle */}
               <ThemeToggle />
 
@@ -536,8 +547,20 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
             </p>
           </div>
 
-          {/* Dynamic counts */}
-          <div className="shrink-0 flex gap-4 text-xs font-black uppercase tracking-widest">
+          {/* Dynamic counts & Pay CTA */}
+          <div className="shrink-0 flex flex-wrap items-center gap-3 text-xs font-black uppercase tracking-widest">
+            <Link
+              href={`/renew/${fighter._id}`}
+              className="px-4 py-3 bg-red-600 hover:bg-red-500 rounded-2xl flex items-center gap-2.5 shadow-md shadow-red-600/30 transition-all hover:scale-105 active:scale-95 text-white border border-red-500/30"
+              title="Renew membership pass or pay monthly fee"
+            >
+              <CreditCard className="w-4 h-4" />
+              <div className="text-left">
+                <span className="block text-[8px] font-black text-red-200 tracking-wider">FEE RENEWAL</span>
+                <span className="text-xs font-black uppercase">Pay Gym</span>
+              </div>
+            </Link>
+
             <div className="px-4 py-3 bg-slate-800/50 dark:bg-zinc-900/60 border border-slate-700/50 dark:border-zinc-800/80 rounded-2xl">
               <span className="block text-slate-400 text-[8px] font-bold tracking-wider">EVENTS JOINED</span>
               <span className="text-lg md:text-xl text-red-500 font-extrabold">{upcomingEvents.filter(e => e.rsvps.includes(fighter._id)).length}</span>
@@ -571,6 +594,17 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
             }`}
           >
             Fighter Directory ({filteredPeers.length})
+          </button>
+
+          <button
+            onClick={() => setActiveTab('billing')}
+            className={`pb-4 px-2 text-sm font-bold uppercase tracking-wider transition-all border-b-2 cursor-pointer ${
+              activeTab === 'billing'
+                ? 'border-red-600 text-red-500 font-extrabold'
+                : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-zinc-300'
+            }`}
+          >
+            Billing & Receipts ({initialPayments.length})
           </button>
         </div>
 
@@ -880,6 +914,144 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
                 ))}
               </div>
             )}
+
+          </div>
+        )}
+
+        {/* Tab 3: Billing & Payment History */}
+        {activeTab === 'billing' && (
+          <div className="space-y-6">
+            
+            {/* Membership Overview Card */}
+            <div className="bg-white dark:bg-zinc-900/60 border border-slate-200 dark:border-zinc-800 rounded-3xl p-6 md:p-8 shadow-sm">
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+                
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider ${
+                        fighter.status === 'Active'
+                          ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                          : fighter.status === 'Due Soon'
+                          ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'
+                          : 'bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20'
+                      }`}
+                    >
+                      <span className={`w-1.5 h-1.5 rounded-full ${fighter.status === 'Active' ? 'bg-emerald-500' : 'bg-red-500'}`} />
+                      Membership Status: {fighter.status}
+                    </span>
+                  </div>
+
+                  <h2 className="text-xl sm:text-2xl font-black uppercase tracking-tight text-slate-900 dark:text-white">
+                    {fighter.packageDurationMonths === 1 ? '🥊 1 Month Training Pass' : fighter.packageDurationMonths === 3 ? '🔥 3 Months Quarter Pass' : `${fighter.packageDurationMonths} Months Pass`}
+                  </h2>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 pt-2 text-xs">
+                    <div className="p-3 bg-slate-50 dark:bg-zinc-950/60 rounded-2xl border border-slate-100 dark:border-zinc-800/80">
+                      <span className="block text-[9px] font-black uppercase tracking-wider text-slate-400 dark:text-zinc-500">Agreed Rate</span>
+                      <span className="text-sm font-black font-mono text-slate-800 dark:text-zinc-200">
+                        ₹{(fighter.monthlyFee !== undefined ? fighter.monthlyFee : 1300).toLocaleString('en-IN')}/mo
+                      </span>
+                    </div>
+
+                    <div className="p-3 bg-slate-50 dark:bg-zinc-950/60 rounded-2xl border border-slate-100 dark:border-zinc-800/80">
+                      <span className="block text-[9px] font-black uppercase tracking-wider text-slate-400 dark:text-zinc-500">Next Renewal Due</span>
+                      <span className="text-sm font-bold font-mono text-red-500 dark:text-red-400">
+                        {fighter.nextPaymentDate ? new Date(fighter.nextPaymentDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'N/A'}
+                      </span>
+                    </div>
+
+                    <div className="p-3 bg-slate-50 dark:bg-zinc-950/60 rounded-2xl border border-slate-100 dark:border-zinc-800/80 col-span-2 sm:col-span-1">
+                      <span className="block text-[9px] font-black uppercase tracking-wider text-slate-400 dark:text-zinc-500">Total Receipts</span>
+                      <span className="text-sm font-black font-mono text-slate-800 dark:text-zinc-200">
+                        {initialPayments.length} Recorded
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Instant Online UPI Renewal CTA */}
+                <div className="shrink-0 flex flex-col sm:flex-row lg:flex-col gap-3">
+                  <Link
+                    href={`/renew/${fighter._id}`}
+                    className="px-6 py-3.5 rounded-2xl bg-gradient-to-r from-red-600 to-red-500 hover:from-red-500 hover:to-red-600 text-white font-black text-xs uppercase tracking-wider shadow-lg shadow-red-600/25 flex items-center justify-center gap-2 transition-all hover:scale-[1.02] active:scale-[0.98] text-center"
+                  >
+                    <span>Instant UPI Pass Renewal</span>
+                    <ArrowUpRight className="w-4 h-4" />
+                  </Link>
+                  <p className="text-[10px] text-center text-slate-400 dark:text-zinc-500">
+                    Instant pass activation via GPay, PhonePe, Paytm
+                  </p>
+                </div>
+
+              </div>
+            </div>
+
+            {/* Official Receipts Ledger */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-black uppercase tracking-wider text-slate-500 dark:text-zinc-400 flex items-center gap-1.5">
+                  <CreditCard className="w-4 h-4 text-red-500" /> Past Membership Receipts & Payment Ledger
+                </h3>
+                <span className="text-xs text-slate-400 dark:text-zinc-500 font-mono font-bold">
+                  {initialPayments.length} transaction{initialPayments.length !== 1 ? 's' : ''}
+                </span>
+              </div>
+
+              {initialPayments.length === 0 ? (
+                <div className="text-center py-16 bg-white dark:bg-zinc-900/50 border border-slate-200 dark:border-zinc-800 rounded-3xl p-8">
+                  <div className="w-12 h-12 rounded-full bg-slate-100 dark:bg-zinc-800 flex items-center justify-center mx-auto mb-3 text-slate-400">
+                    <CreditCard className="w-6 h-6" />
+                  </div>
+                  <h4 className="text-base font-bold text-slate-700 dark:text-zinc-300">No Past Receipts on File</h4>
+                  <p className="text-slate-400 dark:text-zinc-500 text-xs mt-1 max-w-sm mx-auto">
+                    When you renew online via UPI or pay at the academy counter, verified receipts will appear here automatically.
+                  </p>
+                </div>
+              ) : (
+                <div className="bg-white dark:bg-zinc-900/50 border border-slate-200 dark:border-zinc-800 rounded-3xl overflow-hidden shadow-sm">
+                  <div className="divide-y divide-slate-100 dark:divide-zinc-800">
+                    {initialPayments.map((p) => (
+                      <div
+                        key={p._id}
+                        className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-slate-50/70 dark:hover:bg-zinc-850/40 transition-colors"
+                      >
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono font-black text-base text-slate-900 dark:text-white">
+                              ₹{Number(p.amount).toLocaleString('en-IN')}
+                            </span>
+                            <span className="inline-flex px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 border border-slate-200 dark:border-zinc-700/60">
+                              {p.durationMonths === 1 ? '🥊 1 Month' : p.durationMonths === 3 ? '🔥 3 Months' : `${p.durationMonths} Months`}
+                            </span>
+                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                              p.paymentMethod === 'Cash'
+                                ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                                : 'bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20'
+                            }`}>
+                              {p.paymentMethod === 'Cash' ? <Banknote className="w-3 h-3" /> : <QrCode className="w-3 h-3" />}
+                              {p.paymentMethod}
+                            </span>
+                          </div>
+
+                          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-400 dark:text-zinc-500 font-mono">
+                            <span suppressHydrationWarning>Paid on: {p.paymentDate ? new Date(p.paymentDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'N/A'}</span>
+                            {p.transactionId && <span>Ref: {p.transactionId}</span>}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0">
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> Verified
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+            </div>
 
           </div>
         )}

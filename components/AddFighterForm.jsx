@@ -309,6 +309,31 @@ export default function AddFighterForm({ coaches, currentUser }) {
               <option value={12}>12 Months (1 Year)</option>
             </select>
           </div>
+
+          {/* Agreed Monthly Fee */}
+          <div>
+            <label htmlFor="monthlyFee" className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400 mb-1.5">
+              Agreed Monthly Fee (₹) *
+            </label>
+            <div className="relative flex items-center">
+              <span className="absolute left-3.5 text-sm font-bold text-slate-400 dark:text-zinc-500 pointer-events-none select-none z-10">₹</span>
+              <input
+                id="monthlyFee"
+                name="monthlyFee"
+                type="number"
+                min="0"
+                step="any"
+                required
+                defaultValue={1300}
+                className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900/50 text-slate-900 dark:text-zinc-100 placeholder-slate-400 dark:placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-red-500 text-sm transition-all font-semibold font-mono"
+                style={{ paddingLeft: '2.5rem' }}
+                placeholder="1300"
+              />
+            </div>
+            <p className="text-[10px] text-slate-400 dark:text-zinc-500 mt-1">
+              Standard rate is ₹1,300/mo. Set custom/concession rate if applicable.
+            </p>
+          </div>
         </div>
 
         {/* Assigned Coach */}

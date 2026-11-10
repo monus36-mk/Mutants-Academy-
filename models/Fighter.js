@@ -63,6 +63,10 @@ const FighterSchema = new mongoose.Schema(
       type: Number,
       required: [true, 'Please specify package duration in months'],
     },
+    monthlyFee: {
+      type: Number,
+      default: 1300,
+    },
     nextPaymentDate: {
       type: Date,
       required: true,

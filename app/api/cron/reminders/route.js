@@ -1,6 +1,8 @@
 import dbConnect from '@/lib/db';
 import Fighter from '@/models/Fighter';
 import { sendPaymentReminderEmail } from '@/lib/mail';
+import { sendPaymentReminderWhatsApp } from '@/lib/whatsapp';
+import { getBaseUrl } from '@/lib/url';
 import { NextResponse } from 'next/server';
 
 export async function GET(request) {
@@ -15,20 +17,22 @@ export async function GET(request) {
   try {
     await dbConnect();
     
-    // Determine base URL from incoming request or environment
+    // Determine base URL from incoming request or dynamic environment
     const requestHost = request.headers.get('x-forwarded-host') || request.headers.get('host');
     const requestProto = request.headers.get('x-forwarded-proto') || (requestHost?.includes('localhost') ? 'http' : 'https');
-    const cronAppUrl = requestHost ? `${requestProto}://${requestHost}` : null;
+    const detectedUrl = requestHost ? `${requestProto}://${requestHost}` : null;
+    const cronAppUrl = await getBaseUrl(detectedUrl);
 
     const fighters = await Fighter.find({ isInactive: { $ne: true } }).lean();
-    let sentCount = 0;
+    let emailSentCount = 0;
+    let whatsappSentCount = 0;
     const details = [];
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
     for (const f of fighters) {
-      if (!f.email) continue;
+      if (!f.email && !f.phone) continue;
       
       const paymentDate = new Date(f.nextPaymentDate);
       paymentDate.setHours(0, 0, 0, 0);
@@ -36,29 +40,75 @@ export async function GET(request) {
       const diffTime = paymentDate.getTime() - today.getTime();
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-      // Trigger reminder emails at billing milestones:
+      // Trigger reminder alerts at billing milestones:
       // - 3 days before expiry
       // - 1 day before expiry
       // - Expiring today (0 days)
       // - 3 days after expiry (-3 days)
       if (diffDays === 3 || diffDays === 1 || diffDays === 0 || diffDays === -3) {
-        try {
-          await sendPaymentReminderEmail(f.email, f.name, f.nextPaymentDate, diffDays, cronAppUrl);
-          sentCount++;
-          details.push({ email: f.email, name: f.name, diffDays, success: true });
-        } catch (mailErr) {
-          console.error(`Failed to send billing email to ${f.email}:`, mailErr);
-          details.push({ email: f.email, name: f.name, diffDays, success: false, error: mailErr.message });
+        const payUrl = `${cronAppUrl}/renew/${f._id}`;
+        let emailSuccess = false;
+        let whatsappSuccess = false;
+        let emailError = null;
+        let whatsappError = null;
+
+        // 1. Send Email Reminder
+        if (f.email) {
+          try {
+            await sendPaymentReminderEmail(f.email, f.name, f.nextPaymentDate, diffDays, cronAppUrl);
+            emailSentCount++;
+            emailSuccess = true;
+          } catch (mailErr) {
+            console.error(`Failed to send billing email to ${f.email}:`, mailErr);
+            emailError = mailErr.message;
+          }
         }
+
+        // 2. Send WhatsApp Reminder
+        if (f.phone) {
+          try {
+            const waRes = await sendPaymentReminderWhatsApp({
+              phone: f.phone,
+              name: f.name,
+              nextPaymentDate: f.nextPaymentDate,
+              diffDays,
+              payUrl,
+            });
+
+            if (waRes.success) {
+              whatsappSentCount++;
+              whatsappSuccess = true;
+            } else {
+              whatsappError = waRes.error;
+            }
+          } catch (waErr) {
+            console.error(`Failed to send WhatsApp billing reminder to ${f.phone}:`, waErr);
+            whatsappError = waErr.message;
+          }
+        }
+
+        details.push({
+          fighterId: f._id,
+          name: f.name,
+          email: f.email,
+          phone: f.phone,
+          diffDays,
+          emailSuccess,
+          whatsappSuccess,
+          emailError,
+          whatsappError,
+          payUrl,
+        });
       }
     }
 
     return NextResponse.json({
       success: true,
-      message: `Successfully processed reminders. Sent ${sentCount} email(s).`,
+      message: `Successfully processed reminders. Sent ${emailSentCount} email(s) and ${whatsappSentCount} WhatsApp message(s).`,
       processedCount: fighters.length,
-      sentCount,
-      details
+      emailSentCount,
+      whatsappSentCount,
+      details,
     });
   } catch (err) {
     console.error('Error executing automated reminders cron:', err);

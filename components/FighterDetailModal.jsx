@@ -1,11 +1,12 @@
 'use client';
 
-import { useState } from 'react';
-import { X, Calendar, Phone, Mail, Dumbbell, User, ShieldAlert, Award, Clock, ArrowRight, Edit, Copy, Check, Activity, KeyRound, CheckCircle2, AlertCircle, Send, UserX } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { X, Calendar, Phone, Mail, Dumbbell, User, ShieldAlert, Award, Clock, ArrowRight, Edit, Copy, Check, Activity, KeyRound, CheckCircle2, AlertCircle, Send, UserX, CreditCard, Banknote, QrCode } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { formatWhatsAppNumber } from '@/lib/utils';
 import { resendFighterActivationEmail, getFighterActivationLink, toggleFighterInactive } from '@/app/actions/fighterActions';
+import { getFighterPayments } from '@/app/actions/paymentActions';
 import { useModalBackHandler } from '@/hooks/useModalBackHandler';
 
 const WhatsAppIcon = ({ className }) => (
@@ -24,10 +25,27 @@ export default function FighterDetailModal({ fighter, canEdit = false }) {
   const [actionMessage, setActionMessage] = useState(null);
   const [isInactive, setIsInactive] = useState(Boolean(fighter.isInactive));
   const [isTogglingInactive, setIsTogglingInactive] = useState(false);
+  const [payments, setPayments] = useState([]);
+  const [loadingPayments, setLoadingPayments] = useState(false);
   const router = useRouter();
 
   useModalBackHandler(isOpen, setIsOpen, `fighterDetail_${fighter._id}`);
   useModalBackHandler(Boolean(lightboxImage), (val) => !val && setLightboxImage(null), 'fighterLightbox');
+
+  // Fetch payment history when modal opens
+  useEffect(() => {
+    if (isOpen && fighter?._id) {
+      setLoadingPayments(true);
+      getFighterPayments(fighter._id)
+        .then((res) => {
+          if (res?.success) {
+            setPayments(res.payments || []);
+          }
+        })
+        .catch((err) => console.error('Failed to load fighter payments:', err))
+        .finally(() => setLoadingPayments(false));
+    }
+  }, [isOpen, fighter?._id]);
 
   const handleToggleInactive = async (e) => {
     e.stopPropagation();
@@ -147,6 +165,17 @@ export default function FighterDetailModal({ fighter, canEdit = false }) {
       year: 'numeric',
       month: 'long',
       day: 'numeric',
+    });
+  };
+
+  const formatShortDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    const d = new Date(dateString);
+    if (isNaN(d.getTime())) return 'N/A';
+    return d.toLocaleDateString('en-IN', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
     });
   };
 
@@ -468,7 +497,13 @@ export default function FighterDetailModal({ fighter, canEdit = false }) {
                 <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500 mb-1.5 flex items-center gap-1.5">
                   <Clock className="w-3.5 h-3.5 text-slate-400" /> Subscription Billing Information
                 </h4>
-                <div className="grid grid-cols-3 gap-2 bg-slate-50 dark:bg-zinc-950/40 border border-slate-100 dark:border-zinc-800 p-2.5 rounded-xl">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-slate-50 dark:bg-zinc-950/40 border border-slate-100 dark:border-zinc-800 p-2.5 rounded-xl">
+                  <div>
+                    <span className="block text-[8px] font-black text-slate-400 dark:text-zinc-500 uppercase tracking-widest truncate">Monthly Rate</span>
+                    <span className="text-[11px] sm:text-xs font-bold text-slate-900 dark:text-zinc-100 font-mono block truncate">
+                      ₹{(fighter.monthlyFee !== undefined ? fighter.monthlyFee : 1300).toLocaleString('en-IN')}/mo
+                    </span>
+                  </div>
                   <div>
                     <span className="block text-[8px] font-black text-slate-400 dark:text-zinc-500 uppercase tracking-widest truncate">Cycle Start</span>
                     <span className="text-[11px] sm:text-xs font-bold text-slate-700 dark:text-zinc-300 font-mono block truncate">{formatDate(fighter.entryDate)}</span>
@@ -484,6 +519,105 @@ export default function FighterDetailModal({ fighter, canEdit = false }) {
                     <span className="text-[11px] sm:text-xs font-bold text-red-500 dark:text-red-400 font-mono block truncate">{formatDate(fighter.nextPaymentDate)}</span>
                   </div>
                 </div>
+              </div>
+
+              {/* Payment & Renewal History Section */}
+              <div className="border-t border-slate-100 dark:border-zinc-800/80 pt-3 mt-1">
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500 flex items-center gap-1.5">
+                    <CreditCard className="w-3.5 h-3.5 text-slate-400" /> Payment & Renewal History
+                  </h4>
+                  <span className="text-[9px] font-mono font-bold text-slate-400 dark:text-zinc-500">
+                    {payments.length} Record{payments.length !== 1 ? 's' : ''}
+                  </span>
+                </div>
+
+                {loadingPayments ? (
+                  <div className="p-4 bg-slate-50 dark:bg-zinc-950/40 rounded-xl text-center text-xs text-slate-400 flex items-center justify-center gap-2">
+                    <div className="w-3.5 h-3.5 border-2 border-red-500 border-t-transparent rounded-full animate-spin" />
+                    <span>Loading payment history...</span>
+                  </div>
+                ) : payments.length === 0 ? (
+                  <div className="p-3 bg-slate-50 dark:bg-zinc-950/40 border border-slate-100 dark:border-zinc-800 rounded-xl text-center text-[11px] text-slate-400 dark:text-zinc-500">
+                    No payment history recorded yet for this athlete.
+                  </div>
+                ) : (
+                  <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                    {payments.map((p) => {
+                      const isMultiMonth = (p.durationMonths || 1) > 1;
+                      return (
+                        <div
+                          key={p._id}
+                          className="bg-slate-50 dark:bg-zinc-950/70 border border-slate-200 dark:border-zinc-800/90 p-2.5 sm:p-3 rounded-2xl flex flex-col gap-1.5 text-xs transition-all hover:border-slate-300 dark:hover:border-zinc-700"
+                        >
+                          {/* Row 1: Amount, Duration, Payment Method, Status */}
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                              <span className="font-mono font-black text-sm sm:text-base text-slate-900 dark:text-white">
+                                ₹{p.amount.toLocaleString('en-IN')}
+                              </span>
+                              <span className="px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-slate-200/80 dark:bg-zinc-800 text-slate-800 dark:text-zinc-200 border border-slate-300/60 dark:border-zinc-700/60">
+                                {p.durationMonths === 1
+                                  ? '🥊 1 Month'
+                                  : p.durationMonths === 3
+                                  ? '🔥 3 Months Pass'
+                                  : `${p.durationMonths} Months`}
+                              </span>
+                              <span
+                                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[9px] font-bold uppercase ${
+                                  p.paymentMethod === 'Cash'
+                                    ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                                    : 'bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20'
+                                }`}
+                              >
+                                {p.paymentMethod === 'Cash' ? (
+                                  <Banknote className="w-2.5 h-2.5" />
+                                ) : (
+                                  <QrCode className="w-2.5 h-2.5" />
+                                )}
+                                {p.paymentMethod}
+                              </span>
+                            </div>
+
+                            <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase text-emerald-600 dark:text-emerald-400 shrink-0">
+                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> Paid
+                            </span>
+                          </div>
+
+                          {/* Row 2: Date Coverage Range */}
+                          <div className="flex flex-wrap items-center justify-between gap-1 text-[10px] pt-1 border-t border-slate-100 dark:border-zinc-850">
+                            <span className="text-slate-500 dark:text-zinc-400 font-medium">
+                              🗓️ <span className="font-semibold text-slate-700 dark:text-zinc-300">Paid:</span> {formatShortDate(p.paymentDate)}
+                              {p.expiryDate && (
+                                <>
+                                  {' '}→ <span className="font-semibold text-slate-700 dark:text-zinc-300">Valid Till:</span>{' '}
+                                  <span className="font-bold text-red-600 dark:text-red-400 font-mono">
+                                    {formatShortDate(p.expiryDate)}
+                                  </span>
+                                </>
+                              )}
+                            </span>
+
+                            {isMultiMonth && (
+                              <span className="text-[9px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                                Covers {p.durationMonths} Months Access
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Row 3: Notes / Reference if present */}
+                          {(p.transactionId || p.notes) && (
+                            <div className="text-[10px] text-slate-400 dark:text-zinc-500 truncate font-mono pt-0.5">
+                              {p.transactionId && <span>Ref: {p.transactionId}</span>}
+                              {p.transactionId && p.notes && <span> • </span>}
+                              {p.notes && <span>{p.notes}</span>}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
               {/* Portal Account Activation Status & Action Bar */}

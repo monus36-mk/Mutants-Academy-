@@ -3,12 +3,14 @@
 import dbConnect from '@/lib/db';
 import Fighter from '@/models/Fighter';
 import User from '@/models/User';
+import Payment from '@/models/Payment';
 import { getCurrentUser } from './authActions';
 import { revalidatePath } from 'next/cache';
 import bcrypt from 'bcryptjs';
 
 import { calculateStatus } from '@/lib/utils';
 import { sendWelcomeEmail } from '@/lib/mail';
+import { sendPaymentSuccessWhatsApp } from '@/lib/whatsapp';
 import { getBaseUrl } from '@/lib/url';
 
 export async function getFighters(filters = {}) {
@@ -91,6 +93,7 @@ export async function getFighters(filters = {}) {
         isActivated: Boolean(f.password && f.password.trim() !== ''),
         createdAt: f.createdAt ? f.createdAt.toISOString() : null,
         eca: f.eca || 'None',
+        monthlyFee: f.monthlyFee !== undefined ? f.monthlyFee : 1300,
       };
     });
 
@@ -192,6 +195,7 @@ export async function addFighter(prevState, formData) {
     const joiningDateStr = formData.get('joiningDate');
     const password = formData.get('password');
     const style = formData.get('style');
+    const monthlyFee = formData.get('monthlyFee') ? Number(formData.get('monthlyFee')) : 1300;
 
     if (!name || !phone || !email || !dobStr || !weightClass || !experienceLevel || !packageDurationMonths || !style) {
       return { error: 'Please fill in all required fields.' };
@@ -244,6 +248,7 @@ export async function addFighter(prevState, formData) {
       entryDate,
       joiningDate,
       packageDurationMonths,
+      monthlyFee,
       nextPaymentDate,
       status,
       password: hashedPassword,
@@ -268,7 +273,7 @@ export async function addFighter(prevState, formData) {
   }
 }
 
-export async function renewFighterSubscription(fighterId, durationMonths) {
+export async function renewFighterSubscription(fighterId, durationMonths, amount, paymentMethod = 'Cash', resetFromToday = false) {
   try {
     await dbConnect();
 
@@ -293,10 +298,13 @@ export async function renewFighterSubscription(fighterId, durationMonths) {
     }
 
     const today = new Date();
+    today.setHours(0, 0, 0, 0);
     let baseDate = new Date(fighter.nextPaymentDate);
 
-    // If subscription is expired, start renewal from today
-    if (baseDate < today) {
+    // Strict Continuous Renewal:
+    // Only reset from today if admin explicitly checked the waiver, or if the date was invalid.
+    // If overdue by 2 months and pays 1 month, baseDate remains nextPaymentDate so gym never loses fees.
+    if (resetFromToday || isNaN(baseDate.getTime())) {
       baseDate = today;
     }
 
@@ -305,12 +313,61 @@ export async function renewFighterSubscription(fighterId, durationMonths) {
 
     fighter.packageDurationMonths = packageDuration;
     fighter.nextPaymentDate = newPaymentDate;
-    fighter.status = calculateStatus(newPaymentDate);
+    fighter.status = newPaymentDate >= today ? 'Active' : 'Expired';
+    fighter.isInactive = false;
 
     await fighter.save();
 
+    // Determine final payment amount
+    const fighterMonthlyRate = fighter.monthlyFee !== undefined ? fighter.monthlyFee : 1300;
+    let finalAmount = Number(amount);
+    if (!finalAmount || isNaN(finalAmount) || finalAmount <= 0) {
+      if (packageDuration === 1) {
+        finalAmount = fighterMonthlyRate;
+      } else if (packageDuration === 3) {
+        finalAmount = (fighterMonthlyRate === 1200 || fighterMonthlyRate === 1300) ? 4000 : fighterMonthlyRate * 3;
+      } else {
+        finalAmount = packageDuration * fighterMonthlyRate;
+      }
+    }
+
+    const validMethod = ['UPI', 'Cash', 'YouPI', 'Bank Transfer'].includes(paymentMethod) ? paymentMethod : 'Cash';
+
+    // Record in Payment ledger
+    const waiverTag = resetFromToday ? ' [Cycle reset from today]' : '';
+    const payment = await Payment.create({
+      fighterId: fighter._id,
+      fighterName: fighter.name,
+      phone: fighter.phone,
+      amount: finalAmount,
+      durationMonths: packageDuration,
+      paymentDate: new Date(),
+      expiryDate: newPaymentDate,
+      paymentMethod: validMethod,
+      status: 'Completed',
+      notes: `Admin renewal (${validMethod}) by ${user.name || user.role}${waiverTag}`,
+    });
+
+    // Dispatch official WhatsApp payment & renewal receipt with exact amount paid
+    if (fighter.phone) {
+      try {
+        await sendPaymentSuccessWhatsApp({
+          phone: fighter.phone,
+          name: fighter.name,
+          amount: finalAmount,
+          durationMonths: packageDuration,
+          nextPaymentDate: newPaymentDate,
+          style: fighter.style || 'MMA',
+        });
+      } catch (waErr) {
+        console.error('Failed to send renewal confirmation WhatsApp:', waErr);
+      }
+    }
+
     revalidatePath('/admin');
-    return { success: true };
+    revalidatePath('/admin/payments');
+    revalidatePath('/fighter');
+    return { success: true, paymentId: payment._id.toString() };
   } catch (err) {
     console.error('Error renewing subscription:', err);
     return { error: 'Failed to renew subscription.' };
@@ -405,6 +462,10 @@ export async function updateFighter(fighterId, prevState, formData) {
     fighter.experienceLevel = experienceLevel;
     fighter.style = style;
     fighter.eca = eca;
+    const monthlyFeeRaw = formData.get('monthlyFee');
+    if (monthlyFeeRaw !== null && monthlyFeeRaw !== undefined && monthlyFeeRaw !== '') {
+      fighter.monthlyFee = Number(monthlyFeeRaw);
+    }
     if (assignedCoach) {
       fighter.assignedCoach = assignedCoach;
     }
@@ -481,6 +542,7 @@ export async function getFighterProfile(userId = null) {
         nextPaymentDate: fighter.nextPaymentDate ? fighter.nextPaymentDate.toISOString() : null,
         status: computedStatus,
         isInactive: Boolean(fighter.isInactive),
+        monthlyFee: fighter.monthlyFee !== undefined ? fighter.monthlyFee : 1300,
       }
     };
   } catch (err) {

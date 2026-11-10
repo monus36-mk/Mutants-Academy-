@@ -1,9 +1,10 @@
 import { redirect } from 'next/navigation';
 import { getCurrentUser } from '@/app/actions/authActions';
 import { getFighterProfile } from '@/app/actions/fighterActions';
+import { getFighterPayments } from '@/app/actions/paymentActions';
 import ThemeToggle from '@/components/ThemeToggle';
 import Link from 'next/link';
-import { Dumbbell, Clock, LogOut, CheckCircle2, AlertTriangle, XCircle, ArrowLeft } from 'lucide-react';
+import { Dumbbell, Clock, LogOut, CheckCircle2, AlertTriangle, XCircle, ArrowLeft, CreditCard, Banknote, QrCode, ArrowUpRight } from 'lucide-react';
 import FighterProfileClient from './FighterProfileClient';
 
 export default async function FighterProfilePage() {
@@ -22,6 +23,10 @@ export default async function FighterProfilePage() {
   }
 
   const fighter = profileRes.fighter;
+
+  // Fetch payment history for this fighter
+  const paymentsRes = await getFighterPayments(fighter._id);
+  const payments = paymentsRes.success ? paymentsRes.payments : [];
 
   const handleLogout = async () => {
     'use server';
@@ -56,7 +61,7 @@ export default async function FighterProfilePage() {
           bg: 'bg-red-500/10 border-red-500/20 text-red-500',
           badge: 'bg-red-500 text-white',
           icon: XCircle,
-          text: expDays <= 0 ? 'Your subscription expired today.' : `Your subscription expired ${expDays} day${expDays > 1 ? 's' : ''} ago. Please contact management to renew.`,
+          text: expDays <= 0 ? 'Your subscription expired today.' : `Your subscription expired ${expDays} day${expDays > 1 ? 's' : ''} ago. Please renew your package now.`,
           bannerBg: 'from-red-950/20 to-red-900/10 border-red-500/20',
           accentColor: 'text-red-500',
         };
@@ -95,8 +100,18 @@ export default async function FighterProfilePage() {
               <ArrowLeft className="w-4 h-4" /> Back to Dashboard
             </Link>
 
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-2xl bg-slate-100 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800">
+            <div className="flex items-center gap-3">
+              {/* Pay Gym CTA Header Button */}
+              <Link
+                href={`/renew/${fighter._id}`}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-red-600 to-red-500 hover:from-red-500 hover:to-red-600 text-white text-xs font-black uppercase tracking-wider shadow-md shadow-red-600/25 transition-all hover:scale-105 active:scale-95 cursor-pointer"
+                title="Pay membership fees online via UPI"
+              >
+                <CreditCard className="w-3.5 h-3.5" />
+                <span>Pay Gym</span>
+              </Link>
+
+              <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-2xl bg-slate-100 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800">
                 <span className="text-[10px] font-black text-slate-500 dark:text-zinc-400 uppercase tracking-widest">
                   Athlete Profile
                 </span>
@@ -135,10 +150,18 @@ export default async function FighterProfilePage() {
             </p>
           </div>
           
-          <div className="shrink-0 flex flex-col items-start md:items-end gap-1.5">
-            <span className={`inline-flex px-4 py-2 rounded-full text-xs font-black uppercase tracking-widest shadow-md ${statusConfig.badge}`}>
-              {fighter.status}
-            </span>
+          <div className="shrink-0 flex flex-col items-start md:items-end gap-2.5">
+            <div className="flex items-center gap-2">
+              <span className={`inline-flex px-4 py-2 rounded-full text-xs font-black uppercase tracking-widest shadow-md ${statusConfig.badge}`}>
+                {fighter.status}
+              </span>
+              <Link
+                href={`/renew/${fighter._id}`}
+                className="px-3.5 py-1.5 rounded-full bg-red-600 hover:bg-red-500 text-white text-xs font-extrabold uppercase tracking-wider shadow-md shadow-red-600/25 transition-all hover:scale-105 active:scale-95 inline-flex items-center gap-1.5 cursor-pointer"
+              >
+                <CreditCard className="w-3.5 h-3.5" /> Pay / Renew
+              </Link>
+            </div>
             <span className="text-[10px] text-slate-400 dark:text-zinc-500 font-bold uppercase tracking-wider">
               VALID UNTIL: {formatDate(fighter.nextPaymentDate)}
             </span>
@@ -146,16 +169,26 @@ export default async function FighterProfilePage() {
         </div>
 
         {/* Status Advisory Banner */}
-        <div className={`p-5 rounded-2xl border bg-gradient-to-r ${statusConfig.bannerBg} flex items-start gap-3.5`}>
-          <StatusIcon className={`w-6 h-6 shrink-0 mt-0.5 ${statusConfig.accentColor}`} />
-          <div>
-            <h3 className="font-extrabold text-sm uppercase tracking-wider text-slate-800 dark:text-zinc-200">
-              Subscription Status Advisory
-            </h3>
-            <p className="text-xs font-medium text-slate-600 dark:text-zinc-400 mt-0.5 leading-relaxed">
-              {statusConfig.text}
-            </p>
+        <div className={`p-5 rounded-2xl border bg-gradient-to-r ${statusConfig.bannerBg} flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4`}>
+          <div className="flex items-start gap-3.5">
+            <StatusIcon className={`w-6 h-6 shrink-0 mt-0.5 ${statusConfig.accentColor}`} />
+            <div>
+              <h3 className="font-extrabold text-sm uppercase tracking-wider text-slate-800 dark:text-zinc-200">
+                Subscription Status Advisory
+              </h3>
+              <p className="text-xs font-medium text-slate-600 dark:text-zinc-400 mt-0.5 leading-relaxed">
+                {statusConfig.text}
+              </p>
+            </div>
           </div>
+
+          <Link
+            href={`/renew/${fighter._id}`}
+            className="shrink-0 px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-black uppercase tracking-wider shadow-md shadow-red-600/20 inline-flex items-center gap-1.5 transition-all hover:scale-105 active:scale-95 cursor-pointer"
+          >
+            <span>Pay Gym Fees Now</span>
+            <ArrowUpRight className="w-3.5 h-3.5" />
+          </Link>
         </div>
 
         {/* Details Grid */}
@@ -164,11 +197,23 @@ export default async function FighterProfilePage() {
           {/* Card 1: Subscription Info */}
           <div className="bg-white dark:bg-zinc-900/50 border border-slate-200 dark:border-zinc-800 rounded-3xl p-6 md:p-8 shadow-sm flex flex-col justify-between transition-colors">
             <div>
-              <h2 className="text-base font-black text-slate-800 dark:text-zinc-100 uppercase tracking-wider mb-6 flex items-center gap-2">
-                <Clock className="w-5 h-5 text-red-500" /> Subscription Details
-              </h2>
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-base font-black text-slate-800 dark:text-zinc-100 uppercase tracking-wider flex items-center gap-2">
+                  <Clock className="w-5 h-5 text-red-500" /> Subscription Details
+                </h2>
+                <span className="text-xs font-mono font-bold text-red-500 bg-red-500/10 px-2 py-0.5 rounded-md border border-red-500/20">
+                  ₹{(fighter.monthlyFee !== undefined ? fighter.monthlyFee : 1300).toLocaleString('en-IN')}/mo
+                </span>
+              </div>
               
               <div className="space-y-4">
+                <div className="flex justify-between py-2.5 border-b border-slate-100 dark:border-zinc-800/80">
+                  <span className="text-xs font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wide">Agreed Rate</span>
+                  <span className="text-sm font-extrabold text-slate-800 dark:text-zinc-100 font-mono">
+                    ₹{(fighter.monthlyFee !== undefined ? fighter.monthlyFee : 1300).toLocaleString('en-IN')} / month
+                  </span>
+                </div>
+
                 <div className="flex justify-between py-2.5 border-b border-slate-100 dark:border-zinc-800/80">
                   <span className="text-xs font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wide">Membership Package</span>
                   <span className="text-sm font-extrabold text-slate-700 dark:text-zinc-200 uppercase">
@@ -198,10 +243,33 @@ export default async function FighterProfilePage() {
                 </div>
               </div>
             </div>
-            
-            <div className="bg-slate-50 dark:bg-zinc-950/40 border border-slate-100 dark:border-zinc-800 p-4 rounded-2xl text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500 leading-relaxed mt-6">
-              ⚠️ Note: All packages automatically freeze upon expiration. Please coordinate payment updates directly with your coach.
+
+            {/* DIRECT PAY TO GYM ACTION BOX */}
+            <div className="mt-6 pt-5 border-t border-slate-100 dark:border-zinc-800 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-zinc-500">
+                  Online Fee Payment
+                </span>
+                <span className="text-[10px] font-extrabold text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                  Instant UPI Activation
+                </span>
+              </div>
+
+              <Link
+                href={`/renew/${fighter._id}`}
+                className="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-red-600 via-red-500 to-amber-600 hover:from-red-500 hover:to-amber-500 text-white font-black text-xs uppercase tracking-wider shadow-lg shadow-red-600/25 flex items-center justify-center gap-2 transition-all hover:scale-[1.02] active:scale-[0.98] text-center cursor-pointer"
+              >
+                <CreditCard className="w-4 h-4" />
+                <span>Pay to Gym / Renew Membership</span>
+                <ArrowUpRight className="w-4 h-4 ml-auto" />
+              </Link>
+
+              <div className="flex items-center justify-between text-[10px] text-slate-400 dark:text-zinc-500 px-1 font-medium">
+                <span>Google Pay • PhonePe • Paytm • QR</span>
+                <span>Zero Extra Fees</span>
+              </div>
             </div>
+
           </div>
 
           {/* Card 2: Profile & Coach details (Interactive Client Wrapper) */}
@@ -209,7 +277,65 @@ export default async function FighterProfilePage() {
 
         </div>
 
-        {/* Card 3: Session & Device Sign Out (Specially positioned for clean mobile & PWA use) */}
+        {/* Card 3: Membership Payment & Receipts Ledger */}
+        <div className="bg-white dark:bg-zinc-900/50 border border-slate-200 dark:border-zinc-800 rounded-3xl p-6 md:p-8 shadow-sm space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-black uppercase tracking-wider text-slate-900 dark:text-white flex items-center gap-2">
+              <CreditCard className="w-4 h-4 text-red-500" /> Past Membership Receipts ({payments.length})
+            </h3>
+            <Link
+              href={`/renew/${fighter._id}`}
+              className="text-xs font-bold text-red-500 hover:text-red-400 flex items-center gap-1"
+            >
+              <span>Renew New Plan</span>
+              <ArrowUpRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+
+          {payments.length === 0 ? (
+            <div className="p-8 text-center bg-slate-50 dark:bg-zinc-950/40 rounded-2xl border border-slate-100 dark:border-zinc-800 text-xs text-slate-400 dark:text-zinc-500">
+              No previous payments recorded yet. Online UPI renewals and counter receipts will appear here automatically.
+            </div>
+          ) : (
+            <div className="divide-y divide-slate-100 dark:divide-zinc-800 border border-slate-100 dark:border-zinc-800 rounded-2xl overflow-hidden">
+              {payments.map((p) => (
+                <div
+                  key={p._id}
+                  className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-zinc-900/30 hover:bg-slate-50 dark:hover:bg-zinc-850/40 transition-colors"
+                >
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono font-black text-sm text-slate-900 dark:text-white">
+                        ₹{p.amount.toLocaleString('en-IN')}
+                      </span>
+                      <span className="text-[10px] font-bold text-slate-500 dark:text-zinc-400">
+                        ({p.durationMonths} Mo{p.durationMonths > 1 ? 's' : ''})
+                      </span>
+                      <span className={`inline-flex items-center gap-0.5 px-2 py-0.5 rounded text-[9px] font-bold uppercase ${
+                        p.paymentMethod === 'Cash'
+                          ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                          : 'bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20'
+                      }`}>
+                        {p.paymentMethod === 'Cash' ? <Banknote className="w-3 h-3" /> : <QrCode className="w-3 h-3" />}
+                        {p.paymentMethod}
+                      </span>
+                    </div>
+                    <span suppressHydrationWarning className="text-[10px] text-slate-400 dark:text-zinc-500 font-mono block mt-1">
+                      {p.paymentDate ? new Date(p.paymentDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'N/A'}
+                      {p.transactionId ? ` • Ref: ${p.transactionId}` : ''}
+                    </span>
+                  </div>
+
+                  <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase text-emerald-600 dark:text-emerald-400">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> Completed
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Card 4: Session & Device Sign Out */}
         <div className="bg-white dark:bg-zinc-900/50 border border-slate-200 dark:border-zinc-800 rounded-3xl p-6 md:p-8 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5 transition-colors">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
