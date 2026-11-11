@@ -40,9 +40,9 @@ const getTitleColorClass = (colorKey) => {
   }
 };
 
-export default function FighterDashboardClient({ fighter, initialPeers, initialEvents, initialPayments = [] }) {
+export default function FighterDashboardClient({ fighter, initialPeers, initialEvents, initialPayments = [], initialTab = 'events' }) {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState('events'); // 'events', 'directory', or 'billing'
+  const [activeTab, setActiveTab] = useState(initialTab || 'events');
   const [isPendingRSVP, startRSVPTransition] = useTransition();
   const [isPendingLike, startLikeTransition] = useTransition();
   const [showBellDropdown, setShowBellDropdown] = useState(false);
@@ -452,10 +452,10 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
                 )}
               </div>
 
-              {/* Pay Gym CTA Header Button */}
+              {/* Pay Gym CTA Header Button (Desktop only; on mobile, athletes pay directly from profile bar & hero card) */}
               <Link
                 href={`/renew/${fighter._id}`}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl bg-gradient-to-r from-red-600 to-red-500 hover:from-red-500 hover:to-red-600 text-white text-xs font-black uppercase tracking-wider shadow-md shadow-red-600/25 transition-all hover:scale-105 active:scale-95 shrink-0 cursor-pointer"
+                className="hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl bg-gradient-to-r from-red-600 to-red-500 hover:from-red-500 hover:to-red-600 text-white text-xs font-black uppercase tracking-wider shadow-md shadow-red-600/25 transition-all hover:scale-105 active:scale-95 shrink-0 cursor-pointer"
                 title="Pay membership fees or renew online via UPI"
               >
                 <CreditCard className="w-3.5 h-3.5" />
@@ -465,7 +465,7 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
               {/* Theme Toggle */}
               <ThemeToggle />
 
-              {/* Profile Avatar Page Link with Athlete Name (Name hidden on mobile to prevent navbar overflow) */}
+              {/* Profile Avatar Page Link with Athlete Name (Avatar icon visible on top; name hidden on mobile to prevent navbar overflow) */}
               <div className="flex items-center gap-2 sm:gap-3 pl-1 shrink-0">
                 <div className="hidden sm:flex flex-col text-right">
                   <span className="text-xs font-extrabold text-slate-900 dark:text-zinc-100 uppercase tracking-tight leading-tight">{fighter.name}</span>
@@ -480,7 +480,11 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
                   className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-white hover:bg-slate-50 dark:bg-zinc-900 dark:hover:bg-zinc-800 border border-slate-200 dark:border-zinc-800 flex items-center justify-center text-slate-700 dark:text-zinc-300 transition-all cursor-pointer shadow-sm relative shrink-0"
                   title="View Profile & Membership details"
                 >
-                  <User className="w-4.5 h-4.5 sm:w-5 sm:h-5 text-red-500" />
+                  {fighter.photo ? (
+                    <img src={fighter.photo} alt={fighter.name} className="w-full h-full object-cover rounded-2xl" />
+                  ) : (
+                    <User className="w-4.5 h-4.5 sm:w-5 sm:h-5 text-red-500" />
+                  )}
                 </Link>
               </div>
 
@@ -531,7 +535,7 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
       )}
 
       {/* Main Content */}
-      <main className="flex-1 w-full max-w-7xl xl:max-w-[1440px] 2xl:max-w-[1720px] 3xl:max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 py-6 md:py-8 space-y-8 animate-in fade-in duration-300">
+      <main className="flex-1 w-full max-w-7xl xl:max-w-[1440px] 2xl:max-w-[1720px] 3xl:max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 py-6 md:py-8 space-y-8 animate-in fade-in duration-300 pb-24 md:pb-8">
         
         {/* Athlete Banner */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-gradient-to-r from-slate-900 to-zinc-900 dark:from-zinc-900 dark:to-black rounded-3xl p-6 md:p-8 text-white shadow-xl border border-slate-800 dark:border-zinc-800">
@@ -549,6 +553,18 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
 
           {/* Dynamic counts & Pay CTA */}
           <div className="shrink-0 flex flex-wrap items-center gap-3 text-xs font-black uppercase tracking-widest">
+            <Link
+              href="/fighter/attendance"
+              className="px-4 py-3 bg-emerald-600 hover:bg-emerald-500 rounded-2xl flex items-center gap-2.5 shadow-md shadow-emerald-600/30 transition-all hover:scale-105 active:scale-95 text-white border border-emerald-500/30 cursor-pointer"
+              title="Mat Attendance & Live Check-In"
+            >
+              <UserCheck className="w-4 h-4" />
+              <div className="text-left">
+                <span className="block text-[8px] font-black text-emerald-200 tracking-wider">DAILY MATS</span>
+                <span className="text-xs font-black uppercase">Attendance</span>
+              </div>
+            </Link>
+
             <Link
               href={`/renew/${fighter._id}`}
               className="px-4 py-3 bg-red-600 hover:bg-red-500 rounded-2xl flex items-center gap-2.5 shadow-md shadow-red-600/30 transition-all hover:scale-105 active:scale-95 text-white border border-red-500/30"
@@ -572,8 +588,8 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
           </div>
         </div>
 
-        {/* Navigation Tabs */}
-        <div className="flex border-b border-slate-200 dark:border-zinc-800/80 gap-6">
+        {/* Navigation Tabs (Desktop view; on mobile, switched via bottom nav bar) */}
+        <div className="hidden md:flex border-b border-slate-200 dark:border-zinc-800/80 gap-6">
           <button
             onClick={() => setActiveTab('events')}
             className={`pb-4 px-2 text-sm font-bold uppercase tracking-wider transition-all border-b-2 cursor-pointer ${
@@ -606,6 +622,14 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
           >
             Billing & Receipts ({initialPayments.length})
           </button>
+
+          <Link
+            href="/fighter/attendance"
+            className="pb-4 px-2 text-sm font-bold uppercase tracking-wider transition-all border-b-2 border-transparent text-slate-500 hover:text-emerald-500 flex items-center gap-1.5 cursor-pointer ml-auto"
+          >
+            <UserCheck className="w-4 h-4 text-emerald-500" />
+            Mat Attendance
+          </Link>
         </div>
 
         {/* Tab 1: Notices & Events Board */}
@@ -1487,8 +1511,98 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
         </div>
       )}
 
+      {/* Mobile Fixed Bottom Navigation Bar (3 Tabs: Events, Fighters, Billing) */}
+      <nav 
+        aria-label="Mobile Navigation"
+        className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-xl border-t border-slate-200 dark:border-zinc-800 shadow-[0_-4px_25px_rgba(0,0,0,0.08)] px-3 pt-2 transition-colors duration-200"
+        style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 60, paddingBottom: 'max(0.6rem, env(safe-area-inset-bottom, 0px))' }}
+      >
+        <div className="grid grid-cols-3 items-center max-w-md mx-auto gap-1">
+          {/* Tab 1: Notices & Events */}
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab('events');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            className={`flex flex-col items-center justify-center py-1 px-2 rounded-2xl transition-all cursor-pointer relative ${
+              activeTab === 'events'
+                ? 'text-red-600 dark:text-red-500 font-black'
+                : 'text-slate-400 dark:text-zinc-500 hover:text-slate-700 dark:hover:text-zinc-300 font-semibold'
+            }`}
+          >
+            <div className="relative">
+              <Calendar className={`w-5 h-5 transition-transform duration-150 ${activeTab === 'events' ? 'scale-110 stroke-[2.5]' : 'stroke-[1.75]'}`} />
+              {upcomingEvents.length > 0 && (
+                <span className="absolute -top-1 -right-2.5 min-w-4 h-4 px-1 rounded-full bg-red-600 text-white text-[9px] font-black flex items-center justify-center shadow-sm">
+                  {upcomingEvents.length}
+                </span>
+              )}
+            </div>
+            <span className="text-[10px] tracking-tight uppercase mt-1">Events</span>
+            {activeTab === 'events' && (
+              <span className="w-1.5 h-1.5 rounded-full bg-red-600 dark:bg-red-500 mt-0.5"></span>
+            )}
+          </button>
+
+          {/* Tab 2: Fighter Directory */}
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab('directory');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            className={`flex flex-col items-center justify-center py-1 px-2 rounded-2xl transition-all cursor-pointer relative ${
+              activeTab === 'directory'
+                ? 'text-red-600 dark:text-red-500 font-black'
+                : 'text-slate-400 dark:text-zinc-500 hover:text-slate-700 dark:hover:text-zinc-300 font-semibold'
+            }`}
+          >
+            <div className="relative">
+              <Users className={`w-5 h-5 transition-transform duration-150 ${activeTab === 'directory' ? 'scale-110 stroke-[2.5]' : 'stroke-[1.75]'}`} />
+              {filteredPeers.length > 0 && (
+                <span className="absolute -top-1 -right-2.5 min-w-4 h-4 px-1 rounded-full bg-slate-200 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 text-[9px] font-bold flex items-center justify-center">
+                  {filteredPeers.length}
+                </span>
+              )}
+            </div>
+            <span className="text-[10px] tracking-tight uppercase mt-1">Fighters</span>
+            {activeTab === 'directory' && (
+              <span className="w-1.5 h-1.5 rounded-full bg-red-600 dark:bg-red-500 mt-0.5"></span>
+            )}
+          </button>
+
+          {/* Tab 3: Billing & Receipts */}
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab('billing');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            className={`flex flex-col items-center justify-center py-1 px-2 rounded-2xl transition-all cursor-pointer relative ${
+              activeTab === 'billing'
+                ? 'text-red-600 dark:text-red-500 font-black'
+                : 'text-slate-400 dark:text-zinc-500 hover:text-slate-700 dark:hover:text-zinc-300 font-semibold'
+            }`}
+          >
+            <div className="relative">
+              <CreditCard className={`w-5 h-5 transition-transform duration-150 ${activeTab === 'billing' ? 'scale-110 stroke-[2.5]' : 'stroke-[1.75]'}`} />
+              {initialPayments.length > 0 && (
+                <span className="absolute -top-1 -right-2 min-w-4 h-4 px-1 rounded-full bg-slate-200 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 text-[9px] font-bold flex items-center justify-center">
+                  {initialPayments.length}
+                </span>
+              )}
+            </div>
+            <span className="text-[10px] tracking-tight uppercase mt-1">Billing</span>
+            {activeTab === 'billing' && (
+              <span className="w-1.5 h-1.5 rounded-full bg-red-600 dark:bg-red-500 mt-0.5"></span>
+            )}
+          </button>
+        </div>
+      </nav>
+
       {/* Footer */}
-      <footer className="border-t border-slate-200 dark:border-zinc-900 bg-white dark:bg-zinc-950 py-6 text-center text-xs text-slate-400 dark:text-zinc-500 transition-colors duration-200">
+      <footer className="border-t border-slate-200 dark:border-zinc-900 bg-white dark:bg-zinc-950 py-6 text-center text-xs text-slate-400 dark:text-zinc-500 transition-colors duration-200 mb-16 md:mb-0">
         &copy; 2026 Mutants Academy MMA Gym. All rights reserved.
       </footer>
 

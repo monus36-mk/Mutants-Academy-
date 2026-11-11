@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { logout } from '@/app/actions/authActions';
 import ThemeToggle from './ThemeToggle';
-import { Dumbbell, Users, PlusCircle, LayoutDashboard, LogOut, Menu, X, ShieldAlert, Calendar, Megaphone, CreditCard } from 'lucide-react';
+import { Dumbbell, Users, PlusCircle, LayoutDashboard, LogOut, Menu, X, ShieldAlert, Calendar, Megaphone, CreditCard, UserCheck } from 'lucide-react';
 import { useModalBackHandler } from '@/hooks/useModalBackHandler';
 
 export default function AdminHeader({ user }) {
@@ -32,6 +32,7 @@ export default function AdminHeader({ user }) {
 
   const navLinks = [
     { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
+    { href: '/admin/attendance', label: 'Attendance', icon: UserCheck },
     { href: '/admin/payments', label: 'Payments', icon: CreditCard },
     { href: '/admin/add-fighter', label: 'Add Fighter', icon: PlusCircle },
     { href: '/admin/events', label: 'Events Board', icon: Calendar },

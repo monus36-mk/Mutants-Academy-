@@ -4,7 +4,7 @@ import { getFighterProfile } from '@/app/actions/fighterActions';
 import { getFighterPayments } from '@/app/actions/paymentActions';
 import ThemeToggle from '@/components/ThemeToggle';
 import Link from 'next/link';
-import { Dumbbell, Clock, LogOut, CheckCircle2, AlertTriangle, XCircle, ArrowLeft, CreditCard, Banknote, QrCode, ArrowUpRight } from 'lucide-react';
+import { Dumbbell, Clock, LogOut, CheckCircle2, AlertTriangle, XCircle, ArrowLeft, CreditCard, Banknote, QrCode, ArrowUpRight, Calendar, Users, User } from 'lucide-react';
 import FighterProfileClient from './FighterProfileClient';
 
 export default async function FighterProfilePage() {
@@ -101,10 +101,10 @@ export default async function FighterProfilePage() {
             </Link>
 
             <div className="flex items-center gap-3">
-              {/* Pay Gym CTA Header Button */}
+              {/* Pay Gym CTA Header Button (Desktop only; on mobile, athletes pay directly from the profile bar below) */}
               <Link
                 href={`/renew/${fighter._id}`}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-red-600 to-red-500 hover:from-red-500 hover:to-red-600 text-white text-xs font-black uppercase tracking-wider shadow-md shadow-red-600/25 transition-all hover:scale-105 active:scale-95 cursor-pointer"
+                className="hidden md:inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-red-600 to-red-500 hover:from-red-500 hover:to-red-600 text-white text-xs font-black uppercase tracking-wider shadow-md shadow-red-600/25 transition-all hover:scale-105 active:scale-95 cursor-pointer"
                 title="Pay membership fees online via UPI"
               >
                 <CreditCard className="w-3.5 h-3.5" />
@@ -119,7 +119,7 @@ export default async function FighterProfilePage() {
 
               <ThemeToggle />
 
-              <form action={handleLogout}>
+              <form action={handleLogout} className="hidden sm:block">
                 <button
                   type="submit"
                   className="p-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 text-slate-500 dark:text-zinc-400 hover:bg-red-50 dark:hover:bg-red-950/20 hover:text-red-600 hover:border-red-200 dark:hover:border-red-900/50 transition-all duration-200 cursor-pointer"
@@ -134,7 +134,7 @@ export default async function FighterProfilePage() {
       </header>
 
       {/* Main Profile View */}
-      <main className="flex-1 w-full max-w-7xl xl:max-w-[1440px] 2xl:max-w-[1720px] 3xl:max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 py-6 md:py-8 space-y-8 animate-in fade-in duration-300">
+      <main className="flex-1 w-full max-w-7xl xl:max-w-[1440px] 2xl:max-w-[1720px] 3xl:max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 py-6 md:py-8 space-y-8 animate-in fade-in duration-300 pb-24 md:pb-8">
         
         {/* Profile Welcome Banner */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-gradient-to-r from-slate-900 to-zinc-900 dark:from-zinc-900 dark:to-black rounded-3xl p-6 md:p-8 text-white shadow-xl border border-slate-800 dark:border-zinc-800">
@@ -361,7 +361,43 @@ export default async function FighterProfilePage() {
 
       </main>
 
-      <footer className="border-t border-slate-200 dark:border-zinc-900 bg-white dark:bg-zinc-950 py-6 text-center text-xs text-slate-400 dark:text-zinc-500 transition-colors duration-200">
+      {/* Mobile Fixed Bottom Navigation Bar (3 Tabs: Events, Fighters, Billing) */}
+      <nav 
+        aria-label="Mobile Navigation"
+        className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-xl border-t border-slate-200 dark:border-zinc-800 shadow-[0_-4px_25px_rgba(0,0,0,0.08)] px-3 pt-2 transition-colors duration-200"
+        style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 60, paddingBottom: 'max(0.6rem, env(safe-area-inset-bottom, 0px))' }}
+      >
+        <div className="grid grid-cols-3 items-center max-w-md mx-auto gap-1">
+          {/* Tab 1: Notices & Events */}
+          <Link
+            href="/fighter"
+            className="flex flex-col items-center justify-center py-1 px-2 rounded-2xl text-slate-400 dark:text-zinc-500 hover:text-slate-700 dark:hover:text-zinc-300 font-semibold transition-all cursor-pointer relative"
+          >
+            <Calendar className="w-5 h-5 stroke-[1.75]" />
+            <span className="text-[10px] tracking-tight uppercase mt-1">Events</span>
+          </Link>
+
+          {/* Tab 2: Fighter Directory */}
+          <Link
+            href="/fighter?tab=directory"
+            className="flex flex-col items-center justify-center py-1 px-2 rounded-2xl text-slate-400 dark:text-zinc-500 hover:text-slate-700 dark:hover:text-zinc-300 font-semibold transition-all cursor-pointer relative"
+          >
+            <Users className="w-5 h-5 stroke-[1.75]" />
+            <span className="text-[10px] tracking-tight uppercase mt-1">Fighters</span>
+          </Link>
+
+          {/* Tab 3: Billing & Receipts */}
+          <Link
+            href="/fighter?tab=billing"
+            className="flex flex-col items-center justify-center py-1 px-2 rounded-2xl text-slate-400 dark:text-zinc-500 hover:text-slate-700 dark:hover:text-zinc-300 font-semibold transition-all cursor-pointer relative"
+          >
+            <CreditCard className="w-5 h-5 stroke-[1.75]" />
+            <span className="text-[10px] tracking-tight uppercase mt-1">Billing</span>
+          </Link>
+        </div>
+      </nav>
+
+      <footer className="border-t border-slate-200 dark:border-zinc-900 bg-white dark:bg-zinc-950 py-6 text-center text-xs text-slate-400 dark:text-zinc-500 transition-colors duration-200 mb-16 md:mb-0">
         &copy; 2026 Mutants Academy MMA Gym. All rights reserved.
       </footer>
 

@@ -5,7 +5,9 @@ import { getEvents } from '@/app/actions/eventActions';
 import { getFighterPayments } from '@/app/actions/paymentActions';
 import FighterDashboardClient from './FighterDashboardClient';
 
-export default async function FighterDashboardPage() {
+export default async function FighterDashboardPage({ searchParams }) {
+  const sp = await searchParams;
+  const initialTab = sp?.tab === 'directory' || sp?.tab === 'billing' ? sp.tab : 'events';
   const user = await getCurrentUser();
   if (!user || user.role !== 'Fighter') {
     redirect('/login');
@@ -34,10 +36,12 @@ export default async function FighterDashboardPage() {
 
   return (
     <FighterDashboardClient
+      key={initialTab}
       fighter={profileRes.fighter}
       initialPeers={peers}
       initialEvents={events}
       initialPayments={payments}
+      initialTab={initialTab}
     />
   );
 }
