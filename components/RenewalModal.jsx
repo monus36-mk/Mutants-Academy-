@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useTransition, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { renewFighterSubscription } from '@/app/actions/fighterActions';
 import { RefreshCw, Calendar, X, Banknote, QrCode, Check, AlertTriangle, ShieldCheck } from 'lucide-react';
@@ -102,30 +103,37 @@ export default function RenewalModal({ fighter }) {
         <Calendar className="w-3.5 h-3.5" /> Renew
       </button>
 
-      {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm transition-all duration-300">
-          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-3xl w-full max-w-md p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+      {isOpen && typeof document !== 'undefined' && createPortal(
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/70 backdrop-blur-sm text-left whitespace-normal transition-all duration-300"
+          onClick={() => !isPending && handleClose()}
+        >
+          <div
+            className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-3xl w-full max-w-md max-h-[90dvh] flex flex-col overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
             
             {/* Modal Header */}
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-zinc-800 pb-4 mb-4">
-              <div>
+            <div className="shrink-0 flex items-start justify-between gap-3 border-b border-slate-100 dark:border-zinc-800 px-5 py-4 sm:px-6">
+              <div className="min-w-0">
                 <h3 className="font-extrabold text-lg text-slate-800 dark:text-zinc-100 uppercase tracking-tight">
                   Renew Membership
                 </h3>
-                <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
+                <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5 break-words">
                   Fighter: <span className="font-bold text-slate-800 dark:text-zinc-200">{fighter.name}</span>
                 </p>
               </div>
               <button
                 onClick={handleClose}
-                className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-zinc-800 hover:text-slate-600 dark:hover:text-zinc-200 transition-colors cursor-pointer"
+                disabled={isPending}
+                className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-zinc-800 hover:text-slate-600 dark:hover:text-zinc-200 transition-colors cursor-pointer shrink-0"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             {/* Modal Body */}
-            <div className="space-y-4">
+            <div className="p-5 sm:p-6 space-y-4 overflow-y-auto flex-1">
               {/* Renewal Duration Selector - focused on 1 Month & 3 Months */}
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400 mb-2">
@@ -135,7 +143,7 @@ export default function RenewalModal({ fighter }) {
                   <button
                     type="button"
                     onClick={() => handleDurationChange(1)}
-                    className={`p-3 rounded-2xl border text-left transition-all cursor-pointer ${
+                    className={`p-3 rounded-2xl border text-left transition-all cursor-pointer min-w-0 ${
                       months === 1
                         ? 'border-red-500 bg-red-500/10 text-red-600 dark:text-red-400 font-bold shadow-sm'
                         : 'border-slate-200 dark:border-zinc-800 hover:bg-slate-50 dark:hover:bg-zinc-800/50 text-slate-700 dark:text-zinc-300'
@@ -148,7 +156,7 @@ export default function RenewalModal({ fighter }) {
                   <button
                     type="button"
                     onClick={() => handleDurationChange(3)}
-                    className={`p-3 rounded-2xl border text-left transition-all cursor-pointer ${
+                    className={`p-3 rounded-2xl border text-left transition-all cursor-pointer min-w-0 ${
                       months === 3
                         ? 'border-red-500 bg-red-500/10 text-red-600 dark:text-red-400 font-bold shadow-sm'
                         : 'border-slate-200 dark:border-zinc-800 hover:bg-slate-50 dark:hover:bg-zinc-800/50 text-slate-700 dark:text-zinc-300'
@@ -193,7 +201,7 @@ export default function RenewalModal({ fighter }) {
                     placeholder="1300"
                   />
                 </div>
-                <p className="text-[10px] text-slate-400 dark:text-zinc-500 mt-1">
+                <p className="text-[10px] text-slate-400 dark:text-zinc-500 mt-1.5 leading-relaxed break-words">
                   Default rate: ₹{monthlyRate.toLocaleString('en-IN')}/month. You may adjust for concessions or custom agreements.
                 </p>
               </div>
@@ -207,27 +215,29 @@ export default function RenewalModal({ fighter }) {
                   <button
                     type="button"
                     onClick={() => setPaymentMethod('Cash')}
-                    className={`py-2.5 px-3 rounded-xl border flex items-center justify-center gap-2 text-xs font-bold transition-all cursor-pointer ${
+                    className={`py-2.5 px-3 rounded-xl border flex items-center justify-center gap-1.5 sm:gap-2 text-[11px] sm:text-xs font-bold transition-all cursor-pointer min-w-0 ${
                       paymentMethod === 'Cash'
                         ? 'border-emerald-500 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 shadow-sm'
                         : 'border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-400 hover:bg-slate-50 dark:hover:bg-zinc-800/50'
                     }`}
                   >
-                    <Banknote className="w-4 h-4" /> Cash Counter
-                    {paymentMethod === 'Cash' && <Check className="w-3.5 h-3.5 ml-auto" />}
+                    <Banknote className="w-4 h-4 shrink-0" />
+                    <span className="truncate">Cash Counter</span>
+                    {paymentMethod === 'Cash' && <Check className="w-3.5 h-3.5 ml-auto shrink-0" />}
                   </button>
 
                   <button
                     type="button"
                     onClick={() => setPaymentMethod('UPI')}
-                    className={`py-2.5 px-3 rounded-xl border flex items-center justify-center gap-2 text-xs font-bold transition-all cursor-pointer ${
+                    className={`py-2.5 px-3 rounded-xl border flex items-center justify-center gap-1.5 sm:gap-2 text-[11px] sm:text-xs font-bold transition-all cursor-pointer min-w-0 ${
                       paymentMethod === 'UPI'
                         ? 'border-red-500 bg-red-500/10 text-red-600 dark:text-red-400 shadow-sm'
                         : 'border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-400 hover:bg-slate-50 dark:hover:bg-zinc-800/50'
                     }`}
                   >
-                    <QrCode className="w-4 h-4" /> UPI Online
-                    {paymentMethod === 'UPI' && <Check className="w-3.5 h-3.5 ml-auto" />}
+                    <QrCode className="w-4 h-4 shrink-0" />
+                    <span className="truncate">UPI Online</span>
+                    {paymentMethod === 'UPI' && <Check className="w-3.5 h-3.5 ml-auto shrink-0" />}
                   </button>
                 </div>
               </div>
@@ -237,11 +247,11 @@ export default function RenewalModal({ fighter }) {
                 <div className="p-3.5 bg-amber-500/10 border border-amber-500/30 rounded-2xl text-xs space-y-2.5">
                   <div className="flex items-start gap-2.5">
                     <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
-                    <div>
-                      <span className="font-extrabold text-amber-700 dark:text-amber-400 block text-xs">
+                    <div className="min-w-0 flex-1">
+                      <span className="font-extrabold text-amber-700 dark:text-amber-400 block text-xs break-words">
                         Subscription Overdue by {daysOverdue} days
                       </span>
-                      <p className="text-[11px] text-slate-600 dark:text-zinc-400 mt-0.5 leading-relaxed">
+                      <p className="text-[11px] text-slate-600 dark:text-zinc-400 mt-0.5 leading-relaxed break-words">
                         {resetFromToday
                           ? 'Waiver active: Fresh cycle starts today. Overdue period is not billed.'
                           : 'Continuous cycle: Extends from previous due date so overdue days are covered.'}
@@ -249,14 +259,14 @@ export default function RenewalModal({ fighter }) {
                     </div>
                   </div>
 
-                  <label className="flex items-center gap-2.5 pt-2 border-t border-amber-500/20 cursor-pointer select-none">
+                  <label className="flex items-start gap-2.5 pt-2.5 border-t border-amber-500/20 cursor-pointer select-none">
                     <input
                       type="checkbox"
                       checked={resetFromToday}
                       onChange={(e) => setResetFromToday(e.target.checked)}
-                      className="w-4 h-4 rounded text-red-600 focus:ring-red-500 border-slate-300 dark:border-zinc-700 cursor-pointer accent-red-600"
+                      className="w-4 h-4 mt-0.5 shrink-0 rounded text-red-600 focus:ring-red-500 border-slate-300 dark:border-zinc-700 cursor-pointer accent-red-600"
                     />
-                    <span className="text-[11px] font-bold text-slate-800 dark:text-zinc-200">
+                    <span className="text-[11px] font-bold text-slate-800 dark:text-zinc-200 leading-snug min-w-0 flex-1 break-words">
                       Reset cycle from Today (Waiver for native visit / medical break)
                     </span>
                   </label>
@@ -265,7 +275,7 @@ export default function RenewalModal({ fighter }) {
 
               {/* Date Preview */}
               <div className="p-3 bg-slate-50 dark:bg-zinc-950 rounded-2xl border border-slate-100 dark:border-zinc-800/80 text-xs">
-                <div className="flex items-center justify-between mb-1">
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
                   <span className="text-slate-500 dark:text-zinc-400 font-semibold text-[10px] uppercase tracking-wider">
                     NEW VALIDITY EXPIRY:
                   </span>
@@ -300,17 +310,18 @@ export default function RenewalModal({ fighter }) {
               </div>
 
               {error && (
-                <div className="p-3 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/50 rounded-xl text-xs text-red-600 dark:text-red-400 font-medium">
+                <div className="p-3 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/50 rounded-xl text-xs text-red-600 dark:text-red-400 font-medium break-words">
                   {error}
                 </div>
               )}
             </div>
 
             {/* Modal Footer */}
-            <div className="flex items-center justify-end gap-3 mt-6 pt-4 border-t border-slate-100 dark:border-zinc-800">
+            <div className="shrink-0 flex items-center justify-end gap-2.5 sm:gap-3 px-5 py-4 sm:px-6 border-t border-slate-100 dark:border-zinc-800 bg-white dark:bg-zinc-900">
               <button
                 type="button"
                 onClick={handleClose}
+                disabled={isPending}
                 className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-400 hover:bg-slate-50 dark:hover:bg-zinc-800 text-xs font-semibold cursor-pointer transition-colors"
               >
                 Cancel
@@ -330,7 +341,8 @@ export default function RenewalModal({ fighter }) {
             </div>
 
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );

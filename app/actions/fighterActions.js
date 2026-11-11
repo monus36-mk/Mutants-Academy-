@@ -739,29 +739,46 @@ export async function toggleFighterInactive(fighterId) {
   try {
     await dbConnect();
     const user = await getCurrentUser();
-    if (!user || (user.role !== 'MainAdmin' && user.role !== 'Coach')) {
+    if (!user) {
       return { error: 'Unauthorized to change member status' };
     }
 
-    const fighter = await Fighter.findById(fighterId);
-    if (!fighter) {
+    const dbUser = await User.findById(user.id).select('role').lean();
+    const role = dbUser ? dbUser.role : user.role;
+
+    if (role !== 'MainAdmin' && role !== 'Coach') {
+      return { error: 'Unauthorized to change member status' };
+    }
+
+    const existing = await Fighter.findById(fighterId).select('name isInactive').lean();
+    if (!existing) {
       return { error: 'Athlete profile not found' };
     }
 
-    fighter.isInactive = !fighter.isInactive;
-    await fighter.save();
+    const nextInactive = !Boolean(existing.isInactive);
+    const updated = await Fighter.findByIdAndUpdate(
+      fighterId,
+      { $set: { isInactive: nextInactive } },
+      { new: true }
+    )
+      .select('name isInactive')
+      .lean();
 
     revalidatePath('/admin');
     revalidatePath('/fighter');
+    revalidatePath('/admin/attendance');
+    revalidatePath('/fighter/attendance');
 
-    return { 
-      success: true, 
-      isInactive: fighter.isInactive,
-      message: fighter.isInactive ? `${fighter.name} marked as Inactive.` : `${fighter.name} reactivated.` 
+    return {
+      success: true,
+      isInactive: Boolean(updated?.isInactive),
+      message: updated?.isInactive
+        ? `${existing.name} marked as Inactive.`
+        : `${existing.name} reactivated into active roster.`,
     };
   } catch (err) {
     console.error('Error toggling inactive status:', err);
-    return { error: 'Failed to update inactive status' };
+    return { error: err?.message || 'Failed to update inactive status' };
   }
 }
 

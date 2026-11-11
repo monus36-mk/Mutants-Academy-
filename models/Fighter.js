@@ -99,8 +99,4 @@ const FighterSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Prevent compiling model query unless schema updates require it
-if (mongoose.models.Fighter) {
-  delete mongoose.models.Fighter;
-}
 export default mongoose.models.Fighter || mongoose.model('Fighter', FighterSchema);

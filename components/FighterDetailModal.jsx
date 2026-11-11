@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Calendar, Phone, Mail, Dumbbell, User, ShieldAlert, Award, Clock, ArrowRight, Edit, Copy, Check, Activity, KeyRound, CheckCircle2, AlertCircle, Send, UserX, CreditCard, Banknote, QrCode } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -23,28 +24,60 @@ export default function FighterDetailModal({ fighter, canEdit = false }) {
   const [isResending, setIsResending] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
   const [actionMessage, setActionMessage] = useState(null);
-  const [isInactive, setIsInactive] = useState(Boolean(fighter.isInactive));
+  const [inactiveOverride, setInactiveOverride] = useState(null);
+  const isInactive = inactiveOverride !== null ? inactiveOverride : Boolean(fighter.isInactive);
   const [isTogglingInactive, setIsTogglingInactive] = useState(false);
   const [payments, setPayments] = useState([]);
   const [loadingPayments, setLoadingPayments] = useState(false);
+  const [paymentsError, setPaymentsError] = useState('');
   const router = useRouter();
 
+  const handleCloseLightbox = useCallback((val) => {
+    if (!val) setLightboxImage(null);
+  }, []);
+
   useModalBackHandler(isOpen, setIsOpen, `fighterDetail_${fighter._id}`);
-  useModalBackHandler(Boolean(lightboxImage), (val) => !val && setLightboxImage(null), 'fighterLightbox');
+  useModalBackHandler(Boolean(lightboxImage), handleCloseLightbox, 'fighterLightbox');
+
+  const handleOpenModal = () => {
+    setActionMessage(null);
+    setPaymentsError('');
+    setInactiveOverride(null);
+    setIsOpen(true);
+  };
 
   // Fetch payment history when modal opens
   useEffect(() => {
-    if (isOpen && fighter?._id) {
+    if (!isOpen || !fighter?._id) return;
+    let cancelled = false;
+
+    const loadPayments = async () => {
       setLoadingPayments(true);
-      getFighterPayments(fighter._id)
-        .then((res) => {
-          if (res?.success) {
-            setPayments(res.payments || []);
-          }
-        })
-        .catch((err) => console.error('Failed to load fighter payments:', err))
-        .finally(() => setLoadingPayments(false));
-    }
+      setPaymentsError('');
+      try {
+        const res = await getFighterPayments(fighter._id);
+        if (cancelled) return;
+        if (res?.success) {
+          setPayments(res.payments || []);
+        } else if (res?.error) {
+          setPaymentsError(res.error);
+        }
+      } catch (err) {
+        console.error('Failed to load fighter payments:', err);
+        if (!cancelled) {
+          setPaymentsError('Could not load payment history right now.');
+        }
+      } finally {
+        if (!cancelled) {
+          setLoadingPayments(false);
+        }
+      }
+    };
+
+    loadPayments();
+    return () => {
+      cancelled = true;
+    };
   }, [isOpen, fighter?._id]);
 
   const handleToggleInactive = async (e) => {
@@ -54,14 +87,15 @@ export default function FighterDetailModal({ fighter, canEdit = false }) {
     try {
       const res = await toggleFighterInactive(fighter._id);
       if (res?.success) {
-        setIsInactive(res.isInactive);
+        setInactiveOverride(res.isInactive);
         setActionMessage({ type: 'success', text: res.message });
+        setIsOpen(false);
         router.refresh();
       } else {
         setActionMessage({ type: 'error', text: res?.error || 'Failed to update inactive status' });
       }
     } catch (err) {
-      setActionMessage({ type: 'error', text: 'Error toggling inactive status' });
+      setActionMessage({ type: 'error', text: err?.message || 'Error toggling inactive status' });
     } finally {
       setIsTogglingInactive(false);
     }
@@ -198,7 +232,7 @@ export default function FighterDetailModal({ fighter, canEdit = false }) {
     <>
       {/* Clickable Table Cell Trigger */}
       <div
-        onClick={() => setIsOpen(true)}
+        onClick={handleOpenModal}
         className="group cursor-pointer hover:bg-slate-100/50 dark:hover:bg-zinc-800/30 p-2.5 rounded-2xl -ml-2.5 transition-all duration-150 flex items-center gap-3.5"
         title="Click to view full athlete profile"
       >
@@ -303,9 +337,9 @@ export default function FighterDetailModal({ fighter, canEdit = false }) {
       </div>
 
       {/* Modal Dialog */}
-      {isOpen && (
+      {isOpen && typeof document !== 'undefined' && createPortal(
         <div 
-          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/70 backdrop-blur-md transition-all duration-300"
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/70 backdrop-blur-md text-left whitespace-normal transition-all duration-300"
           onClick={() => setIsOpen(false)}
         >
           <div 
@@ -516,7 +550,7 @@ export default function FighterDetailModal({ fighter, canEdit = false }) {
                   </div>
                   <div>
                     <span className="block text-[8px] font-black text-slate-400 dark:text-zinc-500 uppercase tracking-widest truncate">Next Expiry</span>
-                    <span className="text-[11px] sm:text-xs font-bold text-red-500 dark:text-red-400 font-mono block truncate">{formatDate(fighter.nextPaymentDate)}</span>
+                    <span className="text-[11px] sm:text-xs font-bold text-red-500 dark:text-red-400 font-mono block truncate">{formatShortDate(fighter.nextPaymentDate)}</span>
                   </div>
                 </div>
               </div>
@@ -536,6 +570,10 @@ export default function FighterDetailModal({ fighter, canEdit = false }) {
                   <div className="p-4 bg-slate-50 dark:bg-zinc-950/40 rounded-xl text-center text-xs text-slate-400 flex items-center justify-center gap-2">
                     <div className="w-3.5 h-3.5 border-2 border-red-500 border-t-transparent rounded-full animate-spin" />
                     <span>Loading payment history...</span>
+                  </div>
+                ) : paymentsError ? (
+                  <div className="p-3 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/40 rounded-xl text-center text-[11px] font-semibold text-red-600 dark:text-red-400">
+                    {paymentsError}
                   </div>
                 ) : payments.length === 0 ? (
                   <div className="p-3 bg-slate-50 dark:bg-zinc-950/40 border border-slate-100 dark:border-zinc-800 rounded-xl text-center text-[11px] text-slate-400 dark:text-zinc-500">
@@ -682,11 +720,6 @@ export default function FighterDetailModal({ fighter, canEdit = false }) {
                         )}
                       </button>
                     </div>
-                    {actionMessage && (
-                      <div className={`mt-2 text-[11px] font-bold ${actionMessage.type === 'success' ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500'}`}>
-                        {actionMessage.text}
-                      </div>
-                    )}
                   </div>
                 ) : (
                   <div className="bg-slate-50 dark:bg-zinc-950/40 border border-slate-100 dark:border-zinc-800 p-2.5 rounded-xl flex items-center justify-between gap-2">
@@ -707,6 +740,24 @@ export default function FighterDetailModal({ fighter, canEdit = false }) {
 
             </div>
 
+            {/* Action Feedback Banner (always visible for both Activated and Pending Activation athletes) */}
+            {actionMessage && (
+              <div
+                className={`mx-3 sm:mx-4 mb-2 px-3 py-2 rounded-xl border text-xs font-bold flex items-center gap-2 shrink-0 ${
+                  actionMessage.type === 'success'
+                    ? 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-900/50 text-emerald-700 dark:text-emerald-400'
+                    : 'bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-900/50 text-red-600 dark:text-red-400'
+                }`}
+              >
+                {actionMessage.type === 'success' ? (
+                  <CheckCircle2 className="w-4 h-4 shrink-0" />
+                ) : (
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                )}
+                <span className="min-w-0 flex-1 break-words">{actionMessage.text}</span>
+              </div>
+            )}
+
             {/* Footer Actions (Sticky at bottom, ALWAYS visible on both Mobile & Desktop) */}
             <div className="shrink-0 bg-slate-50 dark:bg-zinc-900 border-t border-slate-100 dark:border-zinc-800 px-3 py-2.5 sm:px-4 sm:py-3 flex items-center justify-between gap-2 z-10">
               <div>
@@ -715,7 +766,7 @@ export default function FighterDetailModal({ fighter, canEdit = false }) {
                     type="button"
                     disabled={isTogglingInactive}
                     onClick={handleToggleInactive}
-                    className={`px-3 py-2 sm:px-3.5 sm:py-2.5 rounded-xl text-xs font-extrabold flex items-center gap-1.5 transition-all cursor-pointer border ${
+                    className={`px-3 py-2 sm:px-3.5 sm:py-2.5 rounded-xl text-xs font-extrabold flex items-center gap-1.5 transition-all cursor-pointer border disabled:opacity-60 ${
                       isInactive
                         ? 'bg-purple-600 hover:bg-purple-500 text-white border-transparent shadow-md shadow-purple-600/20'
                         : 'border-purple-300 dark:border-purple-900/50 text-purple-600 dark:text-purple-400 bg-purple-500/10 hover:bg-purple-500/20'
@@ -727,7 +778,7 @@ export default function FighterDetailModal({ fighter, canEdit = false }) {
                     ) : (
                       <UserX className="w-3.5 h-3.5" />
                     )}
-                    <span>{isInactive ? 'Reactivate' : 'Mark Inactive'}</span>
+                    <span>{isTogglingInactive ? (isInactive ? 'Reactivating...' : 'Updating...') : (isInactive ? 'Reactivate' : 'Mark Inactive')}</span>
                   </button>
                 )}
               </div>
@@ -750,10 +801,11 @@ export default function FighterDetailModal({ fighter, canEdit = false }) {
             </div>
 
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
-      {lightboxImage && (
+      {lightboxImage && typeof document !== 'undefined' && createPortal(
         <div 
           className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
           style={{ backgroundColor: 'rgba(0, 0, 0, 0.9)' }}
@@ -773,7 +825,8 @@ export default function FighterDetailModal({ fighter, canEdit = false }) {
           >
             <X className="w-6 h-6" />
           </button>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );
