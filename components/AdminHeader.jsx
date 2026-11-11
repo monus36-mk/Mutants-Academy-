@@ -16,7 +16,21 @@ export default function AdminHeader({ user }) {
 
   useModalBackHandler(isOpen, setIsOpen, 'adminMobileMenu');
 
+  const closeDrawerForNavigation = () => {
+    if (!isOpen) return;
+    // Clear modal history flag before closing so useModalBackHandler won't call window.history.back() mid-navigation
+    if (typeof window !== 'undefined' && window.history.state?.isModal) {
+      const nextState = { ...window.history.state };
+      delete nextState.isModal;
+      delete nextState.modalId;
+      delete nextState.timestamp;
+      window.history.replaceState(nextState, '');
+    }
+    setIsOpen(false);
+  };
+
   const handleLogout = () => {
+    closeDrawerForNavigation();
     startTransition(async () => {
       try {
         localStorage.removeItem('mutants_auth_token');
@@ -50,7 +64,7 @@ export default function AdminHeader({ user }) {
         <div className="flex h-16 items-center justify-between">
           {/* Logo & Brand */}
           <div className="flex items-center gap-8">
-            <Link href="/admin" className="flex items-center gap-3 group">
+            <Link href="/admin" onClick={closeDrawerForNavigation} className="flex items-center gap-3 group">
               <div className="w-10 h-10 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
                 <img src="/logo.png" alt="Mutants Academy" className="w-full h-full object-contain drop-shadow-md" />
               </div>
@@ -137,7 +151,7 @@ export default function AdminHeader({ user }) {
               <Link
                 key={link.href}
                 href={link.href}
-                onClick={() => setIsOpen(false)}
+                onClick={closeDrawerForNavigation}
                 className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all ${
                   isActive
                     ? 'bg-red-500/10 text-red-600 dark:text-red-400'

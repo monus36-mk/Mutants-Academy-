@@ -19,21 +19,23 @@ export function useModalBackHandler(isOpen, setIsOpen, modalId = 'modal') {
     if (!isOpen) {
       // If modal was closed by clicking 'X' or backdrop, and we previously pushed history,
       // pop it so dummy modal history doesn't stay in the browser stack
-      if (isPushedRef.current && window.history.state?.isModal) {
+      if (isPushedRef.current) {
+        if (window.history.state?.isModal) {
+          window.history.back();
+        }
         isPushedRef.current = false;
-        window.history.back();
       }
       return;
     }
 
     // Modal opened: push a state to history so pressing back fires 'popstate' instead of leaving the app
     window.history.pushState(
-      { isModal: true, modalId, timestamp: Date.now() },
+      { ...(window.history.state || {}), isModal: true, modalId, timestamp: Date.now() },
       ''
     );
     isPushedRef.current = true;
 
-    const handlePopState = (event) => {
+    const handlePopState = () => {
       // Hardware / browser back button was pressed: close modal!
       setIsOpen(false);
       isPushedRef.current = false;
@@ -43,9 +45,11 @@ export function useModalBackHandler(isOpen, setIsOpen, modalId = 'modal') {
 
     return () => {
       window.removeEventListener('popstate', handlePopState);
-      if (isPushedRef.current && window.history.state?.isModal) {
+      if (isPushedRef.current) {
+        if (window.history.state?.isModal) {
+          window.history.back();
+        }
         isPushedRef.current = false;
-        window.history.back();
       }
     };
   }, [isOpen, setIsOpen, modalId]);
