@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useTransition, useMemo } from 'react';
+import { useState, useEffect, useTransition, useMemo, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { 
@@ -9,13 +9,23 @@ import {
   getTodayAttendanceDashboard,
   getFighterAttendanceHistory 
 } from '@/app/actions/attendanceActions';
+import { getBrowserCoordinates } from '@/lib/geoUtils';
 import ThemeToggle from '@/components/ThemeToggle';
 import { 
   Clock, ArrowLeft, CheckCircle2, UserCheck, Flame, 
   Calendar, Users, CreditCard, User, Sparkles, Trophy, 
   Search, ArrowUpDown, ChevronDown, Check, LogIn, LogOut,
-  History, Timer, ShieldCheck, Cpu
+  History, Timer, ShieldCheck, Cpu, MapPin, LocateFixed, AlertTriangle
 } from 'lucide-react';
+
+function getTodayISTDate() {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Kolkata',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date());
+}
 
 export default function FighterAttendanceClient({ 
   fighter, 
@@ -28,6 +38,15 @@ export default function FighterAttendanceClient({
   const [myRecord, setMyRecord] = useState(initialDashboard.myRecord);
   const [attendanceList, setAttendanceList] = useState(initialDashboard.attendanceList || []);
   const [stats, setStats] = useState(initialDashboard.stats || {});
+  const [gymSettings, setGymSettings] = useState(
+    initialDashboard.gymSettings || {
+      locationLabel: 'Mutants Academy',
+      hasCoordinates: false,
+      radiusMeters: 100,
+      geofenceEnabled: true,
+      requireCheckOutLocation: true,
+    }
+  );
   const [historyData, setHistoryData] = useState(initialHistory || { history: [], stats: {} });
 
   // Sorting state: Default "Senior to Junior" as requested
@@ -36,12 +55,57 @@ export default function FighterAttendanceClient({
   const [styleFilter, setStyleFilter] = useState('All');
 
   const [isPending, startTransition] = useTransition();
+  const [isLocating, setIsLocating] = useState(false);
   const [actionMsg, setActionMsg] = useState(null);
+  const activeDateRef = useRef(currentDateStr || getTodayISTDate());
 
   // Live stopwatch duration calculation
   const [liveDuration, setLiveDuration] = useState(myRecord?.durationFormatted || '00h 00m 00s');
 
   const isCheckedIn = myRecord?.status === 'Checked In';
+
+  // Auto-refresh when returning to an open tab or after IST midnight rolls over
+  useEffect(() => {
+    const refreshForToday = async () => {
+      const [freshDash, freshHist] = await Promise.all([
+        getTodayAttendanceDashboard(fighter._id),
+        getFighterAttendanceHistory(fighter._id),
+      ]);
+      if (freshDash?.success) {
+        activeDateRef.current = freshDash.todayDate || getTodayISTDate();
+        setMyRecord(freshDash.myRecord);
+        setAttendanceList(freshDash.attendanceList);
+        setStats(freshDash.stats);
+        if (freshDash.gymSettings) setGymSettings(freshDash.gymSettings);
+        if (!freshDash.myRecord) {
+          setLiveDuration('00h 00m 00s');
+        } else if (freshDash.myRecord.status !== 'Checked In') {
+          setLiveDuration(freshDash.myRecord.durationFormatted || '00h 00m 00s');
+        }
+      }
+      if (freshHist?.success) {
+        setHistoryData(freshHist);
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        refreshForToday();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    const interval = setInterval(() => {
+      if (getTodayISTDate() !== activeDateRef.current) {
+        refreshForToday();
+      }
+    }, 60000);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      clearInterval(interval);
+    };
+  }, [fighter._id]);
 
   // Stopwatch effect while checked in
   useEffect(() => {
@@ -67,56 +131,64 @@ export default function FighterAttendanceClient({
     return () => clearInterval(interval);
   }, [isCheckedIn, myRecord?.inTimestamp]);
 
-  // Handle Punch In
-  const handlePunchIn = () => {
-    startTransition(async () => {
-      const res = await fighterPunchIn();
-      if (res.success) {
-        setMyRecord(res.record);
-        setActionMsg({ type: 'success', text: res.message });
-        setTimeout(() => setActionMsg(null), 4000);
-        
-        // Refresh live roster
-        const fresh = await getTodayAttendanceDashboard(fighter._id);
-        if (fresh.success) {
-          setAttendanceList(fresh.attendanceList);
-          setStats(fresh.stats);
-        }
-      } else {
-        setActionMsg({ type: 'error', text: res.error });
-        setTimeout(() => setActionMsg(null), 4000);
+  // Unified Punch In / Punch Out with optional GPS geofence verification
+  const executePunch = async (isPunchOut) => {
+    const needsLocation =
+      gymSettings.geofenceEnabled &&
+      gymSettings.hasCoordinates &&
+      (!isPunchOut || gymSettings.requireCheckOutLocation);
+
+    let locationPayload = null;
+    if (needsLocation) {
+      setIsLocating(true);
+      const geoRes = await getBrowserCoordinates();
+      setIsLocating(false);
+      if (geoRes.error) {
+        setActionMsg({ type: 'error', text: geoRes.error });
+        setTimeout(() => setActionMsg(null), 6000);
+        return;
       }
-    });
-  };
+      locationPayload = {
+        latitude: geoRes.latitude,
+        longitude: geoRes.longitude,
+        accuracy: geoRes.accuracy,
+      };
+    }
 
-  // Handle Punch Out
-  const handlePunchOut = () => {
     startTransition(async () => {
-      const res = await fighterPunchOut();
+      const res = isPunchOut
+        ? await fighterPunchOut(locationPayload)
+        : await fighterPunchIn(locationPayload);
+
       if (res.success) {
         setMyRecord(res.record);
-        setLiveDuration(res.record.durationFormatted || '00h 00m 00s');
+        setLiveDuration(isPunchOut ? res.record?.durationFormatted || '00h 00m 00s' : '00h 00m 00s');
         setActionMsg({ type: 'success', text: res.message });
-        setTimeout(() => setActionMsg(null), 4000);
+        setTimeout(() => setActionMsg(null), 5000);
 
-        // Refresh live roster & history
-        const [freshDash, freshHist] = await Promise.all([
-          getTodayAttendanceDashboard(fighter._id),
-          getFighterAttendanceHistory(fighter._id),
-        ]);
-        if (freshDash.success) {
+        const requests = [getTodayAttendanceDashboard(fighter._id)];
+        if (isPunchOut) {
+          requests.push(getFighterAttendanceHistory(fighter._id));
+        }
+        const [freshDash, freshHist] = await Promise.all(requests);
+        if (freshDash?.success) {
+          activeDateRef.current = freshDash.todayDate || getTodayISTDate();
           setAttendanceList(freshDash.attendanceList);
           setStats(freshDash.stats);
+          if (freshDash.gymSettings) setGymSettings(freshDash.gymSettings);
         }
-        if (freshHist.success) {
+        if (freshHist?.success) {
           setHistoryData(freshHist);
         }
       } else {
         setActionMsg({ type: 'error', text: res.error });
-        setTimeout(() => setActionMsg(null), 4000);
+        setTimeout(() => setActionMsg(null), 6000);
       }
     });
   };
+
+  const handlePunchIn = () => executePunch(false);
+  const handlePunchOut = () => executePunch(true);
 
   // Sorted and filtered Attendance List
   const processedAttendanceList = useMemo(() => {
@@ -345,13 +417,44 @@ export default function FighterAttendanceClient({
                 </span>
               </div>
 
+              {/* Gym GPS Verification Status Pill */}
+              <div
+                className={`px-3.5 py-2 rounded-2xl border text-[11px] font-bold flex items-center justify-between gap-2 flex-wrap ${
+                  !gymSettings.geofenceEnabled
+                    ? 'bg-slate-50 dark:bg-zinc-950/60 border-slate-200 dark:border-zinc-800 text-slate-500 dark:text-zinc-400'
+                    : gymSettings.hasCoordinates
+                    ? 'bg-emerald-500/5 border-emerald-500/20 text-emerald-700 dark:text-emerald-300'
+                    : 'bg-amber-500/10 border-amber-500/30 text-amber-700 dark:text-amber-300'
+                }`}
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  {gymSettings.geofenceEnabled && !gymSettings.hasCoordinates ? (
+                    <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-amber-500" />
+                  ) : (
+                    <MapPin className="w-3.5 h-3.5 shrink-0 text-emerald-500" />
+                  )}
+                  <span className="truncate">
+                    {!gymSettings.geofenceEnabled
+                      ? 'Open Check-In Mode • Location verification off'
+                      : gymSettings.hasCoordinates
+                      ? `Gym GPS Active • Must be within ${gymSettings.radiusMeters}m of ${gymSettings.locationLabel}`
+                      : 'Gym GPS pin not set by Admin/Coach yet'}
+                  </span>
+                </div>
+                {myRecord?.locationVerified && myRecord?.checkInDistanceMeters !== null && (
+                  <span className="text-[10px] font-mono font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 shrink-0">
+                    Verified • {myRecord.checkInDistanceMeters}m
+                  </span>
+                )}
+              </div>
+
               {/* Single RFID Tap Card (First tap Check-In, Next tap Check-Out) */}
               <div className="w-full">
                 <button
                   type="button"
                   onClick={isCheckedIn ? handlePunchOut : handlePunchIn}
-                  disabled={isPending}
-                  className={`w-full p-8 sm:p-10 rounded-3xl border-2 transition-all duration-300 flex flex-col items-center justify-center gap-3 cursor-pointer text-center group shadow-xl active:scale-[0.99] ${
+                  disabled={isPending || isLocating}
+                  className={`w-full p-8 sm:p-10 rounded-3xl border-2 transition-all duration-300 flex flex-col items-center justify-center gap-3 cursor-pointer text-center group shadow-xl active:scale-[0.99] disabled:opacity-75 ${
                     isCheckedIn
                       ? 'bg-[#0b1329] dark:bg-zinc-950 border-red-500/60 hover:border-red-400 hover:shadow-red-500/20'
                       : 'bg-[#0b1329] dark:bg-zinc-950 border-cyan-500/50 hover:border-cyan-400 hover:shadow-cyan-500/20'
@@ -364,7 +467,11 @@ export default function FighterAttendanceClient({
                         : 'bg-[#1e293b] border border-cyan-500/40 text-cyan-400 shadow-cyan-500/20'
                     }`}
                   >
-                    <Cpu className="w-8 h-8" />
+                    {isLocating ? (
+                      <LocateFixed className="w-8 h-8 animate-spin" />
+                    ) : (
+                      <Cpu className="w-8 h-8" />
+                    )}
                   </div>
 
                   <div>
@@ -378,7 +485,11 @@ export default function FighterAttendanceClient({
                           : 'text-cyan-400'
                       }`}
                     >
-                      {isCheckedIn
+                      {isLocating
+                        ? 'Verifying Gym GPS Location...'
+                        : isPending
+                        ? 'Recording Attendance...'
+                        : isCheckedIn
                         ? `Smart Card Tap • Tap to Check Out (In at ${myRecord.inTime})`
                         : myRecord?.status === 'Completed'
                         ? `Smart Card Tap • Tap to Check In Again (Last Left at ${myRecord.outTime})`
@@ -413,7 +524,7 @@ export default function FighterAttendanceClient({
                     <Timer className="w-3 h-3 text-red-500" /> Live Duration
                   </span>
                   <span className="text-sm sm:text-base font-mono font-black text-slate-900 dark:text-white">
-                    {liveDuration}
+                    {myRecord ? liveDuration : '00h 00m 00s'}
                   </span>
                 </div>
               </div>
@@ -605,7 +716,13 @@ export default function FighterAttendanceClient({
                             }`}
                           >
                             {item.isOnMats && <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span>}
-                            {item.isOnMats ? 'On Mats' : item.hasCheckedIn ? 'Completed' : 'Absent'}
+                            {item.isOnMats
+                              ? 'On Mats'
+                              : item.hasCheckedIn
+                              ? 'Completed'
+                              : item.status === 'Absent'
+                              ? 'Absent'
+                              : 'Not Checked In'}
                           </span>
 
                         </div>
@@ -651,7 +768,7 @@ export default function FighterAttendanceClient({
                   PRESENT DAYS
                 </span>
                 <span className="text-2xl font-black text-emerald-600 dark:text-emerald-400">
-                  {historyData.stats?.presentDays || 0} / {historyData.stats?.totalExpectedDays || 24}
+                  {historyData.stats?.presentDays || 0} / {historyData.stats?.totalExpectedDays || 26}
                 </span>
               </div>
 

@@ -8,7 +8,13 @@ import { getCurrentUser } from './authActions';
 import { revalidatePath } from 'next/cache';
 import bcrypt from 'bcryptjs';
 
-import { calculateStatus } from '@/lib/utils';
+import { calculateStatus, getDefaultQuarterlyFee, resolveFighterFees, resolveFighterPackFee } from '@/lib/utils';
+
+function parseFeeValue(raw, fallback) {
+  if (raw === null || raw === undefined || String(raw).trim() === '') return fallback;
+  const num = Number(raw);
+  return Number.isFinite(num) && num >= 0 ? num : fallback;
+}
 import { sendWelcomeEmail } from '@/lib/mail';
 import { sendPaymentSuccessWhatsApp } from '@/lib/whatsapp';
 import { getBaseUrl } from '@/lib/url';
@@ -75,6 +81,7 @@ export async function getFighters(filters = {}) {
     // Map through fighters to calculate statuses dynamically and serialize objects
     let serializedFighters = fighters.map(f => {
       const computedStatus = calculateStatus(f.nextPaymentDate);
+      const fees = resolveFighterFees(f);
       return {
         ...f,
         _id: f._id.toString(),
@@ -93,7 +100,8 @@ export async function getFighters(filters = {}) {
         isActivated: Boolean(f.password && f.password.trim() !== ''),
         createdAt: f.createdAt ? f.createdAt.toISOString() : null,
         eca: f.eca || 'None',
-        monthlyFee: f.monthlyFee !== undefined ? f.monthlyFee : 1300,
+        monthlyFee: fees.monthlyFee,
+        quarterlyFee: fees.quarterlyFee,
       };
     });
 
@@ -195,7 +203,11 @@ export async function addFighter(prevState, formData) {
     const joiningDateStr = formData.get('joiningDate');
     const password = formData.get('password');
     const style = formData.get('style');
-    const monthlyFee = formData.get('monthlyFee') ? Number(formData.get('monthlyFee')) : 1300;
+    const monthlyFee = parseFeeValue(formData.get('monthlyFee'), 1300);
+    const quarterlyFee = parseFeeValue(
+      formData.get('quarterlyFee'),
+      getDefaultQuarterlyFee(monthlyFee)
+    );
 
     if (!name || !phone || !email || !dobStr || !weightClass || !experienceLevel || !packageDurationMonths || !style) {
       return { error: 'Please fill in all required fields.' };
@@ -249,6 +261,7 @@ export async function addFighter(prevState, formData) {
       joiningDate,
       packageDurationMonths,
       monthlyFee,
+      quarterlyFee,
       nextPaymentDate,
       status,
       password: hashedPassword,
@@ -319,16 +332,9 @@ export async function renewFighterSubscription(fighterId, durationMonths, amount
     await fighter.save();
 
     // Determine final payment amount
-    const fighterMonthlyRate = fighter.monthlyFee !== undefined ? fighter.monthlyFee : 1300;
     let finalAmount = Number(amount);
     if (!finalAmount || isNaN(finalAmount) || finalAmount <= 0) {
-      if (packageDuration === 1) {
-        finalAmount = fighterMonthlyRate;
-      } else if (packageDuration === 3) {
-        finalAmount = (fighterMonthlyRate === 1200 || fighterMonthlyRate === 1300) ? 4000 : fighterMonthlyRate * 3;
-      } else {
-        finalAmount = packageDuration * fighterMonthlyRate;
-      }
+      finalAmount = resolveFighterPackFee(fighter, packageDuration);
     }
 
     const validMethod = ['UPI', 'Cash', 'YouPI', 'Bank Transfer'].includes(paymentMethod) ? paymentMethod : 'Cash';
@@ -462,9 +468,22 @@ export async function updateFighter(fighterId, prevState, formData) {
     fighter.experienceLevel = experienceLevel;
     fighter.style = style;
     fighter.eca = eca;
-    const monthlyFeeRaw = formData.get('monthlyFee');
-    if (monthlyFeeRaw !== null && monthlyFeeRaw !== undefined && monthlyFeeRaw !== '') {
-      fighter.monthlyFee = Number(monthlyFeeRaw);
+    const packageDurationRaw = formData.get('packageDurationMonths');
+    if (packageDurationRaw !== null && packageDurationRaw !== undefined && String(packageDurationRaw).trim() !== '') {
+      const parsedDuration = Number(packageDurationRaw);
+      if (Number.isInteger(parsedDuration) && parsedDuration > 0) {
+        fighter.packageDurationMonths = parsedDuration;
+      }
+    }
+
+    const parsedMonthlyFee = parseFeeValue(formData.get('monthlyFee'), null);
+    if (parsedMonthlyFee !== null) {
+      fighter.monthlyFee = parsedMonthlyFee;
+    }
+
+    const parsedQuarterlyFee = parseFeeValue(formData.get('quarterlyFee'), null);
+    if (parsedQuarterlyFee !== null) {
+      fighter.quarterlyFee = parsedQuarterlyFee;
     }
     if (assignedCoach) {
       fighter.assignedCoach = assignedCoach;
@@ -496,6 +515,9 @@ export async function updateFighter(fighterId, prevState, formData) {
     await fighter.save();
 
     revalidatePath('/admin');
+    revalidatePath('/fighter');
+    revalidatePath('/fighter/profile');
+    revalidatePath(`/renew/${fighterId}`);
     return { success: true };
   } catch (err) {
     console.error('Error updating fighter:', err);
@@ -525,6 +547,7 @@ export async function getFighterProfile(userId = null) {
     }
 
     const computedStatus = calculateStatus(fighter.nextPaymentDate);
+    const fees = resolveFighterFees(fighter);
 
     return {
       success: true,
@@ -542,7 +565,8 @@ export async function getFighterProfile(userId = null) {
         nextPaymentDate: fighter.nextPaymentDate ? fighter.nextPaymentDate.toISOString() : null,
         status: computedStatus,
         isInactive: Boolean(fighter.isInactive),
-        monthlyFee: fighter.monthlyFee !== undefined ? fighter.monthlyFee : 1300,
+        monthlyFee: fees.monthlyFee,
+        quarterlyFee: fees.quarterlyFee,
       }
     };
   } catch (err) {

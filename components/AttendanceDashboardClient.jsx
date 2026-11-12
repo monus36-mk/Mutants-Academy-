@@ -1,23 +1,49 @@
 'use client';
 
-import { useState, useTransition, useMemo, useEffect } from 'react';
+import { useState, useTransition, useMemo, useEffect, useRef } from 'react';
 import { 
   getAttendanceForDate, 
   adminManualPunch,
   getMonthlyAttendanceReport,
-  getFighterAttendanceHistory
+  getFighterAttendanceHistory,
+  updateGymLocationSettings
 } from '@/app/actions/attendanceActions';
+import { getBrowserCoordinates, parseGoogleMapsLocation } from '@/lib/geoUtils';
+import { useModalBackHandler } from '@/hooks/useModalBackHandler';
 import { 
   Users, CheckCircle2, XCircle, 
   Search, Download, UserCheck, 
   ChevronLeft, ChevronRight, User, History, X, Flame,
-  Trophy, ChevronDown, MoreVertical, LogIn, LogOut
+  Trophy, ChevronDown, MoreVertical, LogIn, LogOut,
+  MapPin, LocateFixed, ExternalLink, AlertTriangle, ShieldCheck
 } from 'lucide-react';
+
+function getTodayISTDate() {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Kolkata',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date());
+}
 
 export default function AttendanceDashboardClient({ initialData, initialDate, currentUser }) {
   const [selectedDate, setSelectedDate] = useState(initialDate);
   const [roster, setRoster] = useState(initialData.roster || []);
   const [stats, setStats] = useState(initialData.stats || {});
+  const [gymSettings, setGymSettings] = useState(
+    initialData.gymSettings || {
+      locationLabel: 'Mutants Academy',
+      latitude: null,
+      longitude: null,
+      hasCoordinates: false,
+      radiusMeters: 100,
+      geofenceEnabled: true,
+      requireCheckOutLocation: true,
+      updatedByName: '',
+      updatedAt: null,
+    }
+  );
   const [searchQuery, setSearchQuery] = useState('');
   const [styleFilter, setStyleFilter] = useState('All');
   const [statusFilter, setStatusFilter] = useState('All');
@@ -34,6 +60,76 @@ export default function AttendanceDashboardClient({ initialData, initialDate, cu
   const [historyModalFighter, setHistoryModalFighter] = useState(null);
   const [historyModalData, setHistoryModalData] = useState(null);
   const [loadingHistory, setLoadingHistory] = useState(false);
+
+  // Gym Location settings modal state
+  const [showLocationModal, setShowLocationModal] = useState(false);
+  const [locLabel, setLocLabel] = useState(gymSettings.locationLabel || 'Mutants Academy');
+  const [locLat, setLocLat] = useState(gymSettings.latitude !== null && gymSettings.latitude !== undefined ? String(gymSettings.latitude) : '');
+  const [locLng, setLocLng] = useState(gymSettings.longitude !== null && gymSettings.longitude !== undefined ? String(gymSettings.longitude) : '');
+  const [locRadius, setLocRadius] = useState(gymSettings.radiusMeters || 100);
+  const [locEnabled, setLocEnabled] = useState(gymSettings.geofenceEnabled ?? true);
+  const [locRequireCheckOut, setLocRequireCheckOut] = useState(gymSettings.requireCheckOutLocation ?? true);
+  const [mapsPasteInput, setMapsPasteInput] = useState('');
+  const [locMsg, setLocMsg] = useState(null);
+  const [isCapturingGPS, setIsCapturingGPS] = useState(false);
+  const [isSavingLocation, setIsSavingLocation] = useState(false);
+
+  useModalBackHandler(Boolean(historyModalFighter), (open) => {
+    if (!open) {
+      setHistoryModalFighter(null);
+      setHistoryModalData(null);
+    }
+  }, 'adminAttendanceHistory');
+  useModalBackHandler(showLocationModal, setShowLocationModal, 'adminGymLocation');
+
+  const knownTodayRef = useRef(getTodayISTDate());
+  const selectedDateRef = useRef(selectedDate);
+
+  useEffect(() => {
+    selectedDateRef.current = selectedDate;
+  }, [selectedDate]);
+
+  // Auto-refresh today's roster when returning to tab or passing IST midnight
+  useEffect(() => {
+    const syncIfNeeded = async () => {
+      const currentToday = getTodayISTDate();
+      const viewingYesterdayToday =
+        selectedDateRef.current === knownTodayRef.current && currentToday !== knownTodayRef.current;
+
+      const targetDate = viewingYesterdayToday ? currentToday : selectedDateRef.current;
+      if (viewingYesterdayToday) {
+        knownTodayRef.current = currentToday;
+        setSelectedDate(currentToday);
+      }
+
+      if (targetDate === currentToday) {
+        const res = await getAttendanceForDate(targetDate);
+        if (res.success) {
+          setRoster(res.roster);
+          setStats(res.stats);
+          if (res.gymSettings) setGymSettings(res.gymSettings);
+        }
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        syncIfNeeded();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    const interval = setInterval(() => {
+      if (getTodayISTDate() !== knownTodayRef.current) {
+        syncIfNeeded();
+      }
+    }, 60000);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      clearInterval(interval);
+    };
+  }, []);
 
   // Close manual action menu on outside click
   useEffect(() => {
@@ -69,8 +165,77 @@ export default function AttendanceDashboardClient({ initialData, initialDate, cu
       if (res.success) {
         setRoster(res.roster);
         setStats(res.stats);
+        if (res.gymSettings) setGymSettings(res.gymSettings);
       }
     });
+  };
+
+  const openLocationModal = () => {
+    setLocLabel(gymSettings.locationLabel || 'Mutants Academy');
+    setLocLat(gymSettings.latitude !== null && gymSettings.latitude !== undefined ? String(gymSettings.latitude) : '');
+    setLocLng(gymSettings.longitude !== null && gymSettings.longitude !== undefined ? String(gymSettings.longitude) : '');
+    setLocRadius(gymSettings.radiusMeters || 100);
+    setLocEnabled(gymSettings.geofenceEnabled ?? true);
+    setLocRequireCheckOut(gymSettings.requireCheckOutLocation ?? true);
+    setMapsPasteInput('');
+    setLocMsg(null);
+    setShowLocationModal(true);
+  };
+
+  const handleCaptureCurrentLocation = async () => {
+    setLocMsg(null);
+    setIsCapturingGPS(true);
+    const geoRes = await getBrowserCoordinates();
+    setIsCapturingGPS(false);
+    if (geoRes.error) {
+      setLocMsg({ type: 'error', text: geoRes.error });
+      return;
+    }
+    setLocLat(String(Number(geoRes.latitude.toFixed(6))));
+    setLocLng(String(Number(geoRes.longitude.toFixed(6))));
+    setLocMsg({
+      type: 'success',
+      text: `Captured current location (±${geoRes.accuracy || 0}m GPS accuracy). Click Save Location to apply.`,
+    });
+  };
+
+  const handleApplyMapsInput = () => {
+    setLocMsg(null);
+    const parsed = parseGoogleMapsLocation(mapsPasteInput);
+    if (parsed.error) {
+      setLocMsg({ type: 'error', text: parsed.error });
+      return;
+    }
+    setLocLat(String(parsed.latitude));
+    setLocLng(String(parsed.longitude));
+    setLocMsg({
+      type: 'success',
+      text: `Extracted coordinates (${parsed.latitude}, ${parsed.longitude}). Verify pin or click Save Location.`,
+    });
+  };
+
+  const handleSaveLocation = async (e) => {
+    e.preventDefault();
+    setLocMsg(null);
+    setIsSavingLocation(true);
+    const res = await updateGymLocationSettings({
+      locationLabel: locLabel,
+      latitude: locLat,
+      longitude: locLng,
+      radiusMeters: locRadius,
+      geofenceEnabled: locEnabled,
+      requireCheckOutLocation: locRequireCheckOut,
+    });
+    setIsSavingLocation(false);
+
+    if (res.success) {
+      setGymSettings(res.settings);
+      setShowLocationModal(false);
+      setMessage(res.message || 'Gym location updated!');
+      setTimeout(() => setMessage(null), 4000);
+    } else {
+      setLocMsg({ type: 'error', text: res.error || 'Failed to save gym location' });
+    }
   };
 
   const handleSetToday = () => {
@@ -310,6 +475,35 @@ export default function AttendanceDashboardClient({ initialData, initialDate, cu
 
           <button
             type="button"
+            onClick={openLocationModal}
+            className={`px-3.5 py-2.5 rounded-2xl border text-xs font-extrabold uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer ${
+              gymSettings.geofenceEnabled && !gymSettings.hasCoordinates
+                ? 'bg-amber-500/20 hover:bg-amber-500/30 border-amber-400/50 text-amber-300'
+                : 'bg-slate-800 hover:bg-slate-700 dark:bg-zinc-800 dark:hover:bg-zinc-700 border-slate-700/60 text-white'
+            }`}
+            title="Set or update gym GPS location and allowed punch-in radius"
+          >
+            <MapPin className="w-4 h-4 text-red-400" />
+            <span>
+              {!gymSettings.geofenceEnabled
+                ? 'GPS Off'
+                : gymSettings.hasCoordinates
+                ? `Gym Pin (${gymSettings.radiusMeters}m)`
+                : 'Set Gym Pin'}
+            </span>
+            <span
+              className={`w-2 h-2 rounded-full ${
+                !gymSettings.geofenceEnabled
+                  ? 'bg-slate-400'
+                  : gymSettings.hasCoordinates
+                  ? 'bg-emerald-400'
+                  : 'bg-amber-400 animate-pulse'
+              }`}
+            ></span>
+          </button>
+
+          <button
+            type="button"
             onClick={handleExportCSV}
             disabled={isExporting}
             className="px-4 py-2.5 rounded-2xl bg-red-600 hover:bg-red-500 active:scale-95 text-white text-xs font-extrabold uppercase tracking-wider flex items-center gap-2 shadow-lg shadow-red-600/25 transition-all cursor-pointer disabled:opacity-50"
@@ -319,6 +513,25 @@ export default function AttendanceDashboardClient({ initialData, initialDate, cu
           </button>
         </div>
       </div>
+
+      {/* Missing Gym Pin Setup Callout */}
+      {gymSettings.geofenceEnabled && !gymSettings.hasCoordinates && (
+        <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-300 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-start sm:items-center gap-2.5">
+            <AlertTriangle className="w-4 h-4 shrink-0 text-amber-500 mt-0.5 sm:mt-0" />
+            <span className="font-semibold">
+              Gym GPS location is not set yet — fighters cannot self punch-in until you pin <strong>{gymSettings.locationLabel}</strong> or switch GPS verification off.
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={openLocationModal}
+            className="px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black uppercase tracking-wider text-[11px] shrink-0 cursor-pointer transition-colors"
+          >
+            Set Gym Pin Now
+          </button>
+        </div>
+      )}
 
       {/* Success Toast */}
       {message && (
@@ -568,12 +781,22 @@ export default function AttendanceDashboardClient({ initialData, initialDate, cu
                           </span>
                         )}
                       </div>
-                      <div className="flex items-center gap-1.5 mt-0.5 text-[10px] truncate">
+                      <div className="flex flex-wrap items-center gap-1.5 mt-0.5 text-[10px]">
                         <span className="font-bold text-red-500 uppercase">{fighter.style || 'MMA'}</span>
                         <span className="text-slate-300 dark:text-zinc-700">•</span>
                         <span className="text-slate-400 font-semibold">{fighter.assignedCoachName}</span>
                         <span className="text-slate-300 dark:text-zinc-700">•</span>
                         <span className="text-slate-400 font-mono">{fighter.experienceLevel || 'Athlete'}</span>
+                        {hasCheckedIn && fighter.locationVerified && fighter.checkInDistanceMeters !== null && (
+                          <>
+                            <span className="text-slate-300 dark:text-zinc-700">•</span>
+                            <span className="inline-flex items-center gap-0.5 text-emerald-600 dark:text-emerald-400 font-mono font-bold">
+                              <MapPin className="w-3 h-3" />
+                              {fighter.checkInDistanceMeters}m
+                              {fighter.checkOutDistanceMeters !== null ? ` / Out ${fighter.checkOutDistanceMeters}m` : ''}
+                            </span>
+                          </>
+                        )}
                       </div>
                     </div>
 
@@ -747,7 +970,7 @@ export default function AttendanceDashboardClient({ initialData, initialDate, cu
                       PRESENT DAYS
                     </span>
                     <span className="text-2xl font-black text-emerald-600 dark:text-emerald-400">
-                      {historyModalData.stats?.presentDays || 0} / {historyModalData.stats?.totalExpectedDays || 24}
+                      {historyModalData.stats?.presentDays || 0} / {historyModalData.stats?.totalExpectedDays || 26}
                     </span>
                   </div>
 
@@ -821,6 +1044,257 @@ export default function AttendanceDashboardClient({ initialData, initialDate, cu
             ) : null}
 
           </div>
+        </div>
+      )}
+
+      {/* ---------------- GYM LOCATION / GEOFENCE SETTINGS MODAL ---------------- */}
+      {showLocationModal && (
+        <div
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={() => setShowLocationModal(false)}
+        >
+          <form
+            onSubmit={handleSaveLocation}
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-3xl max-w-lg w-full p-5 sm:p-6 shadow-2xl space-y-5 max-h-[90dvh] overflow-y-auto animate-in fade-in zoom-in-95 duration-200"
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-zinc-800 pb-4">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-2xl bg-red-600/10 border border-red-600/20 text-red-600 flex items-center justify-center shrink-0">
+                  <MapPin className="w-5 h-5" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-base font-black uppercase text-slate-900 dark:text-white truncate">
+                    Gym Location & Geofence
+                  </h3>
+                  <p className="text-xs text-slate-400 truncate">
+                    Verify athletes are physically at the gym before self check-in.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowLocationModal(false)}
+                className="p-2 rounded-2xl bg-slate-100 dark:bg-zinc-800 text-slate-500 hover:text-slate-800 dark:hover:text-zinc-200 transition-colors cursor-pointer shrink-0"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {locMsg && (
+              <div
+                className={`p-3 rounded-2xl text-xs font-bold flex items-start gap-2 ${
+                  locMsg.type === 'success'
+                    ? 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400'
+                    : 'bg-red-500/10 border border-red-500/30 text-red-600 dark:text-red-400'
+                }`}
+              >
+                {locMsg.type === 'success' ? (
+                  <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
+                ) : (
+                  <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                )}
+                <span>{locMsg.text}</span>
+              </div>
+            )}
+
+            {/* Enforcement Toggles */}
+            <div className="space-y-2.5 bg-slate-50 dark:bg-zinc-950/60 border border-slate-200/70 dark:border-zinc-800 rounded-2xl p-4">
+              <label className="flex items-center justify-between gap-3 cursor-pointer">
+                <div>
+                  <span className="text-xs font-extrabold uppercase tracking-wider text-slate-900 dark:text-white block">
+                    Require Gym Location (Punch In)
+                  </span>
+                  <span className="text-[11px] text-slate-400">
+                    Athletes must be within the radius to tap attendance alone.
+                  </span>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={locEnabled}
+                  onChange={(e) => setLocEnabled(e.target.checked)}
+                  className="w-5 h-5 accent-red-600 cursor-pointer shrink-0"
+                />
+              </label>
+
+              {locEnabled && (
+                <label className="flex items-center justify-between gap-3 pt-2.5 border-t border-slate-200/70 dark:border-zinc-800 cursor-pointer">
+                  <div>
+                    <span className="text-xs font-bold text-slate-700 dark:text-zinc-200 block">
+                      Also Require Location for Punch Out
+                    </span>
+                    <span className="text-[11px] text-slate-400">
+                      Turn off if athletes forget to tap Out before leaving.
+                    </span>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={locRequireCheckOut}
+                    onChange={(e) => setLocRequireCheckOut(e.target.checked)}
+                    className="w-4.5 h-4.5 accent-red-600 cursor-pointer shrink-0"
+                  />
+                </label>
+              )}
+            </div>
+
+            {/* Label & Quick Capture */}
+            <div className="space-y-3">
+              <div>
+                <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">
+                  Location Name
+                </label>
+                <input
+                  type="text"
+                  value={locLabel}
+                  onChange={(e) => setLocLabel(e.target.value)}
+                  placeholder="Mutants Academy"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500"
+                />
+              </div>
+
+              <button
+                type="button"
+                onClick={handleCaptureCurrentLocation}
+                disabled={isCapturingGPS}
+                className="w-full py-3 px-4 rounded-2xl bg-slate-900 hover:bg-slate-800 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-white text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-colors cursor-pointer disabled:opacity-60"
+              >
+                <LocateFixed className={`w-4 h-4 text-emerald-400 ${isCapturingGPS ? 'animate-spin' : ''}`} />
+                <span>{isCapturingGPS ? 'Detecting Current GPS...' : 'Use My Current Location (At Gym)'}</span>
+              </button>
+
+              {/* Paste Google Maps Link or Lat, Lng */}
+              <div>
+                <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">
+                  Or Paste Google Maps Link / Coordinates
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={mapsPasteInput}
+                    onChange={(e) => setMapsPasteInput(e.target.value)}
+                    placeholder="Paste Google Maps URL or 13.0827, 80.2707"
+                    className="flex-1 min-w-0 px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 text-xs font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleApplyMapsInput}
+                    className="px-3.5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-800 dark:text-zinc-100 text-xs font-black uppercase tracking-wider cursor-pointer shrink-0"
+                  >
+                    Apply
+                  </button>
+                </div>
+              </div>
+
+              {/* Lat / Lng fields */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">
+                    Latitude
+                  </label>
+                  <input
+                    type="number"
+                    step="any"
+                    value={locLat}
+                    onChange={(e) => setLocLat(e.target.value)}
+                    placeholder="13.082700"
+                    className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 text-xs font-mono font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">
+                    Longitude
+                  </label>
+                  <input
+                    type="number"
+                    step="any"
+                    value={locLng}
+                    onChange={(e) => setLocLng(e.target.value)}
+                    placeholder="80.270700"
+                    className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 text-xs font-mono font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500"
+                  />
+                </div>
+              </div>
+
+              {locLat !== '' && locLng !== '' && (
+                <a
+                  href={`https://www.google.com/maps?q=${encodeURIComponent(`${locLat},${locLng}`)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-xs font-bold text-red-500 hover:text-red-400"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  <span>Preview Pin on Google Maps</span>
+                </a>
+              )}
+            </div>
+
+            {/* Allowed Radius */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                  Allowed Check-In Radius (Meters)
+                </label>
+                <span className="text-[11px] font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                  {locRadius}m
+                </span>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                {[50, 100, 150, 250].map((preset) => (
+                  <button
+                    key={preset}
+                    type="button"
+                    onClick={() => setLocRadius(preset)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-colors cursor-pointer ${
+                      Number(locRadius) === preset
+                        ? 'bg-red-600 text-white'
+                        : 'bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-300 hover:bg-slate-200 dark:hover:bg-zinc-700'
+                    }`}
+                  >
+                    {preset}m
+                  </button>
+                ))}
+                <input
+                  type="number"
+                  min={20}
+                  max={2000}
+                  value={locRadius}
+                  onChange={(e) => setLocRadius(Number(e.target.value) || 100)}
+                  className="w-24 px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 text-xs font-mono font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500"
+                />
+              </div>
+              <p className="text-[11px] text-slate-400">
+                Indoor concrete roofs typically cause 20–60m GPS drift; <strong>100m</strong> is recommended.
+              </p>
+            </div>
+
+            {gymSettings.updatedByName && (
+              <div className="text-[11px] text-slate-400 flex items-center gap-1.5">
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                <span>
+                  Last updated by <strong>{gymSettings.updatedByName}</strong>
+                </span>
+              </div>
+            )}
+
+            {/* Actions */}
+            <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100 dark:border-zinc-800">
+              <button
+                type="button"
+                onClick={() => setShowLocationModal(false)}
+                className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 text-xs font-bold text-slate-600 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-800 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={isSavingLocation}
+                className="px-5 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-black uppercase tracking-wider shadow-lg shadow-red-600/25 cursor-pointer disabled:opacity-60"
+              >
+                {isSavingLocation ? 'Saving...' : 'Save Location'}
+              </button>
+            </div>
+          </form>
         </div>
       )}
 

@@ -25,6 +25,7 @@ import {
   ExternalLink
 } from 'lucide-react';
 import { submitPendingRenewal, checkPaymentStatus } from '@/app/actions/paymentActions';
+import { resolveFighterFees } from '@/lib/utils';
 
 export default function RenewPaymentClient({ fighter, upiConfig }) {
   const router = useRouter();
@@ -37,13 +38,8 @@ export default function RenewPaymentClient({ fighter, upiConfig }) {
     }
   };
 
-  const monthlyRate = fighter.monthlyFee !== undefined ? Number(fighter.monthlyFee) : 1300;
-  
-  // Exactly 2 plans:
-  // 1 Month: ₹1,300 (or fighter's agreed monthlyFee)
-  // 3 Months: ₹4,000 (or calculated from fighter's monthlyFee)
-  const oneMonthAmount = (monthlyRate !== undefined && monthlyRate !== null && !isNaN(monthlyRate) && monthlyRate > 0) ? monthlyRate : 1300;
-  const threeMonthsAmount = (monthlyRate === 1200 || monthlyRate === 1300) ? 4000 : Math.max(1, Math.round(monthlyRate * 3 * 0.95));
+  // Exactly 2 plans powered by fighter's agreed 1-month & 3-month rates:
+  const { monthlyFee: oneMonthAmount, quarterlyFee: threeMonthsAmount } = resolveFighterFees(fighter);
 
   const PACKAGES = [
     {

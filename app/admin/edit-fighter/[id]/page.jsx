@@ -3,6 +3,7 @@ import { getCoaches } from '@/app/actions/coachActions';
 import EditFighterForm from '@/components/EditFighterForm';
 import dbConnect from '@/lib/db';
 import Fighter from '@/models/Fighter';
+import { resolveFighterFees } from '@/lib/utils';
 import { redirect } from 'next/navigation';
 
 export default async function EditFighterPage({ params }) {
@@ -27,6 +28,7 @@ export default async function EditFighterPage({ params }) {
   }
 
   // Serialize MongoDB object for Client Component
+  const fees = resolveFighterFees(fighter);
   const serializedFighter = {
     ...fighter,
     _id: fighter._id.toString(),
@@ -36,6 +38,8 @@ export default async function EditFighterPage({ params }) {
     email: fighter.email || '',
     dob: fighter.dob ? fighter.dob.toISOString() : null,
     nextPaymentDate: fighter.nextPaymentDate ? fighter.nextPaymentDate.toISOString() : null,
+    monthlyFee: fees.monthlyFee,
+    quarterlyFee: fees.quarterlyFee,
   };
 
   let coaches = [];

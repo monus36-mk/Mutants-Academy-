@@ -8,6 +8,7 @@ import RenewalModal from '@/components/RenewalModal';
 import DeleteButton from '@/components/DeleteButton';
 import FighterDetailModal from '@/components/FighterDetailModal';
 import RosterExportActions from '@/components/RosterExportActions';
+import { resolveFighterPackFee } from '@/lib/utils';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { Dumbbell, Users, Clock, AlertCircle, Plus, Phone, UserCheck, ShieldAlert, Edit3, Mail } from 'lucide-react';
@@ -339,7 +340,7 @@ export default async function AdminDashboard({ searchParams }) {
                             })}
                           </span>
                           <span className="block text-[10px] text-slate-400 dark:text-zinc-500 font-medium uppercase mt-0.5">
-                            Package: {fighter.packageDurationMonths} Month{fighter.packageDurationMonths > 1 ? 's' : ''}
+                            Package: {fighter.packageDurationMonths} Month{fighter.packageDurationMonths > 1 ? 's' : ''} • ₹{resolveFighterPackFee(fighter, fighter.packageDurationMonths).toLocaleString('en-IN')}
                           </span>
                         </div>
                       </td>

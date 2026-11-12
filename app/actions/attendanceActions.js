@@ -4,6 +4,8 @@ import dbConnect from '@/lib/db';
 import Attendance from '@/models/Attendance';
 import Fighter from '@/models/Fighter';
 import User from '@/models/User';
+import GymSettings from '@/models/GymSettings';
+import { calculateDistanceMeters, isValidCoordinatePair } from '@/lib/geoUtils';
 import { getCurrentUser } from './authActions';
 import { revalidatePath } from 'next/cache';
 
@@ -44,9 +46,211 @@ function getTodayDateString() {
 }
 
 /**
+ * Counts Mon-Sat training days (excluding Sundays) for a YYYY-MM calendar month.
+ */
+function countTrainingDaysInMonth(yearMonth) {
+  const [year, month] = String(yearMonth || '').split('-').map(Number);
+  if (!year || !month || month < 1 || month > 12) return 26;
+  const totalCalendarDays = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  let trainingDays = 0;
+  for (let day = 1; day <= totalCalendarDays; day++) {
+    if (new Date(Date.UTC(year, month - 1, day)).getUTCDay() !== 0) {
+      trainingDays++;
+    }
+  }
+  return trainingDays;
+}
+
+/**
+ * Serializes gym location settings safely for Client Components.
+ */
+function serializeGymSettings(doc, includeCoordinates = false) {
+  const lat = doc?.latitude !== null && doc?.latitude !== undefined ? Number(doc.latitude) : null;
+  const lng = doc?.longitude !== null && doc?.longitude !== undefined ? Number(doc.longitude) : null;
+  const hasCoordinates = lat !== null && lng !== null && isValidCoordinatePair(lat, lng);
+
+  return {
+    locationLabel: doc?.locationLabel || 'Mutants Academy',
+    latitude: includeCoordinates && hasCoordinates ? lat : null,
+    longitude: includeCoordinates && hasCoordinates ? lng : null,
+    hasCoordinates,
+    radiusMeters: Number(doc?.radiusMeters) || 100,
+    geofenceEnabled: doc?.geofenceEnabled ?? true,
+    requireCheckOutLocation: doc?.requireCheckOutLocation ?? true,
+    updatedByName: includeCoordinates ? doc?.updatedByName || '' : '',
+    updatedAt: includeCoordinates && doc?.updatedAt ? new Date(doc.updatedAt).toISOString() : null,
+  };
+}
+
+/**
+ * Verifies fighter GPS coordinates against saved gym geofence on the server.
+ */
+async function verifyFighterLocation(locationPayload, isCheckOut = false) {
+  const settingsDoc = await GymSettings.findOne({ key: 'default' }).lean();
+  const settings = serializeGymSettings(settingsDoc, true);
+
+  if (!settings.geofenceEnabled) {
+    return { ok: true, enforced: false, distanceMeters: null };
+  }
+
+  if (isCheckOut && !settings.requireCheckOutLocation) {
+    return { ok: true, enforced: false, distanceMeters: null };
+  }
+
+  if (!settings.hasCoordinates) {
+    return {
+      ok: false,
+      error: `Gym GPS location is not set yet. Ask Coach or MainAdmin to pin ${settings.locationLabel} under Attendance -> Gym Location.`,
+    };
+  }
+
+  const rawLat = locationPayload?.latitude;
+  const rawLng = locationPayload?.longitude;
+  const lat = Number(rawLat);
+  const lng = Number(rawLng);
+  if (
+    !locationPayload ||
+    rawLat === undefined ||
+    rawLat === null ||
+    String(rawLat).trim() === '' ||
+    rawLng === undefined ||
+    rawLng === null ||
+    String(rawLng).trim() === '' ||
+    !isValidCoordinatePair(lat, lng)
+  ) {
+    return {
+      ok: false,
+      error: `GPS location is required to verify you are at ${settings.locationLabel}. Allow Location access and tap again.`,
+    };
+  }
+
+  const distanceMeters = Math.round(
+    calculateDistanceMeters(lat, lng, settings.latitude, settings.longitude)
+  );
+
+  if (distanceMeters > settings.radiusMeters) {
+    const accuracy = Number(locationPayload?.accuracy);
+    const accuracyNote =
+      Number.isFinite(accuracy) && accuracy > 250
+        ? ` (Weak GPS signal ±${Math.round(accuracy)}m — try near a window or ask Coach/Admin to mark manually)`
+        : '';
+
+    return {
+      ok: false,
+      error: `You are ${distanceMeters}m away from ${settings.locationLabel} (allowed radius: ${settings.radiusMeters}m). Check in from inside the gym or ask Coach/Admin to mark manually.${accuracyNote}`,
+    };
+  }
+
+  return { ok: true, enforced: true, distanceMeters };
+}
+
+/**
+ * Returns the current Gym Location geofence settings.
+ */
+export async function getGymLocationSettings() {
+  try {
+    await dbConnect();
+    const currentUser = await getCurrentUser();
+    if (!currentUser) return { error: 'Unauthorized' };
+
+    const doc = await GymSettings.findOne({ key: 'default' }).lean();
+    const includeCoordinates = currentUser.role === 'MainAdmin' || currentUser.role === 'Coach';
+    return {
+      success: true,
+      settings: serializeGymSettings(doc, includeCoordinates),
+    };
+  } catch (err) {
+    console.error('Error fetching gym location settings:', err);
+    return { error: 'Failed to load gym location settings' };
+  }
+}
+
+/**
+ * Updates Gym GPS coordinates, geofence radius, and check-in rules (MainAdmin & Coach).
+ */
+export async function updateGymLocationSettings({
+  locationLabel,
+  latitude,
+  longitude,
+  radiusMeters,
+  geofenceEnabled,
+  requireCheckOutLocation,
+}) {
+  try {
+    await dbConnect();
+    const currentUser = await getCurrentUser();
+    if (!currentUser || (currentUser.role !== 'MainAdmin' && currentUser.role !== 'Coach')) {
+      return { error: 'Unauthorized: Only MainAdmin or Coach can update gym location.' };
+    }
+
+    const existing = await GymSettings.findOne({ key: 'default' }).lean();
+
+    let nextLat = existing?.latitude ?? null;
+    let nextLng = existing?.longitude ?? null;
+    const hasLatInput = latitude !== undefined && latitude !== null && String(latitude).trim() !== '';
+    const hasLngInput = longitude !== undefined && longitude !== null && String(longitude).trim() !== '';
+
+    if (hasLatInput || hasLngInput) {
+      const parsedLat = Number(latitude);
+      const parsedLng = Number(longitude);
+      if (!hasLatInput || !hasLngInput || !isValidCoordinatePair(parsedLat, parsedLng)) {
+        return { error: 'Enter valid latitude (-90 to 90) and longitude (-180 to 180) coordinates.' };
+      }
+      nextLat = Number(parsedLat.toFixed(6));
+      nextLng = Number(parsedLng.toFixed(6));
+    }
+
+    const nextGeofenceEnabled = Boolean(geofenceEnabled);
+    if (nextGeofenceEnabled && (nextLat === null || nextLng === null)) {
+      return {
+        error:
+          'Set gym coordinates first ("Use My Current Location" or paste Google Maps link/coordinates) before enabling location verification.',
+      };
+    }
+
+    const nextRadius = Math.min(2000, Math.max(20, Math.round(Number(radiusMeters) || 100)));
+    const nextLabel = String(locationLabel || '').trim() || 'Mutants Academy';
+
+    const dbUser = await User.findById(currentUser.id).select('name').lean();
+
+    const updated = await GymSettings.findOneAndUpdate(
+      { key: 'default' },
+      {
+        $set: {
+          key: 'default',
+          locationLabel: nextLabel,
+          latitude: nextLat,
+          longitude: nextLng,
+          radiusMeters: nextRadius,
+          geofenceEnabled: nextGeofenceEnabled,
+          requireCheckOutLocation: Boolean(requireCheckOutLocation),
+          updatedBy: currentUser.id,
+          updatedByName: dbUser?.name || currentUser.role,
+        },
+      },
+      { upsert: true, new: true }
+    ).lean();
+
+    revalidatePath('/admin/attendance');
+    revalidatePath('/fighter/attendance');
+
+    return {
+      success: true,
+      settings: serializeGymSettings(updated, true),
+      message: nextGeofenceEnabled
+        ? `Gym pin updated (${nextLabel} • ${nextRadius}m radius).`
+        : 'Location check turned OFF. Athletes can check in without GPS.',
+    };
+  } catch (err) {
+    console.error('Error updating gym location settings:', err);
+    return { error: err.message || 'Failed to update gym location settings' };
+  }
+}
+
+/**
  * Fighter Check-In (Punch In to Mats)
  */
-export async function fighterPunchIn() {
+export async function fighterPunchIn(location = null) {
   try {
     await dbConnect();
     const currentUser = await getCurrentUser();
@@ -62,21 +266,34 @@ export async function fighterPunchIn() {
     const todayStr = getTodayDateString();
     let record = await Attendance.findOne({ fighterId: fighter._id, date: todayStr });
 
+    if (record && record.status === 'Checked In') {
+      return {
+        success: true,
+        alreadyCheckedIn: true,
+        record: {
+          _id: record._id.toString(),
+          inTime: record.inTime,
+          inTimestamp: record.inTimestamp?.toISOString() || null,
+          status: record.status,
+          checkInRank: record.checkInRank,
+          checkInDistanceMeters: record.checkInDistanceMeters ?? null,
+          locationVerified: Boolean(record.locationVerified),
+        },
+        message: `You are already checked in at ${record.inTime}!`,
+      };
+    }
+
+    const geoCheck = await verifyFighterLocation(location, false);
+    if (!geoCheck.ok) {
+      return { error: geoCheck.error };
+    }
+
+    const locationNote =
+      geoCheck.enforced && geoCheck.distanceMeters !== null
+        ? ` • ${geoCheck.distanceMeters}m from gym`
+        : '';
+
     if (record) {
-      if (record.status === 'Checked In') {
-        return {
-          success: true,
-          alreadyCheckedIn: true,
-          record: {
-            _id: record._id.toString(),
-            inTime: record.inTime,
-            inTimestamp: record.inTimestamp?.toISOString() || null,
-            status: record.status,
-            checkInRank: record.checkInRank,
-          },
-          message: `You are already checked in at ${record.inTime}!`,
-        };
-      }
       // If previously completed, allow re-checking in
       const now = new Date();
       record.inTimestamp = now;
@@ -85,6 +302,9 @@ export async function fighterPunchIn() {
       record.outTimestamp = null;
       record.status = 'Checked In';
       record.markedBy = 'Athlete';
+      record.checkInDistanceMeters = geoCheck.distanceMeters;
+      record.checkOutDistanceMeters = null;
+      record.locationVerified = geoCheck.enforced;
       await record.save();
 
       revalidatePath('/fighter/attendance');
@@ -98,8 +318,10 @@ export async function fighterPunchIn() {
           inTimestamp: record.inTimestamp.toISOString(),
           status: record.status,
           checkInRank: record.checkInRank,
+          checkInDistanceMeters: record.checkInDistanceMeters ?? null,
+          locationVerified: Boolean(record.locationVerified),
         },
-        message: `Welcome back to the mats! Checked in at ${record.inTime}.`,
+        message: `Welcome back to the mats! Checked in at ${record.inTime}${locationNote}.`,
       };
     }
 
@@ -121,6 +343,8 @@ export async function fighterPunchIn() {
       checkInRank,
       status: 'Checked In',
       markedBy: 'Athlete',
+      checkInDistanceMeters: geoCheck.distanceMeters,
+      locationVerified: geoCheck.enforced,
     });
 
     revalidatePath('/fighter/attendance');
@@ -134,8 +358,10 @@ export async function fighterPunchIn() {
         inTimestamp: newRecord.inTimestamp.toISOString(),
         status: newRecord.status,
         checkInRank: newRecord.checkInRank,
+        checkInDistanceMeters: newRecord.checkInDistanceMeters ?? null,
+        locationVerified: Boolean(newRecord.locationVerified),
       },
-      message: `Punch In Recorded! You are #${checkInRank} on the mats today 🔥`,
+      message: `Punch In Recorded! You are #${checkInRank} on the mats today${locationNote} 🔥`,
     };
   } catch (err) {
     console.error('Punch in error:', err);
@@ -146,7 +372,7 @@ export async function fighterPunchIn() {
 /**
  * Fighter Check-Out (Punch Out / Leave Mats)
  */
-export async function fighterPunchOut() {
+export async function fighterPunchOut(location = null) {
   try {
     await dbConnect();
     const currentUser = await getCurrentUser();
@@ -169,6 +395,11 @@ export async function fighterPunchOut() {
       };
     }
 
+    const geoCheck = await verifyFighterLocation(location, true);
+    if (!geoCheck.ok) {
+      return { error: geoCheck.error };
+    }
+
     const now = new Date();
     const inTimeDate = record.inTimestamp || now;
     const durationSeconds = Math.max(0, Math.floor((now.getTime() - inTimeDate.getTime()) / 1000));
@@ -179,10 +410,17 @@ export async function fighterPunchOut() {
     record.durationSeconds = durationSeconds;
     record.durationFormatted = durationFormatted;
     record.status = 'Completed';
+    record.checkOutDistanceMeters = geoCheck.distanceMeters;
+    record.locationVerified = Boolean(record.locationVerified || geoCheck.enforced);
     await record.save();
 
     revalidatePath('/fighter/attendance');
     revalidatePath('/admin/attendance');
+
+    const locationNote =
+      geoCheck.enforced && geoCheck.distanceMeters !== null
+        ? ` • ${geoCheck.distanceMeters}m from gym`
+        : '';
 
     return {
       success: true,
@@ -192,8 +430,11 @@ export async function fighterPunchOut() {
         outTime: record.outTime,
         durationFormatted,
         status: record.status,
+        checkInDistanceMeters: record.checkInDistanceMeters ?? null,
+        checkOutDistanceMeters: record.checkOutDistanceMeters ?? null,
+        locationVerified: Boolean(record.locationVerified),
       },
-      message: `Great sparring session! Checked out at ${record.outTime} (${durationFormatted} on mats).`,
+      message: `Great sparring session! Checked out at ${record.outTime} (${durationFormatted} on mats${locationNote}).`,
     };
   } catch (err) {
     console.error('Punch out error:', err);
@@ -214,32 +455,37 @@ export async function getTodayAttendanceDashboard(targetFighterId = null) {
 
     const fighterId = targetFighterId || (currentUser.role === 'Fighter' ? currentUser.id : null);
     const todayStr = getTodayDateString();
+    const includeCoordinates = currentUser.role === 'MainAdmin' || currentUser.role === 'Coach';
+
+    const [myRecDoc, allFighters, todayRecords, gymDoc] = await Promise.all([
+      fighterId ? Attendance.findOne({ fighterId, date: todayStr }).lean() : Promise.resolve(null),
+      Fighter.find({ isInactive: { $ne: true } })
+        .select('name photo style joiningDate createdAt experienceLevel weightClass phone')
+        .lean(),
+      Attendance.find({ date: todayStr }).lean(),
+      GymSettings.findOne({ key: 'default' }).lean(),
+    ]);
 
     // 1. My record for today
     let myRecord = null;
-    if (fighterId) {
-      const rec = await Attendance.findOne({ fighterId, date: todayStr }).lean();
-      if (rec) {
-        myRecord = {
-          _id: rec._id.toString(),
-          inTime: rec.inTime || '',
-          outTime: rec.outTime || '',
-          inTimestamp: rec.inTimestamp ? rec.inTimestamp.toISOString() : null,
-          outTimestamp: rec.outTimestamp ? rec.outTimestamp.toISOString() : null,
-          durationSeconds: rec.durationSeconds || 0,
-          durationFormatted: rec.durationFormatted || '00h 00m 00s',
-          status: rec.status,
-          checkInRank: rec.checkInRank || null,
-        };
-      }
+    if (myRecDoc) {
+      myRecord = {
+        _id: myRecDoc._id.toString(),
+        inTime: myRecDoc.inTime || '',
+        outTime: myRecDoc.outTime || '',
+        inTimestamp: myRecDoc.inTimestamp ? myRecDoc.inTimestamp.toISOString() : null,
+        outTimestamp: myRecDoc.outTimestamp ? myRecDoc.outTimestamp.toISOString() : null,
+        durationSeconds: myRecDoc.durationSeconds || 0,
+        durationFormatted: myRecDoc.durationFormatted || '00h 00m 00s',
+        status: myRecDoc.status,
+        checkInRank: myRecDoc.checkInRank || null,
+        checkInDistanceMeters: myRecDoc.checkInDistanceMeters ?? null,
+        checkOutDistanceMeters: myRecDoc.checkOutDistanceMeters ?? null,
+        locationVerified: Boolean(myRecDoc.locationVerified),
+      };
     }
 
     // 2. Full Active Fighters Roster & Live Today Attendance
-    const allFighters = await Fighter.find({ isInactive: { $ne: true } })
-      .select('name photo style joiningDate createdAt experienceLevel weightClass phone')
-      .lean();
-
-    const todayRecords = await Attendance.find({ date: todayStr }).lean();
     const recordMap = {};
     todayRecords.forEach((r) => {
       recordMap[r.fighterId.toString()] = r;
@@ -276,6 +522,9 @@ export async function getTodayAttendanceDashboard(targetFighterId = null) {
         durationSeconds: rec?.durationSeconds || 0,
         status: rec ? rec.status : 'Not Checked In',
         checkInRank: rec?.checkInRank || null,
+        checkInDistanceMeters: rec?.checkInDistanceMeters ?? null,
+        checkOutDistanceMeters: rec?.checkOutDistanceMeters ?? null,
+        locationVerified: Boolean(rec?.locationVerified),
       };
     });
 
@@ -284,6 +533,7 @@ export async function getTodayAttendanceDashboard(targetFighterId = null) {
       todayDate: todayStr,
       myRecord,
       attendanceList,
+      gymSettings: serializeGymSettings(gymDoc, includeCoordinates),
       stats: {
         totalFighters: allFighters.length,
         totalCheckedInToday: checkedInTotal,
@@ -348,8 +598,8 @@ export async function getFighterAttendanceHistory(targetFighterId = null, monthS
       };
     });
 
-    // Approximate days in month (standard ~24 training days per month)
-    const expectedDays = 24;
+    // Count actual Mon-Sat training days (excluding Sundays) for the selected month
+    const expectedDays = countTrainingDaysInMonth(targetMonth);
     const avgDurationSeconds = completedSessions > 0 ? Math.round(totalDurationSeconds / completedSessions) : 0;
     const avgDurationFormatted = formatDuration(avgDurationSeconds);
 
@@ -404,6 +654,9 @@ export async function adminManualPunch({ fighterId, action = 'check-in', date = 
           status: 'Checked In',
           markedBy: currentUser.role === 'MainAdmin' ? 'Admin' : 'Coach',
           markedById: currentUser.id,
+          checkInDistanceMeters: null,
+          checkOutDistanceMeters: null,
+          locationVerified: false,
         });
       } else {
         record.inTimestamp = now;
@@ -412,6 +665,9 @@ export async function adminManualPunch({ fighterId, action = 'check-in', date = 
         record.outTimestamp = null;
         record.status = 'Checked In';
         record.markedBy = currentUser.role === 'MainAdmin' ? 'Admin' : 'Coach';
+        record.checkInDistanceMeters = null;
+        record.checkOutDistanceMeters = null;
+        record.locationVerified = false;
         await record.save();
       }
     } else if (action === 'check-out') {
@@ -488,10 +744,13 @@ export async function getAdminAttendanceRoster(targetDate, filters = {}) {
       .lean();
     const fighterIds = fighters.map((f) => f._id);
 
-    const records = await Attendance.find({
-      date: dateStr,
-      fighterId: { $in: fighterIds },
-    }).lean();
+    const [records, gymDoc] = await Promise.all([
+      Attendance.find({
+        date: dateStr,
+        fighterId: { $in: fighterIds },
+      }).lean(),
+      GymSettings.findOne({ key: 'default' }).lean(),
+    ]);
 
     const recordMap = {};
     records.forEach((r) => {
@@ -535,6 +794,9 @@ export async function getAdminAttendanceRoster(targetDate, filters = {}) {
         durationFormatted: rec?.durationFormatted || '--:--:--',
         checkInRank: rec?.checkInRank || null,
         markedBy: rec?.markedBy || '',
+        checkInDistanceMeters: rec?.checkInDistanceMeters ?? null,
+        checkOutDistanceMeters: rec?.checkOutDistanceMeters ?? null,
+        locationVerified: Boolean(rec?.locationVerified),
       };
     });
 
@@ -544,6 +806,7 @@ export async function getAdminAttendanceRoster(targetDate, filters = {}) {
       success: true,
       date: dateStr,
       roster,
+      gymSettings: serializeGymSettings(gymDoc, true),
       stats: {
         total: fighters.length,
         totalFighters: fighters.length,

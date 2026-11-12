@@ -3,6 +3,7 @@
 import { useState, useTransition, useActionState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { addFighter } from '@/app/actions/fighterActions';
+import PackagePricingFields from './PackagePricingFields';
 import { UserPlus, Calendar, Phone, Dumbbell, ShieldAlert, Award, Mail, Eye, EyeOff } from 'lucide-react';
 
 export default function AddFighterForm({ coaches, currentUser }) {
@@ -289,85 +290,41 @@ export default function AddFighterForm({ coaches, currentUser }) {
             />
           </div>
 
-          {/* Package Duration */}
-          <div>
-            <label htmlFor="packageDurationMonths" className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400 mb-1.5">
-              Package Duration (Months) *
-            </label>
-            <select
-              id="packageDurationMonths"
-              name="packageDurationMonths"
-              required
-              value={duration}
-              onChange={(e) => setDuration(Number(e.target.value))}
-              className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900/50 text-slate-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-red-500 text-sm transition-all"
-            >
-              <option value={1}>1 Month</option>
-              <option value={2}>2 Months</option>
-              <option value={3}>3 Months</option>
-              <option value={6}>6 Months</option>
-              <option value={12}>12 Months (1 Year)</option>
-            </select>
-          </div>
+          <PackagePricingFields duration={duration} onDurationChange={setDuration} />
 
-          {/* Agreed Monthly Fee */}
+          {/* Assigned Coach */}
           <div>
-            <label htmlFor="monthlyFee" className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400 mb-1.5">
-              Agreed Monthly Fee (₹) *
+            <label htmlFor="assignedCoach" className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400 mb-1.5">
+              Assigned Coach *
             </label>
-            <div className="relative flex items-center">
-              <span className="absolute left-3.5 text-sm font-bold text-slate-400 dark:text-zinc-500 pointer-events-none select-none z-10">₹</span>
-              <input
-                id="monthlyFee"
-                name="monthlyFee"
-                type="number"
-                min="0"
-                step="any"
+            {currentUser.role === 'Coach' ? (
+              <div className="relative">
+                <input
+                  type="text"
+                  disabled
+                  value={`Self (${currentUser.name})`}
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-100 dark:bg-zinc-900 text-slate-500 dark:text-zinc-400 text-sm font-semibold"
+                />
+                <input type="hidden" name="assignedCoach" value={currentUser.id} />
+              </div>
+            ) : (
+              <select
+                id="assignedCoach"
+                name="assignedCoach"
                 required
-                defaultValue={1300}
-                className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900/50 text-slate-900 dark:text-zinc-100 placeholder-slate-400 dark:placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-red-500 text-sm transition-all font-semibold font-mono"
-                style={{ paddingLeft: '2.5rem' }}
-                placeholder="1300"
-              />
-            </div>
-            <p className="text-[10px] text-slate-400 dark:text-zinc-500 mt-1">
-              Standard rate is ₹1,300/mo. Set custom/concession rate if applicable.
-            </p>
+                value={assignedCoach}
+                onChange={(e) => setAssignedCoach(e.target.value)}
+                className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900/50 text-slate-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-red-500 text-sm transition-all"
+              >
+                <option value="">-- Select Coach --</option>
+                {coaches.map((c) => (
+                  <option key={c._id} value={c._id}>
+                    {c.name} ({c.email})
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
-        </div>
-
-        {/* Assigned Coach */}
-        <div>
-          <label htmlFor="assignedCoach" className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400 mb-1.5">
-            Assigned Coach *
-          </label>
-          {currentUser.role === 'Coach' ? (
-            <div className="relative">
-              <input
-                type="text"
-                disabled
-                value={`Self (${currentUser.name})`}
-                className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-100 dark:bg-zinc-900 text-slate-500 dark:text-zinc-400 text-sm font-semibold"
-              />
-              <input type="hidden" name="assignedCoach" value={currentUser.id} />
-            </div>
-          ) : (
-            <select
-              id="assignedCoach"
-              name="assignedCoach"
-              required
-              value={assignedCoach}
-              onChange={(e) => setAssignedCoach(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900/50 text-slate-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-red-500 text-sm transition-all"
-            >
-              <option value="">-- Select Coach --</option>
-              {coaches.map((c) => (
-                <option key={c._id} value={c._id}>
-                  {c.name} ({c.email})
-                </option>
-              ))}
-            </select>
-          )}
         </div>
 
         {/* Next Payment Expiry Preview */}

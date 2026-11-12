@@ -13,7 +13,7 @@ import {
   MapPin, HelpCircle, User, Mic, X, Heart, Send, Pin,
   CreditCard, Banknote, QrCode, ArrowUpRight
 } from 'lucide-react';
-import { formatWhatsAppNumber } from '@/lib/utils';
+import { formatWhatsAppNumber, resolveFighterFees, resolveFighterPackFee } from '@/lib/utils';
 import PeerSearchFilters from '@/components/PeerSearchFilters';
 import { useModalBackHandler } from '@/hooks/useModalBackHandler';
 
@@ -972,9 +972,17 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
 
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 pt-2 text-xs">
                     <div className="p-3 bg-slate-50 dark:bg-zinc-950/60 rounded-2xl border border-slate-100 dark:border-zinc-800/80">
-                      <span className="block text-[9px] font-black uppercase tracking-wider text-slate-400 dark:text-zinc-500">Agreed Rate</span>
-                      <span className="text-sm font-black font-mono text-slate-800 dark:text-zinc-200">
-                        ₹{(fighter.monthlyFee !== undefined ? fighter.monthlyFee : 1300).toLocaleString('en-IN')}/mo
+                      <span className="block text-[9px] font-black uppercase tracking-wider text-slate-400 dark:text-zinc-500">
+                        Agreed Pack Rate
+                      </span>
+                      <span className="text-sm font-black font-mono text-slate-800 dark:text-zinc-200 block">
+                        ₹{resolveFighterPackFee(fighter, fighter.packageDurationMonths).toLocaleString('en-IN')}{' '}
+                        <span className="text-[10px] font-bold text-slate-400 dark:text-zinc-500">
+                          / {fighter.packageDurationMonths || 1} Mo{(fighter.packageDurationMonths || 1) > 1 ? 's' : ''}
+                        </span>
+                      </span>
+                      <span className="text-[10px] font-mono text-slate-400 dark:text-zinc-500 block mt-0.5">
+                        1M: ₹{resolveFighterFees(fighter).monthlyFee.toLocaleString('en-IN')} • 3M: ₹{resolveFighterFees(fighter).quarterlyFee.toLocaleString('en-IN')}
                       </span>
                     </div>
 

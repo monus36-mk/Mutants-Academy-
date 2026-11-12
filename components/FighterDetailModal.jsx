@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom';
 import { X, Calendar, Phone, Mail, Dumbbell, User, ShieldAlert, Award, Clock, ArrowRight, Edit, Copy, Check, Activity, KeyRound, CheckCircle2, AlertCircle, Send, UserX, CreditCard, Banknote, QrCode } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { formatWhatsAppNumber } from '@/lib/utils';
+import { formatWhatsAppNumber, resolveFighterFees } from '@/lib/utils';
 import { resendFighterActivationEmail, getFighterActivationLink, toggleFighterInactive } from '@/app/actions/fighterActions';
 import { getFighterPayments } from '@/app/actions/paymentActions';
 import { useModalBackHandler } from '@/hooks/useModalBackHandler';
@@ -532,12 +532,22 @@ export default function FighterDetailModal({ fighter, canEdit = false }) {
                   <Clock className="w-3.5 h-3.5 text-slate-400" /> Subscription Billing Information
                 </h4>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-slate-50 dark:bg-zinc-950/40 border border-slate-100 dark:border-zinc-800 p-2.5 rounded-xl">
-                  <div>
-                    <span className="block text-[8px] font-black text-slate-400 dark:text-zinc-500 uppercase tracking-widest truncate">Monthly Rate</span>
-                    <span className="text-[11px] sm:text-xs font-bold text-slate-900 dark:text-zinc-100 font-mono block truncate">
-                      ₹{(fighter.monthlyFee !== undefined ? fighter.monthlyFee : 1300).toLocaleString('en-IN')}/mo
-                    </span>
-                  </div>
+                  {(() => {
+                    const fees = resolveFighterFees(fighter);
+                    const dur = fighter.packageDurationMonths || 1;
+                    const activeAmt = dur === 3 ? fees.quarterlyFee : dur === 1 ? fees.monthlyFee : Math.round(dur * fees.monthlyFee);
+                    return (
+                      <div>
+                        <span className="block text-[8px] font-black text-slate-400 dark:text-zinc-500 uppercase tracking-widest truncate">Agreed Pack</span>
+                        <span className="text-[11px] sm:text-xs font-bold text-slate-900 dark:text-zinc-100 font-mono block">
+                          ₹{activeAmt.toLocaleString('en-IN')}/{dur}m
+                        </span>
+                        <span className="text-[9px] text-slate-400 dark:text-zinc-500 font-mono block">
+                          1M ₹{fees.monthlyFee.toLocaleString('en-IN')} • 3M ₹{fees.quarterlyFee.toLocaleString('en-IN')}
+                        </span>
+                      </div>
+                    );
+                  })()}
                   <div>
                     <span className="block text-[8px] font-black text-slate-400 dark:text-zinc-500 uppercase tracking-widest truncate">Cycle Start</span>
                     <span className="text-[11px] sm:text-xs font-bold text-slate-700 dark:text-zinc-300 font-mono block truncate">{formatDate(fighter.entryDate)}</span>

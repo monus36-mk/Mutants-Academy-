@@ -1,6 +1,7 @@
 import dbConnect from '@/lib/db';
 import Fighter from '@/models/Fighter';
 import RenewPaymentClient from '@/components/RenewPaymentClient';
+import { resolveFighterFees } from '@/lib/utils';
 import Link from 'next/link';
 import { AlertCircle, ArrowLeft } from 'lucide-react';
 
@@ -64,6 +65,7 @@ export default async function RenewPage({ params }) {
     );
   }
 
+  const fees = resolveFighterFees(fighter);
   const serializedFighter = {
     _id: fighter._id.toString(),
     name: fighter.name,
@@ -76,7 +78,8 @@ export default async function RenewPage({ params }) {
     status: fighter.status || 'Active',
     isInactive: Boolean(fighter.isInactive),
     packageDurationMonths: fighter.packageDurationMonths || 1,
-    monthlyFee: fighter.monthlyFee !== undefined ? fighter.monthlyFee : 1300,
+    monthlyFee: fees.monthlyFee,
+    quarterlyFee: fees.quarterlyFee,
     nextPaymentDate: fighter.nextPaymentDate ? fighter.nextPaymentDate.toISOString() : null,
     joiningDate: fighter.joiningDate ? fighter.joiningDate.toISOString() : null,
   };

@@ -69,6 +69,18 @@ const AttendanceSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
     },
+    checkInDistanceMeters: {
+      type: Number,
+      default: null,
+    },
+    checkOutDistanceMeters: {
+      type: Number,
+      default: null,
+    },
+    locationVerified: {
+      type: Boolean,
+      default: false,
+    },
     notes: {
       type: String,
       trim: true,

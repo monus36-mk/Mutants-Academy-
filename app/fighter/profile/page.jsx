@@ -6,6 +6,7 @@ import ThemeToggle from '@/components/ThemeToggle';
 import Link from 'next/link';
 import { Dumbbell, Clock, LogOut, CheckCircle2, AlertTriangle, XCircle, ArrowLeft, CreditCard, Banknote, QrCode, ArrowUpRight, Calendar, Users, User } from 'lucide-react';
 import FighterProfileClient from './FighterProfileClient';
+import { resolveFighterFees, resolveFighterPackFee } from '@/lib/utils';
 
 export default async function FighterProfilePage() {
   const user = await getCurrentUser();
@@ -202,15 +203,15 @@ export default async function FighterProfilePage() {
                   <Clock className="w-5 h-5 text-red-500" /> Subscription Details
                 </h2>
                 <span className="text-xs font-mono font-bold text-red-500 bg-red-500/10 px-2 py-0.5 rounded-md border border-red-500/20">
-                  ₹{(fighter.monthlyFee !== undefined ? fighter.monthlyFee : 1300).toLocaleString('en-IN')}/mo
+                  ₹{resolveFighterPackFee(fighter, fighter.packageDurationMonths).toLocaleString('en-IN')} / {fighter.packageDurationMonths || 1} mo{(fighter.packageDurationMonths || 1) > 1 ? 's' : ''}
                 </span>
               </div>
               
               <div className="space-y-4">
                 <div className="flex justify-between py-2.5 border-b border-slate-100 dark:border-zinc-800/80">
-                  <span className="text-xs font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wide">Agreed Rate</span>
-                  <span className="text-sm font-extrabold text-slate-800 dark:text-zinc-100 font-mono">
-                    ₹{(fighter.monthlyFee !== undefined ? fighter.monthlyFee : 1300).toLocaleString('en-IN')} / month
+                  <span className="text-xs font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wide">Agreed Pack Rates</span>
+                  <span className="text-sm font-extrabold text-slate-800 dark:text-zinc-100 font-mono text-right">
+                    ₹{resolveFighterFees(fighter).monthlyFee.toLocaleString('en-IN')}/1m • ₹{resolveFighterFees(fighter).quarterlyFee.toLocaleString('en-IN')}/3m
                   </span>
                 </div>
 

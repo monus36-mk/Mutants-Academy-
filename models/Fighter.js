@@ -67,6 +67,10 @@ const FighterSchema = new mongoose.Schema(
       type: Number,
       default: 1300,
     },
+    quarterlyFee: {
+      type: Number,
+      default: null,
+    },
     nextPaymentDate: {
       type: Date,
       required: true,

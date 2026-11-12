@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { renewFighterSubscription } from '@/app/actions/fighterActions';
 import { RefreshCw, Calendar, X, Banknote, QrCode, Check, AlertTriangle, ShieldCheck } from 'lucide-react';
 import { useModalBackHandler } from '@/hooks/useModalBackHandler';
+import { resolveFighterFees, resolveFighterPackFee } from '@/lib/utils';
 
 export default function RenewalModal({ fighter }) {
   const router = useRouter();
@@ -13,16 +14,10 @@ export default function RenewalModal({ fighter }) {
 
   useModalBackHandler(isOpen, setIsOpen, `renewal_${fighter._id}`);
 
-  const monthlyRate = fighter.monthlyFee !== undefined ? Number(fighter.monthlyFee) : 1300;
+  const { monthlyFee: monthlyRate, quarterlyFee: quarterlyRate } = resolveFighterFees(fighter);
 
   const calculateDefaultAmount = (durationMonths) => {
-    if (durationMonths === 1) {
-      return monthlyRate;
-    }
-    if (durationMonths === 3) {
-      return (monthlyRate === 1200 || monthlyRate === 1300) ? 4000 : Math.round(monthlyRate * 3);
-    }
-    return durationMonths * monthlyRate;
+    return resolveFighterPackFee({ monthlyFee: monthlyRate, quarterlyFee: quarterlyRate }, durationMonths);
   };
 
   const [months, setMonths] = useState(1);
@@ -139,7 +134,7 @@ export default function RenewalModal({ fighter }) {
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400 mb-2">
                   Renewal Plan Duration *
                 </label>
-                <div className="grid grid-cols-2 gap-2 mb-2">
+                <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
                     onClick={() => handleDurationChange(1)}
@@ -166,18 +161,6 @@ export default function RenewalModal({ fighter }) {
                     <span className="text-[11px] font-mono opacity-80">₹{calculateDefaultAmount(3).toLocaleString('en-IN')}</span>
                   </button>
                 </div>
-
-                <select
-                  value={months}
-                  onChange={(e) => handleDurationChange(Number(e.target.value))}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900/50 text-slate-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-red-500 text-xs font-semibold transition-all"
-                >
-                  <option value={1}>1 Month (₹{calculateDefaultAmount(1).toLocaleString('en-IN')})</option>
-                  <option value={2}>2 Months (₹{calculateDefaultAmount(2).toLocaleString('en-IN')})</option>
-                  <option value={3}>3 Months Quarter Pass (₹{calculateDefaultAmount(3).toLocaleString('en-IN')})</option>
-                  <option value={6}>6 Months Pass (₹{calculateDefaultAmount(6).toLocaleString('en-IN')})</option>
-                  <option value={12}>12 Months Annual Pass (₹{calculateDefaultAmount(12).toLocaleString('en-IN')})</option>
-                </select>
               </div>
 
               {/* Amount Paid Field */}
@@ -202,7 +185,7 @@ export default function RenewalModal({ fighter }) {
                   />
                 </div>
                 <p className="text-[10px] text-slate-400 dark:text-zinc-500 mt-1.5 leading-relaxed break-words">
-                  Default rate: ₹{monthlyRate.toLocaleString('en-IN')}/month. You may adjust for concessions or custom agreements.
+                  Agreed pack rates: ₹{monthlyRate.toLocaleString('en-IN')} (1 mo) • ₹{quarterlyRate.toLocaleString('en-IN')} (3 mos). Adjust if needed for concessions.
                 </p>
               </div>
 
