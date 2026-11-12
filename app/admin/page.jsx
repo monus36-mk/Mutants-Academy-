@@ -11,7 +11,7 @@ import RosterExportActions from '@/components/RosterExportActions';
 import { resolveFighterPackFee } from '@/lib/utils';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { Dumbbell, Users, Clock, AlertCircle, Plus, Phone, UserCheck, ShieldAlert, Edit3, Mail } from 'lucide-react';
+import { Dumbbell, Users, Clock, AlertCircle, Plus, Phone, UserCheck, ShieldAlert, Edit3, Mail, IndianRupee } from 'lucide-react';
 
 export default async function AdminDashboard({ searchParams }) {
   // Await searchParams as required in Next.js 15
@@ -32,63 +32,67 @@ export default async function AdminDashboard({ searchParams }) {
   }
 
   await dbConnect();
-  const dbUser = await User.findById(userPayload.id).lean();
-  const user = dbUser ? {
-    id: dbUser._id.toString(),
-    name: dbUser.name,
-    email: dbUser.email,
-    role: dbUser.role,
-    category: dbUser.category
-  } : userPayload;
+
+  const shouldFetchCoaches = userPayload.role === 'MainAdmin' || userPayload.role === 'Coach';
+
+  const [dbUser, coachRes, fightersRes, statsFightersRes, inactiveFightersRes] = await Promise.all([
+    User.findById(userPayload.id).lean(),
+    shouldFetchCoaches ? getCoaches() : Promise.resolve({ success: false }),
+    getFighters({
+      search,
+      status,
+      assignedCoach,
+      style,
+      experienceLevel,
+      ageFilter,
+      tenureFilter,
+      eca,
+      sortBy,
+    }),
+    status
+      ? getFighters({
+          search,
+          assignedCoach,
+          style,
+          experienceLevel,
+          ageFilter,
+          tenureFilter,
+          eca,
+        })
+      : Promise.resolve(null),
+    getFighters({
+      inactiveOnly: true,
+      assignedCoach,
+    }),
+  ]);
+
+  const user = dbUser
+    ? {
+        id: dbUser._id.toString(),
+        name: dbUser.name,
+        email: dbUser.email,
+        role: dbUser.role,
+        category: dbUser.category,
+      }
+    : userPayload;
 
   const isAdmin = user?.role === 'MainAdmin';
-
-  // Fetch coach list for filtering (if admin or coach)
-  let coaches = [];
-  if (isAdmin || user?.role === 'Coach') {
-    const coachRes = await getCoaches();
-    if (coachRes.success) {
-      coaches = coachRes.coaches;
-    }
-  }
-
-  const fightersRes = await getFighters({ 
-    search, 
-    status, 
-    assignedCoach,
-    style,
-    experienceLevel,
-    ageFilter,
-    tenureFilter,
-    eca,
-    sortBy
-  });
-  const fighters = fightersRes.success ? fightersRes.fighters : [];
-
-  // Fetch list of fighters matching current filters except status, to compute stats metrics
-  const statsFightersRes = await getFighters({
-    search,
-    assignedCoach,
-    style,
-    experienceLevel,
-    ageFilter,
-    tenureFilter,
-    eca
-  });
-  const statsFighters = statsFightersRes.success ? statsFightersRes.fighters : [];
-
-  // Fetch inactive/former members (sitting separately at the bottom)
-  const inactiveFightersRes = await getFighters({
-    inactiveOnly: true,
-    assignedCoach,
-  });
-  const inactiveFighters = inactiveFightersRes.success ? inactiveFightersRes.fighters : [];
+  const coaches = coachRes?.success ? coachRes.coaches : [];
+  const fighters = fightersRes?.success ? fightersRes.fighters : [];
+  const statsFighters = statsFightersRes
+    ? statsFightersRes.success
+      ? statsFightersRes.fighters
+      : []
+    : fighters;
+  const inactiveFighters = inactiveFightersRes?.success ? inactiveFightersRes.fighters : [];
 
   // Compute metrics dynamically based on search/filters
   const totalCount = statsFighters.length;
   const activeCount = statsFighters.filter(f => f.status === 'Active').length;
   const dueCount = statsFighters.filter(f => f.status === 'Due Soon').length;
   const expiredCount = statsFighters.filter(f => f.status === 'Expired').length;
+  const dueFightersCount = statsFighters.filter(f => (f.pendingBalance || 0) > 0).length;
+  const totalPendingDuesAmount = statsFighters.reduce((sum, f) => sum + (Number(f.pendingBalance) || 0), 0);
 
   const buildStatusLink = (newStatus) => {
     const query = new URLSearchParams();
@@ -127,25 +131,25 @@ export default async function AdminDashboard({ searchParams }) {
   };
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-300">
+    <div className="space-y-4 sm:space-y-5 animate-in fade-in duration-300">
 
       {/* Welcome Banner */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-gradient-to-r from-slate-900 to-zinc-900 dark:from-zinc-900 dark:to-black rounded-3xl p-6 md:p-8 text-white shadow-xl shadow-slate-200/50 dark:shadow-none border border-slate-800 dark:border-zinc-800">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-gradient-to-r from-slate-900 to-zinc-900 dark:from-zinc-900 dark:to-black rounded-2xl sm:rounded-3xl p-4 sm:p-5 lg:p-6 text-white shadow-xl shadow-slate-200/50 dark:shadow-none border border-slate-800 dark:border-zinc-800">
         <div>
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-600/25 border border-red-500/30 text-xs font-bold text-red-400 uppercase tracking-wider mb-3">
-            <UserCheck className="w-3.5 h-3.5" /> Expiry Radar Active
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-red-600/25 border border-red-500/30 text-[10px] font-bold text-red-400 uppercase tracking-wider mb-1.5">
+            <UserCheck className="w-3 h-3" /> Expiry Radar Active
           </div>
-          <h1 className="text-2xl md:text-3xl font-black uppercase tracking-tight">
+          <h1 className="text-xl sm:text-2xl font-black uppercase tracking-tight">
             Welcome back, {user?.name}!
           </h1>
-          <p className="text-slate-400 text-sm mt-1">
+          <p className="text-slate-400 text-xs sm:text-sm mt-0.5">
             "Mutants Academy Headquarter Dashboard. Monitoring all fighters and coaching staff."
           </p>
         </div>
-        <div>
+        <div className="shrink-0">
           <Link
             href="/admin/add-fighter"
-            className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-red-600 hover:bg-red-500 text-white font-bold text-sm shadow-lg shadow-red-600/20 hover:shadow-red-500/30 active:scale-95 transition-all cursor-pointer"
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-xs sm:text-sm shadow-lg shadow-red-600/20 hover:shadow-red-500/30 active:scale-95 transition-all cursor-pointer whitespace-nowrap"
           >
             <Plus className="w-4 h-4" /> Add New Fighter
           </Link>
@@ -153,24 +157,25 @@ export default async function AdminDashboard({ searchParams }) {
       </div>
 
       {/* Stats Cards Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
 
         {/* Card 1: Total */}
         <Link
           href={buildStatusLink('')}
-          className={`bg-white dark:bg-zinc-900/50 border rounded-3xl p-5 md:p-6 shadow-sm flex items-center gap-4 transition-all duration-200 hover:scale-[1.02] hover:shadow-md cursor-pointer ${status === ''
+          scroll={false}
+          className={`bg-white dark:bg-zinc-900/50 border rounded-2xl p-3.5 lg:p-4 shadow-sm flex items-center gap-2.5 lg:gap-3 transition-all duration-200 hover:scale-[1.02] hover:shadow-md cursor-pointer ${status === ''
               ? 'border-red-500/50 ring-2 ring-red-500/10'
               : 'border-slate-200 dark:border-zinc-800 hover:border-slate-300 dark:hover:border-zinc-700'
             }`}
         >
-          <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-zinc-800 flex items-center justify-center text-slate-600 dark:text-zinc-300 shrink-0">
-            <Dumbbell className="w-6 h-6" />
+          <div className="w-9 h-9 lg:w-10 lg:h-10 rounded-xl bg-slate-100 dark:bg-zinc-800 flex items-center justify-center text-slate-600 dark:text-zinc-300 shrink-0">
+            <Dumbbell className="w-4 h-4 lg:w-5 lg:h-5" />
           </div>
-          <div>
-            <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500">
+          <div className="min-w-0">
+            <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500 truncate">
               Total Fighters
             </span>
-            <span className="text-2xl md:text-3xl font-extrabold text-slate-800 dark:text-white leading-tight">
+            <span className="text-xl lg:text-2xl font-extrabold text-slate-800 dark:text-white leading-tight tabular-nums">
               {totalCount}
             </span>
           </div>
@@ -179,19 +184,20 @@ export default async function AdminDashboard({ searchParams }) {
         {/* Card 2: Active */}
         <Link
           href={buildStatusLink('Active')}
-          className={`bg-white dark:bg-zinc-900/50 border rounded-3xl p-5 md:p-6 shadow-sm flex items-center gap-4 transition-all duration-200 hover:scale-[1.02] hover:shadow-md cursor-pointer ${status === 'Active'
+          scroll={false}
+          className={`bg-white dark:bg-zinc-900/50 border rounded-2xl p-3.5 lg:p-4 shadow-sm flex items-center gap-2.5 lg:gap-3 transition-all duration-200 hover:scale-[1.02] hover:shadow-md cursor-pointer ${status === 'Active'
               ? 'border-emerald-500/50 ring-2 ring-emerald-500/10'
               : 'border-slate-200 dark:border-zinc-800 hover:border-emerald-500/30'
             }`}
         >
-          <div className="w-12 h-12 rounded-2xl bg-emerald-100 dark:bg-emerald-950/20 flex items-center justify-center text-emerald-600 dark:text-emerald-400 shrink-0">
-            <Users className="w-6 h-6" />
+          <div className="w-9 h-9 lg:w-10 lg:h-10 rounded-xl bg-emerald-100 dark:bg-emerald-950/20 flex items-center justify-center text-emerald-600 dark:text-emerald-400 shrink-0">
+            <Users className="w-4 h-4 lg:w-5 lg:h-5" />
           </div>
-          <div>
-            <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500">
+          <div className="min-w-0">
+            <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500 truncate">
               Active Subs
             </span>
-            <span className="text-2xl md:text-3xl font-extrabold text-emerald-600 dark:text-emerald-400 leading-tight">
+            <span className="text-xl lg:text-2xl font-extrabold text-emerald-600 dark:text-emerald-400 leading-tight tabular-nums">
               {activeCount}
             </span>
           </div>
@@ -200,19 +206,20 @@ export default async function AdminDashboard({ searchParams }) {
         {/* Card 3: Due Soon */}
         <Link
           href={buildStatusLink('Due Soon')}
-          className={`bg-white dark:bg-zinc-900/50 border rounded-3xl p-5 md:p-6 shadow-sm flex items-center gap-4 transition-all duration-200 hover:scale-[1.02] hover:shadow-md cursor-pointer ${status === 'Due Soon'
+          scroll={false}
+          className={`bg-white dark:bg-zinc-900/50 border rounded-2xl p-3.5 lg:p-4 shadow-sm flex items-center gap-2.5 lg:gap-3 transition-all duration-200 hover:scale-[1.02] hover:shadow-md cursor-pointer ${status === 'Due Soon'
               ? 'border-amber-500/50 ring-2 ring-amber-500/10'
               : 'border-slate-200 dark:border-zinc-800 hover:border-amber-500/30'
             }`}
         >
-          <div className="w-12 h-12 rounded-2xl bg-amber-100 dark:bg-amber-950/20 flex items-center justify-center text-amber-600 dark:text-amber-400 shrink-0">
-            <Clock className="w-6 h-6" />
+          <div className="w-9 h-9 lg:w-10 lg:h-10 rounded-xl bg-amber-100 dark:bg-amber-950/20 flex items-center justify-center text-amber-600 dark:text-amber-400 shrink-0">
+            <Clock className="w-4 h-4 lg:w-5 lg:h-5" />
           </div>
-          <div>
-            <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500">
+          <div className="min-w-0">
+            <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500 truncate">
               Due Soon (3d)
             </span>
-            <span className="text-2xl md:text-3xl font-extrabold text-amber-600 dark:text-amber-400 leading-tight">
+            <span className="text-xl lg:text-2xl font-extrabold text-amber-600 dark:text-amber-400 leading-tight tabular-nums">
               {dueCount}
             </span>
           </div>
@@ -221,20 +228,43 @@ export default async function AdminDashboard({ searchParams }) {
         {/* Card 4: Expired */}
         <Link
           href={buildStatusLink('Expired')}
-          className={`bg-white dark:bg-zinc-900/50 border rounded-3xl p-5 md:p-6 shadow-sm flex items-center gap-4 transition-all duration-200 hover:scale-[1.02] hover:shadow-md cursor-pointer ${status === 'Expired'
+          scroll={false}
+          className={`bg-white dark:bg-zinc-900/50 border rounded-2xl p-3.5 lg:p-4 shadow-sm flex items-center gap-2.5 lg:gap-3 transition-all duration-200 hover:scale-[1.02] hover:shadow-md cursor-pointer ${status === 'Expired'
               ? 'border-red-500/50 ring-2 ring-red-500/10'
               : 'border-slate-200 dark:border-zinc-800 hover:border-red-500/30'
             }`}
         >
-          <div className="w-12 h-12 rounded-2xl bg-red-100 dark:bg-red-950/20 flex items-center justify-center text-red-600 dark:text-red-400 shrink-0">
-            <AlertCircle className="w-6 h-6" />
+          <div className="w-9 h-9 lg:w-10 lg:h-10 rounded-xl bg-red-100 dark:bg-red-950/20 flex items-center justify-center text-red-600 dark:text-red-400 shrink-0">
+            <AlertCircle className="w-4 h-4 lg:w-5 lg:h-5" />
           </div>
-          <div>
-            <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500">
+          <div className="min-w-0">
+            <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500 truncate">
               Expired Subs
             </span>
-            <span className="text-2xl md:text-3xl font-extrabold text-red-600 dark:text-red-400 leading-tight">
+            <span className="text-xl lg:text-2xl font-extrabold text-red-600 dark:text-red-400 leading-tight tabular-nums">
               {expiredCount}
+            </span>
+          </div>
+        </Link>
+
+        {/* Card 5: Pending Fee Dues */}
+        <Link
+          href={buildStatusLink('PendingDue')}
+          scroll={false}
+          className={`col-span-2 md:col-span-1 bg-white dark:bg-zinc-900/50 border rounded-2xl p-3.5 lg:p-4 shadow-sm flex items-center gap-2.5 lg:gap-3 transition-all duration-200 hover:scale-[1.02] hover:shadow-md cursor-pointer ${status === 'PendingDue'
+              ? 'border-orange-500/50 ring-2 ring-orange-500/10'
+              : 'border-slate-200 dark:border-zinc-800 hover:border-orange-500/30'
+            }`}
+        >
+          <div className="w-9 h-9 lg:w-10 lg:h-10 rounded-xl bg-orange-100 dark:bg-orange-950/20 flex items-center justify-center text-orange-600 dark:text-orange-400 shrink-0">
+            <IndianRupee className="w-4 h-4 lg:w-5 lg:h-5" />
+          </div>
+          <div className="min-w-0">
+            <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500 truncate">
+              Pending Dues ({dueFightersCount})
+            </span>
+            <span className="text-xl lg:text-2xl font-extrabold text-orange-600 dark:text-orange-400 leading-tight font-mono tabular-nums">
+              ₹{totalPendingDuesAmount.toLocaleString('en-IN')}
             </span>
           </div>
         </Link>
@@ -245,10 +275,10 @@ export default async function AdminDashboard({ searchParams }) {
       <SearchFilters coaches={coaches} isAdmin={isAdmin} currentUser={user} />
 
       {/* Expiry Radar Table */}
-      <div className="bg-white dark:bg-zinc-900/50 border border-slate-200 dark:border-zinc-800 rounded-3xl shadow-sm overflow-hidden transition-colors duration-200">
-        <div className="px-6 py-5 border-b border-slate-100 dark:border-zinc-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="bg-white dark:bg-zinc-900/50 border border-slate-200 dark:border-zinc-800 rounded-2xl sm:rounded-3xl shadow-sm overflow-hidden transition-colors duration-200">
+        <div className="px-4 sm:px-5 py-3.5 border-b border-slate-100 dark:border-zinc-800 flex flex-col md:flex-row md:items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <h2 className="text-lg font-bold text-slate-800 dark:text-zinc-100">
+            <h2 className="text-base sm:text-lg font-bold text-slate-800 dark:text-zinc-100">
               Fighters Roster ({fighters.length})
             </h2>
             <span className="hidden sm:inline-block text-xs text-slate-400 dark:text-zinc-500 font-semibold font-mono uppercase">
@@ -265,9 +295,9 @@ export default async function AdminDashboard({ searchParams }) {
         </div>
 
         {fighters.length === 0 ? (
-          <div className="text-center py-16 px-4">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-slate-100 dark:bg-zinc-800 text-slate-400 mb-4">
-              <Dumbbell className="w-8 h-8" />
+          <div className="text-center py-12 px-4">
+            <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-slate-100 dark:bg-zinc-800 text-slate-400 mb-3">
+              <Dumbbell className="w-7 h-7" />
             </div>
             <h3 className="text-lg font-bold text-slate-700 dark:text-zinc-300">No fighters found</h3>
             <p className="text-slate-400 dark:text-zinc-500 text-sm mt-1 max-w-sm mx-auto">
@@ -275,7 +305,7 @@ export default async function AdminDashboard({ searchParams }) {
             </p>
             <Link
               href="/admin/add-fighter"
-              className="inline-flex items-center gap-1.5 mt-5 text-sm font-bold text-red-500 hover:text-red-600 dark:hover:text-red-400"
+              className="inline-flex items-center gap-1.5 mt-4 text-sm font-bold text-red-500 hover:text-red-600 dark:hover:text-red-400"
             >
               Add New Fighter <Plus className="w-4 h-4" />
             </Link>
@@ -285,13 +315,13 @@ export default async function AdminDashboard({ searchParams }) {
             <table className="w-full text-left border-collapse min-w-[850px] xl:min-w-full">
               <thead>
                 <tr className="bg-slate-50 dark:bg-zinc-900/80 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400 border-b border-slate-100 dark:border-zinc-800/80">
-                  <th className="px-6 py-4 min-w-[220px]">Fighter Info</th>
-                  <th className="hidden sm:table-cell px-5 py-4 whitespace-nowrap">Weight Class</th>
-                  <th className="hidden sm:table-cell px-5 py-4 whitespace-nowrap">Exp Level</th>
-                  <th className="px-5 py-4 whitespace-nowrap">Assigned Coach</th>
-                  <th className="px-5 py-4 whitespace-nowrap">Next Payment</th>
-                  <th className="px-5 py-4 whitespace-nowrap">Status</th>
-                  <th className="px-6 py-4 text-right whitespace-nowrap min-w-[200px]">Actions</th>
+                  <th className="px-4 sm:px-5 py-3 min-w-[220px]">Fighter Info</th>
+                  <th className="hidden sm:table-cell px-4 py-3 whitespace-nowrap">Weight Class</th>
+                  <th className="hidden sm:table-cell px-4 py-3 whitespace-nowrap">Exp Level</th>
+                  <th className="px-4 py-3 whitespace-nowrap">Assigned Coach</th>
+                  <th className="px-4 py-3 whitespace-nowrap">Next Payment</th>
+                  <th className="px-4 py-3 whitespace-nowrap">Status</th>
+                  <th className="px-4 sm:px-5 py-3 text-right whitespace-nowrap min-w-[190px]">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-zinc-800">
@@ -303,17 +333,17 @@ export default async function AdminDashboard({ searchParams }) {
                       className="hover:bg-slate-50/50 dark:hover:bg-zinc-900/20 transition-all duration-150"
                     >
                       {/* Fighter Detail Trigger Column */}
-                      <td className="px-6 py-4.5">
+                      <td className="px-4 sm:px-5 py-3.5">
                         <FighterDetailModal fighter={fighter} canEdit={canEdit} />
                       </td>
 
                       {/* Weight Class */}
-                      <td className="hidden sm:table-cell px-5 py-4.5 text-sm font-semibold text-slate-700 dark:text-zinc-300 whitespace-nowrap">
+                      <td className="hidden sm:table-cell px-4 py-3.5 text-sm font-semibold text-slate-700 dark:text-zinc-300 whitespace-nowrap">
                         {fighter.weightClass} kg
                       </td>
 
                       {/* Experience Level */}
-                      <td className="hidden sm:table-cell px-5 py-4.5 whitespace-nowrap">
+                      <td className="hidden sm:table-cell px-4 py-3.5 whitespace-nowrap">
                         <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-bold ${fighter.experienceLevel === 'Pro'
                             ? 'bg-purple-100 text-purple-700 dark:bg-purple-950/20 dark:text-purple-400 border border-purple-200 dark:border-purple-900/30'
                             : fighter.experienceLevel === 'Intermediate'
@@ -325,12 +355,12 @@ export default async function AdminDashboard({ searchParams }) {
                       </td>
 
                       {/* Assigned Coach */}
-                      <td className="px-5 py-4.5 text-sm font-semibold text-slate-700 dark:text-zinc-300 whitespace-nowrap">
+                      <td className="px-4 py-3.5 text-sm font-semibold text-slate-700 dark:text-zinc-300 whitespace-nowrap">
                         {fighter.assignedCoach ? fighter.assignedCoach.name : <span className="text-red-500 font-bold">Unassigned</span>}
                       </td>
 
                       {/* Next Payment Date */}
-                      <td className="px-5 py-4.5 whitespace-nowrap">
+                      <td className="px-4 py-3.5 whitespace-nowrap">
                         <div>
                           <span className="block text-sm font-bold text-slate-700 dark:text-zinc-300 font-mono">
                             {new Date(fighter.nextPaymentDate).toLocaleDateString('en-US', {
@@ -364,6 +394,14 @@ export default async function AdminDashboard({ searchParams }) {
                               })()}
                             </span>
                           )}
+                          {(fighter.pendingBalance || 0) > 0 && (
+                            <span
+                              className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-orange-500/15 text-orange-600 dark:text-orange-400 border border-orange-500/25"
+                              title={fighter.pendingFeeNote || 'Pending balance due'}
+                            >
+                              ₹{fighter.pendingBalance.toLocaleString('en-IN')} DUE
+                            </span>
+                          )}
                         </div>
                       </td>
 
@@ -379,6 +417,9 @@ export default async function AdminDashboard({ searchParams }) {
                               >
                                 <Edit3 className="w-3.5 h-3.5 text-red-500" /> Edit
                               </Link>
+                              {(fighter.pendingBalance || 0) > 0 && (
+                                <RenewalModal fighter={fighter} defaultMode="collect" />
+                              )}
                               <RenewalModal fighter={fighter} />
                               <DeleteButton fighterId={fighter._id} />
                             </>

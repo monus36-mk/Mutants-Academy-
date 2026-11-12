@@ -23,8 +23,20 @@ export default async function AdminAttendancePage({ searchParams }) {
     return redirect('/fighter/attendance');
   }
 
+  const todayStr = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Kolkata',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date());
+  const targetDate = params?.date || todayStr;
+
   await dbConnect();
-  const dbUser = await User.findById(userPayload.id).lean();
+  const [dbUser, rosterRes] = await Promise.all([
+    User.findById(userPayload.id).select('name email role category').lean(),
+    getAdminAttendanceRoster(targetDate),
+  ]);
+
   const user = dbUser
     ? {
         id: dbUser._id.toString(),
@@ -35,15 +47,6 @@ export default async function AdminAttendancePage({ searchParams }) {
       }
     : userPayload;
 
-  const todayStr = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Kolkata',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(new Date());
-  const targetDate = params?.date || todayStr;
-
-  const rosterRes = await getAdminAttendanceRoster(targetDate);
   const initialData = rosterRes.success ? rosterRes : { roster: [], stats: {} };
 
   return (

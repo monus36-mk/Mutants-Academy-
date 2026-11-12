@@ -2,6 +2,8 @@ import dbConnect from '@/lib/db';
 import Fighter from '@/models/Fighter';
 import Payment from '@/models/Payment';
 import { sendPaymentSuccessWhatsApp } from '@/lib/whatsapp';
+import { applyCompletedPaymentToFighter } from '@/lib/paymentLifecycle';
+import { resolveFighterPackFee } from '@/lib/utils';
 import { NextResponse } from 'next/server';
 
 /**
@@ -86,23 +88,23 @@ export async function POST(request) {
     // Clean prefixed order IDs (e.g., "RENEW_653abc..." -> "653abc...")
     const fighterId = String(rawFighterId).replace(/^RENEW[_-]/i, '').trim();
 
-    // Extract duration months
-    const durationMonths = Number(
-      payload.metadata?.durationMonths ||
-      payload.metadata?.months ||
-      payload.metadata?.packageDurationMonths ||
-      payload.durationMonths ||
-      payload.months ||
-      1
-    );
+    // Extract duration months (preserve explicit 0 for pending fee settlement)
+    const rawDuration =
+      payload.metadata?.durationMonths ??
+      payload.metadata?.months ??
+      payload.metadata?.packageDurationMonths ??
+      payload.durationMonths ??
+      payload.months;
+    const durationMonths =
+      rawDuration !== undefined && rawDuration !== null && String(rawDuration).trim() !== ''
+        ? Number(rawDuration)
+        : 1;
+    const isSettlement = durationMonths === 0 || payload.metadata?.paymentType === 'Balance Settlement';
 
     // Extract Amount (in INR)
     let amount = payload.amount || payload.metadata?.amount;
     if (!amount && payload.amountPaise) {
       amount = (Number(payload.amountPaise) / 100).toFixed(2);
-    }
-    if (!amount) {
-      amount = durationMonths * 2000;
     }
 
     await dbConnect();
@@ -114,25 +116,20 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Fighter profile not found' }, { status: 404 });
     }
 
-    // Calculate new subscription date (Strict continuous renewal)
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    let baseDate = new Date(fighter.nextPaymentDate);
-    if (isNaN(baseDate.getTime())) {
-      baseDate = today;
+    if (!amount) {
+      amount = isSettlement
+        ? Math.max(0, Number(fighter.pendingBalance) || 0) || resolveFighterPackFee(fighter, 1)
+        : resolveFighterPackFee(fighter, durationMonths || 1);
     }
 
-    const newPaymentDate = new Date(baseDate);
-    newPaymentDate.setMonth(newPaymentDate.getMonth() + durationMonths);
-
-    fighter.packageDurationMonths = durationMonths;
-    fighter.nextPaymentDate = newPaymentDate;
-    fighter.status = newPaymentDate >= today ? 'Active' : 'Expired';
-    fighter.isInactive = false;
+    const outcome = applyCompletedPaymentToFighter(fighter, {
+      amount: Number(amount),
+      durationMonths: isSettlement ? 0 : durationMonths,
+      paymentType: isSettlement ? 'Balance Settlement' : 'Renewal',
+    });
 
     await fighter.save();
-    console.log(`[Payment Webhook] Successfully extended subscription for ${fighter.name} until ${newPaymentDate.toISOString()}`);
+    console.log(`[Payment Webhook] Processed payment for ${fighter.name}`);
 
     // Record or update Payment ledger
     const transactionId = payload.utr || payload.paymentId || payload.id || `UPI_${Date.now()}`;
@@ -143,9 +140,11 @@ export async function POST(request) {
 
     if (payment) {
       payment.status = 'Completed';
-      payment.amount = Number(amount);
-      payment.durationMonths = durationMonths;
-      payment.expiryDate = newPaymentDate;
+      payment.amount = outcome.paidAmount;
+      payment.expectedAmount = payment.expectedAmount ?? outcome.expectedAmount;
+      payment.paymentType = outcome.paymentType;
+      payment.durationMonths = outcome.durationMonths;
+      payment.expiryDate = outcome.nextPaymentDate || fighter.nextPaymentDate;
       payment.paymentMethod = payload.metadata?.method || 'UPI';
       if (payload.utr) payment.transactionId = payload.utr;
       payment.notes = `Auto-verified via Bank Webhook (${transactionId})`;
@@ -155,10 +154,12 @@ export async function POST(request) {
         fighterId: fighter._id,
         fighterName: fighter.name,
         phone: fighter.phone,
-        amount: Number(amount),
-        durationMonths,
+        amount: outcome.paidAmount,
+        expectedAmount: outcome.expectedAmount,
+        paymentType: outcome.paymentType,
+        durationMonths: outcome.durationMonths,
         paymentDate: new Date(),
-        expiryDate: newPaymentDate,
+        expiryDate: outcome.nextPaymentDate || fighter.nextPaymentDate,
         paymentMethod: payload.metadata?.method || 'UPI',
         transactionId,
         status: 'Completed',
@@ -175,10 +176,13 @@ export async function POST(request) {
         const waRes = await sendPaymentSuccessWhatsApp({
           phone: fighter.phone,
           name: fighter.name,
-          amount,
-          durationMonths,
-          nextPaymentDate: newPaymentDate,
+          amount: outcome.paidAmount,
+          durationMonths: outcome.durationMonths,
+          nextPaymentDate: outcome.nextPaymentDate || fighter.nextPaymentDate,
           style: fighter.style || 'MMA',
+          paymentType: outcome.paymentType,
+          expectedAmount: outcome.expectedAmount,
+          remainingBalance: outcome.newPendingBalance,
         });
 
         whatsappDispatched = Boolean(waRes.success);
@@ -193,13 +197,16 @@ export async function POST(request) {
 
     return NextResponse.json({
       success: true,
-      message: `Subscription for ${fighter.name} renewed for ${durationMonths} month(s).`,
+      message: outcome.isSettlement
+        ? `Pending fee settled for ${fighter.name}.`
+        : `Subscription for ${fighter.name} renewed for ${outcome.durationMonths} month(s).`,
       fighter: {
         id: fighter._id,
         name: fighter.name,
         status: fighter.status,
-        nextPaymentDate: newPaymentDate,
-        packageDurationMonths: durationMonths,
+        nextPaymentDate: outcome.nextPaymentDate || fighter.nextPaymentDate,
+        packageDurationMonths: fighter.packageDurationMonths,
+        pendingBalance: outcome.newPendingBalance,
       },
       whatsappDispatched,
       whatsappError,

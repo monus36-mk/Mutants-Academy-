@@ -15,15 +15,16 @@ export default function PWABackButtonHandler() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    // Skip on login page
-    if (pathname === '/login' || pathname.startsWith('/login/')) return;
+    // Skip on login or logout transitions
+    if (pathname === '/login' || pathname.startsWith('/login/') || pathname.startsWith('/api/')) return;
 
     const syncToken = async () => {
       try {
+        if (sessionStorage.getItem('mutants_logging_out') === '1') return;
         const existingToken = localStorage.getItem('mutants_auth_token');
         if (!existingToken) {
           const res = await getSessionTokenForSync();
-          if (res?.token) {
+          if (res?.token && sessionStorage.getItem('mutants_logging_out') !== '1') {
             localStorage.setItem('mutants_auth_token', res.token);
             if (res.role) localStorage.setItem('mutants_user_role', res.role);
           }

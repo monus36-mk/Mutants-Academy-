@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Calendar, Phone, Mail, Dumbbell, User, ShieldAlert, Award, Clock, ArrowRight, Edit, Copy, Check, Activity, KeyRound, CheckCircle2, AlertCircle, Send, UserX, CreditCard, Banknote, QrCode } from 'lucide-react';
+import { X, Calendar, Phone, Mail, Dumbbell, User, ShieldAlert, Award, Clock, ArrowRight, Edit, Copy, Check, Activity, KeyRound, CheckCircle2, AlertCircle, Send, UserX, CreditCard, Banknote, QrCode, IndianRupee } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { formatWhatsAppNumber, resolveFighterFees } from '@/lib/utils';
@@ -167,13 +167,19 @@ export default function FighterDetailModal({ fighter, canEdit = false }) {
       month: 'long',
       day: 'numeric'
     });
+    const pendingDue = Math.max(0, Number(fighter.pendingBalance) || 0);
+    const pendingSnippet = pendingDue > 0
+      ? `\n\nPending Fee Balance: ₹${pendingDue.toLocaleString('en-IN')}${fighter.pendingFeeNote ? ` (${fighter.pendingFeeNote})` : ''}. Kindly settle this balance at your earliest convenience.`
+      : '';
 
     if (fighter.status === 'Expired') {
       const days = getExpiredDays(fighter.nextPaymentDate);
       const daysText = days <= 0 ? 'today' : `${days} day${days > 1 ? 's' : ''} ago`;
-      message = `Hello ${fighter.name},\n\nThis is a payment reminder from Mutants Academy. Your subscription package (${fighter.packageDurationMonths} Month) expired ${daysText} on ${formattedDate}.\n\nPlease renew your subscription to continue your training classes.\n\nThank you!`;
+      message = `Hello ${fighter.name},\n\nThis is a payment reminder from Mutants Academy. Your subscription package (${fighter.packageDurationMonths} Month) expired ${daysText} on ${formattedDate}.\n\nPlease renew your subscription to continue your training classes.${pendingSnippet}\n\nThank you!`;
     } else if (fighter.status === 'Due Soon') {
-      message = `Hello ${fighter.name},\n\nThis is a payment notice from Mutants Academy. Your subscription package (${fighter.packageDurationMonths} Month) is due soon for renewal on ${formattedDate}.\n\nPlease arrange your payment to ensure uninterrupted training.\n\nThank you!`;
+      message = `Hello ${fighter.name},\n\nThis is a payment notice from Mutants Academy. Your subscription package (${fighter.packageDurationMonths} Month) is due soon for renewal on ${formattedDate}.\n\nPlease arrange your payment to ensure uninterrupted training.${pendingSnippet}\n\nThank you!`;
+    } else if (pendingDue > 0) {
+      message = `Hello ${fighter.name},\n\nThis is a gentle reminder from Mutants Academy regarding your pending fee balance of ₹${pendingDue.toLocaleString('en-IN')}${fighter.pendingFeeNote ? ` (${fighter.pendingFeeNote})` : ''}.\n\nKindly clear this balance when you next visit the gym or via UPI portal.\n\nThank you!`;
     } else {
       message = `Hello ${fighter.name},\n\nGreetings from Mutants Academy! We appreciate you training with us in our classes. Let us know if you have any feedback or questions.\n\nTrain hard!`;
     }
@@ -563,6 +569,27 @@ export default function FighterDetailModal({ fighter, canEdit = false }) {
                     <span className="text-[11px] sm:text-xs font-bold text-red-500 dark:text-red-400 font-mono block truncate">{formatShortDate(fighter.nextPaymentDate)}</span>
                   </div>
                 </div>
+
+                {(fighter.pendingBalance || 0) > 0 && (
+                  <div className="mt-2.5 p-2.5 sm:p-3 rounded-xl bg-orange-500/10 border border-orange-500/30 flex items-start justify-between gap-2 text-xs">
+                    <div className="flex items-start gap-2 min-w-0">
+                      <IndianRupee className="w-4 h-4 text-orange-500 shrink-0 mt-0.5" />
+                      <div className="min-w-0">
+                        <span className="block font-extrabold uppercase tracking-wider text-orange-700 dark:text-orange-400 text-[11px]">
+                          Pending Fee Balance Due
+                        </span>
+                        {fighter.pendingFeeNote && (
+                          <span className="block text-[11px] text-slate-600 dark:text-zinc-400 break-words mt-0.5">
+                            {fighter.pendingFeeNote}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <span className="font-mono font-black text-sm text-orange-600 dark:text-orange-300 shrink-0">
+                      ₹{fighter.pendingBalance.toLocaleString('en-IN')}
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* Payment & Renewal History Section */}
@@ -592,7 +619,12 @@ export default function FighterDetailModal({ fighter, canEdit = false }) {
                 ) : (
                   <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
                     {payments.map((p) => {
-                      const isMultiMonth = (p.durationMonths || 1) > 1;
+                      const isSettlement = p.paymentType === 'Balance Settlement' || p.durationMonths === 0;
+                      const isMultiMonth = !isSettlement && (p.durationMonths || 1) > 1;
+                      const isPartial =
+                        !isSettlement &&
+                        (p.paymentType === 'Partial Renewal' ||
+                          (p.expectedAmount && p.amount < p.expectedAmount));
                       return (
                         <div
                           key={p._id}
@@ -604,13 +636,26 @@ export default function FighterDetailModal({ fighter, canEdit = false }) {
                               <span className="font-mono font-black text-sm sm:text-base text-slate-900 dark:text-white">
                                 ₹{p.amount.toLocaleString('en-IN')}
                               </span>
-                              <span className="px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-slate-200/80 dark:bg-zinc-800 text-slate-800 dark:text-zinc-200 border border-slate-300/60 dark:border-zinc-700/60">
-                                {p.durationMonths === 1
+                              <span
+                                className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider border ${
+                                  isSettlement
+                                    ? 'bg-orange-500/15 text-orange-600 dark:text-orange-400 border-orange-500/25'
+                                    : 'bg-slate-200/80 dark:bg-zinc-800 text-slate-800 dark:text-zinc-200 border-slate-300/60 dark:border-zinc-700/60'
+                                }`}
+                              >
+                                {isSettlement
+                                  ? '💵 Balance Settlement'
+                                  : p.durationMonths === 1
                                   ? '🥊 1 Month'
                                   : p.durationMonths === 3
                                   ? '🔥 3 Months Pass'
                                   : `${p.durationMonths} Months`}
                               </span>
+                              {isPartial && p.expectedAmount && (
+                                <span className="px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/25">
+                                  Partial (of ₹{p.expectedAmount.toLocaleString('en-IN')})
+                                </span>
+                              )}
                               <span
                                 className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[9px] font-bold uppercase ${
                                   p.paymentMethod === 'Cash'
@@ -636,7 +681,7 @@ export default function FighterDetailModal({ fighter, canEdit = false }) {
                           <div className="flex flex-wrap items-center justify-between gap-1 text-[10px] pt-1 border-t border-slate-100 dark:border-zinc-850">
                             <span className="text-slate-500 dark:text-zinc-400 font-medium">
                               🗓️ <span className="font-semibold text-slate-700 dark:text-zinc-300">Paid:</span> {formatShortDate(p.paymentDate)}
-                              {p.expiryDate && (
+                              {!isSettlement && p.expiryDate && (
                                 <>
                                   {' '}→ <span className="font-semibold text-slate-700 dark:text-zinc-300">Valid Till:</span>{' '}
                                   <span className="font-bold text-red-600 dark:text-red-400 font-mono">

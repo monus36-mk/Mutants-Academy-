@@ -3,16 +3,28 @@
 import { useState, useTransition, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
-import { renewFighterSubscription } from '@/app/actions/fighterActions';
-import { RefreshCw, Calendar, X, Banknote, QrCode, Check, AlertTriangle, ShieldCheck } from 'lucide-react';
+import { renewFighterSubscription, collectPendingBalance } from '@/app/actions/fighterActions';
+import {
+  RefreshCw,
+  Calendar,
+  X,
+  Banknote,
+  QrCode,
+  Check,
+  AlertTriangle,
+  IndianRupee,
+  CheckCircle2,
+} from 'lucide-react';
 import { useModalBackHandler } from '@/hooks/useModalBackHandler';
 import { resolveFighterFees, resolveFighterPackFee } from '@/lib/utils';
 
-export default function RenewalModal({ fighter }) {
+export default function RenewalModal({ fighter, defaultMode = 'renew' }) {
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
 
-  useModalBackHandler(isOpen, setIsOpen, `renewal_${fighter._id}`);
+  const existingDue = Math.max(0, Number(fighter.pendingBalance) || 0);
+  const modalKey = `${defaultMode === 'collect' ? 'collectDue' : 'renewal'}_${fighter._id}`;
+  useModalBackHandler(isOpen, setIsOpen, modalKey);
 
   const { monthlyFee: monthlyRate, quarterlyFee: quarterlyRate } = resolveFighterFees(fighter);
 
@@ -20,10 +32,14 @@ export default function RenewalModal({ fighter }) {
     return resolveFighterPackFee({ monthlyFee: monthlyRate, quarterlyFee: quarterlyRate }, durationMonths);
   };
 
+  const [mode, setMode] = useState(defaultMode === 'collect' && existingDue > 0 ? 'collect' : 'renew');
   const [months, setMonths] = useState(1);
   const [amount, setAmount] = useState(monthlyRate || 1300);
+  const [collectAmount, setCollectAmount] = useState(existingDue || 0);
   const [paymentMethod, setPaymentMethod] = useState('Cash');
   const [resetFromToday, setResetFromToday] = useState(false);
+  const [keepShortfallAsDue, setKeepShortfallAsDue] = useState(true);
+  const [feeNote, setFeeNote] = useState('');
   const [error, setError] = useState('');
   const [isPending, startTransition] = useTransition();
 
@@ -45,13 +61,18 @@ export default function RenewalModal({ fighter }) {
   }, [isExpired, fighter.nextPaymentDate]);
 
   const handleOpen = () => {
-    const initialMonths = (fighter.packageDurationMonths === 3 || fighter.packageDurationMonths === 1)
-      ? fighter.packageDurationMonths
-      : 1;
+    const initialMonths =
+      fighter.packageDurationMonths === 3 || fighter.packageDurationMonths === 1
+        ? fighter.packageDurationMonths
+        : 1;
+    setMode(defaultMode === 'collect' && existingDue > 0 ? 'collect' : 'renew');
     setMonths(initialMonths);
     setAmount(calculateDefaultAmount(initialMonths));
+    setCollectAmount(existingDue);
     setPaymentMethod('Cash');
     setResetFromToday(false);
+    setKeepShortfallAsDue(true);
+    setFeeNote(fighter.pendingFeeNote || '');
     setError('');
     setIsOpen(true);
   };
@@ -65,9 +86,40 @@ export default function RenewalModal({ fighter }) {
     setAmount(calculateDefaultAmount(newMonths));
   };
 
-  const handleRenew = () => {
+  const expectedPackFee = calculateDefaultAmount(months);
+  const paidNum = Number(amount);
+  const hasValidPaid = Number.isFinite(paidNum) && paidNum > 0;
+  const shortfall = hasValidPaid && paidNum < expectedPackFee ? expectedPackFee - paidNum : 0;
+  const excessCleared =
+    hasValidPaid && paidNum > expectedPackFee && existingDue > 0
+      ? Math.min(existingDue, paidNum - expectedPackFee)
+      : 0;
+
+  const collectNum = Number(collectAmount);
+  const hasValidCollect = Number.isFinite(collectNum) && collectNum > 0;
+  const remainingAfterCollect = hasValidCollect ? Math.max(0, existingDue - collectNum) : existingDue;
+
+  const handleConfirm = () => {
     setError('');
-    if (!amount || Number(amount) <= 0) {
+
+    if (mode === 'collect') {
+      if (!hasValidCollect) {
+        setError('Please enter a valid collection amount.');
+        return;
+      }
+      startTransition(async () => {
+        const res = await collectPendingBalance(fighter._id, collectNum, paymentMethod, feeNote);
+        if (res?.error) {
+          setError(res.error);
+        } else {
+          setIsOpen(false);
+          router.refresh();
+        }
+      });
+      return;
+    }
+
+    if (!hasValidPaid) {
       setError('Please enter a valid payment amount.');
       return;
     }
@@ -76,9 +128,13 @@ export default function RenewalModal({ fighter }) {
       const res = await renewFighterSubscription(
         fighter._id,
         months,
-        Number(amount),
+        paidNum,
         paymentMethod,
-        resetFromToday
+        resetFromToday,
+        {
+          keepShortfallAsDue,
+          feeNote: feeNote.trim(),
+        }
       );
       if (res?.error) {
         setError(res.error);
@@ -89,14 +145,32 @@ export default function RenewalModal({ fighter }) {
     });
   };
 
+  const formattedCurrentExpiry = fighter.nextPaymentDate
+    ? new Date(fighter.nextPaymentDate).toLocaleDateString('en-IN', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+      })
+    : 'N/A';
+
   return (
     <>
-      <button
-        onClick={handleOpen}
-        className="px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-500 hover:bg-amber-600 dark:bg-amber-600/20 dark:hover:bg-amber-600/35 text-white dark:text-amber-400 hover:scale-105 active:scale-95 transition-all cursor-pointer flex items-center gap-1"
-      >
-        <Calendar className="w-3.5 h-3.5" /> Renew
-      </button>
+      {defaultMode === 'collect' ? (
+        <button
+          onClick={handleOpen}
+          className="px-3 py-1.5 rounded-lg text-xs font-bold bg-orange-500 hover:bg-orange-600 dark:bg-orange-500/20 dark:hover:bg-orange-500/35 text-white dark:text-orange-300 hover:scale-105 active:scale-95 transition-all cursor-pointer flex items-center gap-1"
+          title={`Collect pending due ₹${existingDue.toLocaleString('en-IN')}`}
+        >
+          <IndianRupee className="w-3.5 h-3.5" /> Pay Due
+        </button>
+      ) : (
+        <button
+          onClick={handleOpen}
+          className="px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-500 hover:bg-amber-600 dark:bg-amber-600/20 dark:hover:bg-amber-600/35 text-white dark:text-amber-400 hover:scale-105 active:scale-95 transition-all cursor-pointer flex items-center gap-1"
+        >
+          <Calendar className="w-3.5 h-3.5" /> Renew
+        </button>
+      )}
 
       {isOpen && typeof document !== 'undefined' && createPortal(
         <div
@@ -107,12 +181,11 @@ export default function RenewalModal({ fighter }) {
             className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-3xl w-full max-w-md max-h-[90dvh] flex flex-col overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
-            
             {/* Modal Header */}
             <div className="shrink-0 flex items-start justify-between gap-3 border-b border-slate-100 dark:border-zinc-800 px-5 py-4 sm:px-6">
               <div className="min-w-0">
                 <h3 className="font-extrabold text-lg text-slate-800 dark:text-zinc-100 uppercase tracking-tight">
-                  Renew Membership
+                  {mode === 'collect' ? 'Collect Pending Fee' : 'Renew Membership'}
                 </h3>
                 <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5 break-words">
                   Fighter: <span className="font-bold text-slate-800 dark:text-zinc-200">{fighter.name}</span>
@@ -129,65 +202,244 @@ export default function RenewalModal({ fighter }) {
 
             {/* Modal Body */}
             <div className="p-5 sm:p-6 space-y-4 overflow-y-auto flex-1">
-              {/* Renewal Duration Selector - focused on 1 Month & 3 Months */}
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400 mb-2">
-                  Renewal Plan Duration *
-                </label>
-                <div className="grid grid-cols-2 gap-2">
+              {/* Mode Switcher when fighter has existing pending due */}
+              {existingDue > 0 && (
+                <div className="grid grid-cols-2 gap-2 p-1 rounded-2xl bg-slate-100 dark:bg-zinc-800/80 border border-slate-200 dark:border-zinc-700/60">
                   <button
                     type="button"
-                    onClick={() => handleDurationChange(1)}
-                    className={`p-3 rounded-2xl border text-left transition-all cursor-pointer min-w-0 ${
-                      months === 1
-                        ? 'border-red-500 bg-red-500/10 text-red-600 dark:text-red-400 font-bold shadow-sm'
-                        : 'border-slate-200 dark:border-zinc-800 hover:bg-slate-50 dark:hover:bg-zinc-800/50 text-slate-700 dark:text-zinc-300'
+                    onClick={() => {
+                      setMode('collect');
+                      setError('');
+                    }}
+                    className={`py-2 px-3 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
+                      mode === 'collect'
+                        ? 'bg-orange-500 text-white shadow-sm'
+                        : 'text-slate-600 dark:text-zinc-300 hover:text-slate-900 dark:hover:text-white'
                     }`}
                   >
-                    <span className="block text-xs font-extrabold uppercase">🥊 1 Month</span>
-                    <span className="text-[11px] font-mono opacity-80">₹{calculateDefaultAmount(1).toLocaleString('en-IN')}</span>
+                    Collect Due (₹{existingDue.toLocaleString('en-IN')})
                   </button>
-
                   <button
                     type="button"
-                    onClick={() => handleDurationChange(3)}
-                    className={`p-3 rounded-2xl border text-left transition-all cursor-pointer min-w-0 ${
-                      months === 3
-                        ? 'border-red-500 bg-red-500/10 text-red-600 dark:text-red-400 font-bold shadow-sm'
-                        : 'border-slate-200 dark:border-zinc-800 hover:bg-slate-50 dark:hover:bg-zinc-800/50 text-slate-700 dark:text-zinc-300'
+                    onClick={() => {
+                      setMode('renew');
+                      setError('');
+                    }}
+                    className={`py-2 px-3 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
+                      mode === 'renew'
+                        ? 'bg-red-600 text-white shadow-sm'
+                        : 'text-slate-600 dark:text-zinc-300 hover:text-slate-900 dark:hover:text-white'
                     }`}
                   >
-                    <span className="block text-xs font-extrabold uppercase">🔥 3 Months</span>
-                    <span className="text-[11px] font-mono opacity-80">₹{calculateDefaultAmount(3).toLocaleString('en-IN')}</span>
+                    Renew Pass
                   </button>
                 </div>
-              </div>
+              )}
 
-              {/* Amount Paid Field */}
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400 mb-1.5">
-                  Amount Paid (₹) *
-                </label>
-                <div className="relative flex items-center">
-                  <span className="absolute left-3.5 text-sm font-bold text-slate-400 dark:text-zinc-500 pointer-events-none select-none z-10">
-                    ₹
-                  </span>
-                  <input
-                    type="number"
-                    min="0"
-                    step="any"
-                    required
-                    value={amount}
-                    onChange={(e) => setAmount(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900/50 text-slate-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-red-500 text-sm font-bold font-mono transition-all"
-                    style={{ paddingLeft: '2.5rem' }}
-                    placeholder="1300"
-                  />
-                </div>
-                <p className="text-[10px] text-slate-400 dark:text-zinc-500 mt-1.5 leading-relaxed break-words">
-                  Agreed pack rates: ₹{monthlyRate.toLocaleString('en-IN')} (1 mo) • ₹{quarterlyRate.toLocaleString('en-IN')} (3 mos). Adjust if needed for concessions.
-                </p>
-              </div>
+              {mode === 'collect' ? (
+                <>
+                  {/* Pending Balance Summary Box */}
+                  <div className="p-3.5 bg-orange-500/10 border border-orange-500/30 rounded-2xl text-xs space-y-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-extrabold uppercase tracking-wider text-orange-700 dark:text-orange-400">
+                        Outstanding Balance Due
+                      </span>
+                      <span className="font-mono font-black text-base text-orange-600 dark:text-orange-300">
+                        ₹{existingDue.toLocaleString('en-IN')}
+                      </span>
+                    </div>
+                    {fighter.pendingFeeNote && (
+                      <p className="text-[11px] text-slate-600 dark:text-zinc-400 break-words">
+                        Note: {fighter.pendingFeeNote}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Amount Collected Input */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">
+                        Amount Collected (₹) *
+                      </label>
+                      {Number(collectAmount) !== existingDue && (
+                        <button
+                          type="button"
+                          onClick={() => setCollectAmount(existingDue)}
+                          className="text-[10px] font-bold text-orange-600 dark:text-orange-400 hover:underline cursor-pointer"
+                        >
+                          Fill Full ₹{existingDue.toLocaleString('en-IN')}
+                        </button>
+                      )}
+                    </div>
+                    <div className="relative flex items-center">
+                      <span className="absolute left-3.5 text-sm font-bold text-slate-400 dark:text-zinc-500 pointer-events-none select-none z-10">
+                        ₹
+                      </span>
+                      <input
+                        type="number"
+                        min="1"
+                        step="any"
+                        required
+                        value={collectAmount}
+                        onChange={(e) => setCollectAmount(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900/50 text-slate-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm font-bold font-mono transition-all"
+                        style={{ paddingLeft: '2.5rem' }}
+                      />
+                    </div>
+                    {hasValidCollect && (
+                      <p className="text-[11px] font-semibold mt-1.5 flex items-center gap-1.5">
+                        {remainingAfterCollect === 0 ? (
+                          <span className="text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                            <CheckCircle2 className="w-3.5 h-3.5" /> Clears entire pending balance
+                          </span>
+                        ) : (
+                          <span className="text-orange-600 dark:text-orange-400">
+                            Remaining due after payment: ₹{remainingAfterCollect.toLocaleString('en-IN')}
+                          </span>
+                        )}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Optional Note */}
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400 mb-1.5">
+                      Collection Note (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      value={feeNote}
+                      onChange={(e) => setFeeNote(e.target.value)}
+                      placeholder="e.g. Cleared remaining balance at counter"
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900/50 text-slate-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-orange-500 text-xs transition-all"
+                    />
+                  </div>
+                </>
+              ) : (
+                <>
+                  {/* Renewal Duration Selector - focused on 1 Month & 3 Months */}
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400 mb-2">
+                      Renewal Plan Duration *
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleDurationChange(1)}
+                        className={`p-3 rounded-2xl border text-left transition-all cursor-pointer min-w-0 ${
+                          months === 1
+                            ? 'border-red-500 bg-red-500/10 text-red-600 dark:text-red-400 font-bold shadow-sm'
+                            : 'border-slate-200 dark:border-zinc-800 hover:bg-slate-50 dark:hover:bg-zinc-800/50 text-slate-700 dark:text-zinc-300'
+                        }`}
+                      >
+                        <span className="block text-xs font-extrabold uppercase">🥊 1 Month</span>
+                        <span className="text-[11px] font-mono opacity-80">
+                          ₹{calculateDefaultAmount(1).toLocaleString('en-IN')}
+                        </span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleDurationChange(3)}
+                        className={`p-3 rounded-2xl border text-left transition-all cursor-pointer min-w-0 ${
+                          months === 3
+                            ? 'border-red-500 bg-red-500/10 text-red-600 dark:text-red-400 font-bold shadow-sm'
+                            : 'border-slate-200 dark:border-zinc-800 hover:bg-slate-50 dark:hover:bg-zinc-800/50 text-slate-700 dark:text-zinc-300'
+                        }`}
+                      >
+                        <span className="block text-xs font-extrabold uppercase">🔥 3 Months</span>
+                        <span className="text-[11px] font-mono opacity-80">
+                          ₹{calculateDefaultAmount(3).toLocaleString('en-IN')}
+                        </span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Amount Paid Field */}
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400 mb-1.5">
+                      Amount Paid Now (₹) *
+                    </label>
+                    <div className="relative flex items-center">
+                      <span className="absolute left-3.5 text-sm font-bold text-slate-400 dark:text-zinc-500 pointer-events-none select-none z-10">
+                        ₹
+                      </span>
+                      <input
+                        type="number"
+                        min="1"
+                        step="any"
+                        required
+                        value={amount}
+                        onChange={(e) => setAmount(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900/50 text-slate-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-red-500 text-sm font-bold font-mono transition-all"
+                        style={{ paddingLeft: '2.5rem' }}
+                        placeholder="1300"
+                      />
+                    </div>
+                    <p className="text-[10px] text-slate-400 dark:text-zinc-500 mt-1.5 leading-relaxed break-words">
+                      Agreed pack rates: ₹{monthlyRate.toLocaleString('en-IN')} (1 mo) • ₹{quarterlyRate.toLocaleString('en-IN')} (3 mos). Enter less if partial payment.
+                    </p>
+                  </div>
+
+                  {/* Partial Payment Shortfall Panel */}
+                  {shortfall > 0 && (
+                    <div className="p-3.5 bg-orange-500/10 border border-orange-500/30 rounded-2xl text-xs space-y-2.5">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <span className="font-extrabold text-orange-700 dark:text-orange-400 block">
+                            Partial Payment: ₹{shortfall.toLocaleString('en-IN')} Shortfall
+                          </span>
+                          <span className="text-[11px] text-slate-600 dark:text-zinc-400">
+                            Expected ₹{expectedPackFee.toLocaleString('en-IN')} • Paying ₹{paidNum.toLocaleString('en-IN')}
+                          </span>
+                        </div>
+                      </div>
+
+                      <label className="flex items-start gap-2.5 pt-2 border-t border-orange-500/20 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={keepShortfallAsDue}
+                          onChange={(e) => setKeepShortfallAsDue(e.target.checked)}
+                          className="w-4 h-4 mt-0.5 shrink-0 rounded text-orange-600 focus:ring-orange-500 border-slate-300 dark:border-zinc-700 cursor-pointer accent-orange-500"
+                        />
+                        <span className="text-[11px] font-bold text-slate-800 dark:text-zinc-200 leading-snug min-w-0 flex-1 break-words">
+                          Keep ₹{shortfall.toLocaleString('en-IN')} as Pending Fee Due (uncheck only for one-time discount)
+                        </span>
+                      </label>
+
+                      {keepShortfallAsDue && (
+                        <>
+                          {existingDue > 0 && (
+                            <p className="text-[11px] font-bold text-orange-700 dark:text-orange-300">
+                              Total due after renewal: ₹{(existingDue + shortfall).toLocaleString('en-IN')}
+                            </p>
+                          )}
+                          <input
+                            type="text"
+                            value={feeNote}
+                            onChange={(e) => setFeeNote(e.target.value)}
+                            placeholder="Optional note (e.g. balance promised Friday)"
+                            className="w-full px-3 py-2 rounded-xl border border-orange-500/30 bg-white dark:bg-zinc-950/60 text-slate-900 dark:text-zinc-100 text-[11px] focus:outline-none focus:ring-2 focus:ring-orange-500"
+                          />
+                        </>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Excess Payment Auto-Clearing Prior Due */}
+                  {excessCleared > 0 && (
+                    <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl text-[11px] font-semibold text-emerald-700 dark:text-emerald-300">
+                      Extra ₹{excessCleared.toLocaleString('en-IN')} paid above pack rate will reduce their ₹{existingDue.toLocaleString('en-IN')} pending due (remaining: ₹{(existingDue - excessCleared).toLocaleString('en-IN')}).
+                    </div>
+                  )}
+
+                  {shortfall === 0 && excessCleared === 0 && existingDue > 0 && (
+                    <div className="p-2.5 bg-amber-500/10 border border-amber-500/20 rounded-xl text-[11px] font-semibold text-amber-700 dark:text-amber-300">
+                      Existing pending due of ₹{existingDue.toLocaleString('en-IN')} stays open unless paid via Collect Due.
+                    </div>
+                  )}
+                </>
+              )}
 
               {/* Payment Mode Selector */}
               <div>
@@ -225,8 +477,8 @@ export default function RenewalModal({ fighter }) {
                 </div>
               </div>
 
-              {/* Overdue Alert & Waiver Toggle */}
-              {isExpired && (
+              {/* Overdue Alert & Waiver Toggle (Renewal mode only) */}
+              {mode === 'renew' && isExpired && (
                 <div className="p-3.5 bg-amber-500/10 border border-amber-500/30 rounded-2xl text-xs space-y-2.5">
                   <div className="flex items-start gap-2.5">
                     <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
@@ -257,40 +509,51 @@ export default function RenewalModal({ fighter }) {
               )}
 
               {/* Date Preview */}
-              <div className="p-3 bg-slate-50 dark:bg-zinc-950 rounded-2xl border border-slate-100 dark:border-zinc-800/80 text-xs">
-                <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
-                  <span className="text-slate-500 dark:text-zinc-400 font-semibold text-[10px] uppercase tracking-wider">
-                    NEW VALIDITY EXPIRY:
+              {mode === 'collect' ? (
+                <div className="p-3 bg-slate-50 dark:bg-zinc-950 rounded-2xl border border-slate-100 dark:border-zinc-800/80 text-xs">
+                  <span className="text-slate-500 dark:text-zinc-400 font-semibold text-[10px] uppercase tracking-wider block mb-0.5">
+                    CURRENT PASS EXPIRY (UNCHANGED):
                   </span>
-                  {isExpired && !resetFromToday && (
-                    <span className="text-[9px] font-extrabold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
-                      Continuous Cycle
-                    </span>
-                  )}
-                  {isExpired && resetFromToday && (
-                    <span className="text-[9px] font-extrabold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
-                      Waiver Applied
-                    </span>
-                  )}
+                  <span className="font-mono font-bold text-slate-900 dark:text-white text-sm block">
+                    {formattedCurrentExpiry}
+                  </span>
                 </div>
-                <span className="font-mono font-bold text-slate-900 dark:text-white text-sm block">
-                  {(() => {
-                    const today = new Date();
-                    today.setHours(0, 0, 0, 0);
-                    let baseDate = new Date(fighter.nextPaymentDate);
-                    if (resetFromToday || isNaN(baseDate.getTime())) {
-                      baseDate = today;
-                    }
-                    const newExpiry = new Date(baseDate);
-                    newExpiry.setMonth(newExpiry.getMonth() + Number(months));
-                    return newExpiry.toLocaleDateString('en-IN', {
-                      day: 'numeric',
-                      month: 'long',
-                      year: 'numeric',
-                    });
-                  })()}
-                </span>
-              </div>
+              ) : (
+                <div className="p-3 bg-slate-50 dark:bg-zinc-950 rounded-2xl border border-slate-100 dark:border-zinc-800/80 text-xs">
+                  <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
+                    <span className="text-slate-500 dark:text-zinc-400 font-semibold text-[10px] uppercase tracking-wider">
+                      NEW VALIDITY EXPIRY:
+                    </span>
+                    {isExpired && !resetFromToday && (
+                      <span className="text-[9px] font-extrabold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
+                        Continuous Cycle
+                      </span>
+                    )}
+                    {isExpired && resetFromToday && (
+                      <span className="text-[9px] font-extrabold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                        Waiver Applied
+                      </span>
+                    )}
+                  </div>
+                  <span className="font-mono font-bold text-slate-900 dark:text-white text-sm block">
+                    {(() => {
+                      const today = new Date();
+                      today.setHours(0, 0, 0, 0);
+                      let baseDate = new Date(fighter.nextPaymentDate);
+                      if (resetFromToday || isNaN(baseDate.getTime())) {
+                        baseDate = today;
+                      }
+                      const newExpiry = new Date(baseDate);
+                      newExpiry.setMonth(newExpiry.getMonth() + Number(months));
+                      return newExpiry.toLocaleDateString('en-IN', {
+                        day: 'numeric',
+                        month: 'long',
+                        year: 'numeric',
+                      });
+                    })()}
+                  </span>
+                </div>
+              )}
 
               {error && (
                 <div className="p-3 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/50 rounded-xl text-xs text-red-600 dark:text-red-400 font-medium break-words">
@@ -311,18 +574,23 @@ export default function RenewalModal({ fighter }) {
               </button>
               <button
                 type="button"
-                onClick={handleRenew}
+                onClick={handleConfirm}
                 disabled={isPending}
-                className="px-5 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-bold shadow-md shadow-red-600/20 flex items-center gap-1.5 cursor-pointer disabled:opacity-50 transition-all hover:scale-[1.02] active:scale-[0.98]"
+                className={`px-5 py-2.5 rounded-xl text-white text-xs font-bold shadow-md flex items-center gap-1.5 cursor-pointer disabled:opacity-50 transition-all hover:scale-[1.02] active:scale-[0.98] ${
+                  mode === 'collect'
+                    ? 'bg-orange-500 hover:bg-orange-600 shadow-orange-500/20'
+                    : 'bg-red-600 hover:bg-red-500 shadow-red-600/20'
+                }`}
               >
                 {isPending ? (
                   <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                ) : mode === 'collect' ? (
+                  'Log Balance Payment'
                 ) : (
                   'Confirm & Log Payment'
                 )}
               </button>
             </div>
-
           </div>
         </div>,
         document.body

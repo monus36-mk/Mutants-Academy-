@@ -40,6 +40,16 @@ const PaymentSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
+    expectedAmount: {
+      type: Number,
+      default: null,
+      min: 0,
+    },
+    paymentType: {
+      type: String,
+      enum: ['Renewal', 'Partial Renewal', 'Balance Settlement'],
+      default: 'Renewal',
+    },
     status: {
       type: String,
       enum: ['Completed', 'Pending', 'Failed'],

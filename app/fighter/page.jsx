@@ -21,13 +21,8 @@ export default async function FighterDashboardPage({ searchParams }) {
     getFighterPayments(user.id),
   ]);
 
-  if (!profileRes.success) {
-    if (profileRes.error === 'Fighter profile not found') {
-      // Session is invalid or fighter was deleted, log out
-      const { logout } = require('@/app/actions/authActions');
-      await logout();
-      redirect('/login');
-    }
+  if (!profileRes.success || !profileRes.fighter) {
+    redirect('/api/auth/logout');
   }
 
   const peers = peersRes.success ? peersRes.fighters : [];

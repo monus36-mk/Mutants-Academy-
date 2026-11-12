@@ -26,9 +26,11 @@ export async function generateMetadata({ params }) {
   };
 }
 
-export default async function RenewPage({ params }) {
+export default async function RenewPage({ params, searchParams }) {
   // Await page params in Next.js 15 / 16
   const { id } = await params;
+  const resolvedSearchParams = await searchParams;
+  const initialMode = resolvedSearchParams?.mode || 'renew';
 
   await dbConnect();
   
@@ -80,6 +82,8 @@ export default async function RenewPage({ params }) {
     packageDurationMonths: fighter.packageDurationMonths || 1,
     monthlyFee: fees.monthlyFee,
     quarterlyFee: fees.quarterlyFee,
+    pendingBalance: Math.max(0, Number(fighter.pendingBalance) || 0),
+    pendingFeeNote: fighter.pendingFeeNote || '',
     nextPaymentDate: fighter.nextPaymentDate ? fighter.nextPaymentDate.toISOString() : null,
     joiningDate: fighter.joiningDate ? fighter.joiningDate.toISOString() : null,
   };
@@ -91,7 +95,7 @@ export default async function RenewPage({ params }) {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-zinc-950 text-slate-900 dark:text-zinc-100 transition-colors">
-      <RenewPaymentClient fighter={serializedFighter} upiConfig={upiConfig} />
+      <RenewPaymentClient fighter={serializedFighter} upiConfig={upiConfig} initialMode={initialMode} />
     </div>
   );
 }

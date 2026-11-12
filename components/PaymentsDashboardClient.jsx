@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   CreditCard,
@@ -31,9 +32,17 @@ import {
   rejectPendingPayment,
   triggerRobotBankCredit,
 } from '@/app/actions/paymentActions';
+import { collectPendingBalance } from '@/app/actions/fighterActions';
 
-export default function PaymentsDashboardClient({ initialPayments, stats, currentUser }) {
+export default function PaymentsDashboardClient({
+  initialPayments,
+  fightersWithDues = [],
+  stats,
+  currentUser,
+}) {
+  const router = useRouter();
   const [paymentsList, setPaymentsList] = useState(initialPayments);
+  const [duesList, setDuesList] = useState(fightersWithDues);
   const [search, setSearch] = useState('');
   const [methodFilter, setMethodFilter] = useState('All');
   const [statusFilter, setStatusFilter] = useState('All');
@@ -43,6 +52,18 @@ export default function PaymentsDashboardClient({ initialPayments, stats, curren
   // Coach action states
   const [loadingActionId, setLoadingActionId] = useState(null);
   const [actionFeedback, setActionFeedback] = useState(null);
+
+  // Collect pending fee modal state
+  const [collectFighter, setCollectFighter] = useState(null);
+  const [collectAmount, setCollectAmount] = useState('');
+  const [collectMethod, setCollectMethod] = useState('Cash');
+  const [collectNote, setCollectNote] = useState('');
+  const [collectError, setCollectError] = useState('');
+  const [isCollecting, setIsCollecting] = useState(false);
+
+  const livePendingTotal = useMemo(() => {
+    return duesList.reduce((acc, f) => acc + (Number(f.pendingBalance) || 0), 0);
+  }, [duesList]);
 
   // Robot simulator modal state
   const [robotModalOpen, setRobotModalOpen] = useState(false);
@@ -223,6 +244,7 @@ export default function PaymentsDashboardClient({ initialPayments, stats, curren
         throw new Error(res.error || 'Failed to approve payment');
       }
 
+      const approvedItem = paymentsList.find((p) => p._id === paymentId);
       setPaymentsList((prev) =>
         prev.map((p) =>
           p._id === paymentId
@@ -235,16 +257,109 @@ export default function PaymentsDashboardClient({ initialPayments, stats, curren
         )
       );
 
+      if (approvedItem?.fighterId && res.pendingBalance !== undefined) {
+        setDuesList((prev) =>
+          res.pendingBalance <= 0
+            ? prev.filter((f) => f._id !== approvedItem.fighterId)
+            : prev.map((f) =>
+                f._id === approvedItem.fighterId
+                  ? { ...f, pendingBalance: res.pendingBalance }
+                  : f
+              )
+        );
+      }
+
       setActionFeedback({
         type: 'success',
-        message: `Successfully approved renewal for ${res.fighterName}! Official WhatsApp receipt sent.`,
+        message: `Successfully approved payment for ${res.fighterName}! Official WhatsApp receipt sent.`,
       });
+      router.refresh();
       setTimeout(() => setActionFeedback(null), 5000);
     } catch (err) {
       console.error('Approval failed:', err);
       setActionFeedback({ type: 'error', message: err.message || 'Approval failed' });
     } finally {
       setLoadingActionId(null);
+    }
+  };
+
+  const handleOpenCollectModal = (dueFighter) => {
+    setCollectFighter(dueFighter);
+    setCollectAmount(String(dueFighter.pendingBalance || 0));
+    setCollectMethod('Cash');
+    setCollectNote(dueFighter.pendingFeeNote || '');
+    setCollectError('');
+  };
+
+  const handleSubmitCollect = async (e) => {
+    e.preventDefault();
+    if (!collectFighter) return;
+
+    const amt = Number(collectAmount);
+    if (!Number.isFinite(amt) || amt <= 0) {
+      setCollectError('Please enter a valid payment amount greater than 0.');
+      return;
+    }
+
+    setIsCollecting(true);
+    setCollectError('');
+    try {
+      const res = await collectPendingBalance(collectFighter._id, amt, collectMethod, collectNote);
+      if (!res?.success || res.error) {
+        throw new Error(res?.error || 'Failed to record collection');
+      }
+
+      const remaining =
+        res.pendingBalance !== undefined
+          ? res.pendingBalance
+          : Math.max(0, (collectFighter.pendingBalance || 0) - amt);
+
+      setDuesList((prev) =>
+        remaining <= 0
+          ? prev.filter((f) => f._id !== collectFighter._id)
+          : prev.map((f) =>
+              f._id === collectFighter._id
+                ? { ...f, pendingBalance: remaining, pendingFeeNote: collectNote.trim() || f.pendingFeeNote }
+                : f
+            )
+      );
+
+      setPaymentsList((prev) => [
+        {
+          _id: res.paymentId || `local_${Date.now()}`,
+          fighterId: collectFighter._id,
+          fighterName: collectFighter.name,
+          phone: collectFighter.phone || '',
+          amount: amt,
+          expectedAmount: collectFighter.pendingBalance,
+          paymentType: 'Balance Settlement',
+          durationMonths: 0,
+          paymentDate: new Date().toISOString(),
+          expiryDate: collectFighter.nextPaymentDate || null,
+          paymentMethod: collectMethod,
+          transactionId: '',
+          status: 'Completed',
+          notes:
+            remaining > 0
+              ? `Pending fee collection (${collectMethod}) [₹${remaining} remaining]`
+              : `Pending fee collection (${collectMethod}) [Balance cleared]`,
+        },
+        ...prev,
+      ]);
+
+      setActionFeedback({
+        type: 'success',
+        message: `Collected ₹${amt.toLocaleString('en-IN')} from ${collectFighter.name}${
+          remaining > 0 ? ` (₹${remaining.toLocaleString('en-IN')} remaining)` : ' — pending balance cleared!'
+        }`,
+      });
+      setCollectFighter(null);
+      router.refresh();
+      setTimeout(() => setActionFeedback(null), 5000);
+    } catch (err) {
+      setCollectError(err.message || 'Failed to record collection');
+    } finally {
+      setIsCollecting(false);
     }
   };
 
@@ -328,12 +443,12 @@ export default function PaymentsDashboardClient({ initialPayments, stats, curren
 
   const exportToCSV = () => {
     if (filteredPayments.length === 0) return;
-    const headers = ['Date', 'Fighter Name', 'Phone', 'Duration (Months)', 'Amount (INR)', 'Payment Method', 'Transaction ID', 'Status', 'Notes'];
+    const headers = ['Date', 'Fighter Name', 'Phone', 'Type / Plan', 'Amount (INR)', 'Payment Method', 'Transaction ID', 'Status', 'Notes'];
     const rows = filteredPayments.map((p) => [
       `"${p.paymentDate ? new Date(p.paymentDate).toLocaleDateString('en-IN') : ''}"`,
       `"${p.fighterName.replace(/"/g, '""')}"`,
       `"${p.phone || ''}"`,
-      p.durationMonths,
+      `"${p.paymentType === 'Balance Settlement' || p.durationMonths === 0 ? 'Balance Settlement' : `${p.durationMonths} Month(s)${p.paymentType === 'Partial Renewal' ? ' (Partial)' : ''}`}"`,
       p.amount,
       `"${p.paymentMethod}"`,
       `"${(p.transactionId || '').replace(/"/g, '""')}"`,
@@ -472,9 +587,13 @@ export default function PaymentsDashboardClient({ initialPayments, stats, curren
 
                   <div className="bg-slate-50 dark:bg-zinc-950 p-2.5 rounded-xl text-xs space-y-1 font-mono mt-3 border border-slate-100 dark:border-zinc-800">
                     <div className="flex justify-between text-[11px] text-slate-500 dark:text-zinc-400">
-                      <span>Pass Plan:</span>
+                      <span>Pass / Type:</span>
                       <span className="font-bold text-slate-800 dark:text-zinc-200">
-                        {item.durationMonths === 1 ? '🥊 1 Month' : `${item.durationMonths} Months`}
+                        {item.paymentType === 'Balance Settlement' || item.durationMonths === 0
+                          ? '💵 Balance Settlement'
+                          : item.durationMonths === 1
+                          ? '🥊 1 Month'
+                          : `${item.durationMonths} Months`}
                       </span>
                     </div>
                     <div className="flex justify-between text-[11px] text-slate-500 dark:text-zinc-400">
@@ -515,38 +634,106 @@ export default function PaymentsDashboardClient({ initialPayments, stats, curren
         </div>
       )}
 
+      {/* OUTSTANDING BALANCES (PENDING FEE DUES) */}
+      {duesList.length > 0 && (
+        <div className="bg-gradient-to-r from-orange-500/12 via-red-500/8 to-orange-500/12 border border-orange-500/35 rounded-3xl p-5 sm:p-6 shadow-sm">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 pb-3 border-b border-orange-500/20">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-orange-500/20 border border-orange-500/35 text-orange-600 dark:text-orange-400 flex items-center justify-center font-bold">
+                <IndianRupee className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-black text-slate-900 dark:text-white uppercase tracking-tight">
+                  Outstanding Fee Balances ({duesList.length} Fighter{duesList.length !== 1 ? 's' : ''})
+                </h3>
+                <p className="text-xs text-slate-600 dark:text-zinc-400">
+                  Partial payments and unsettled fee balances ready for counter or UPI collection.
+                </p>
+              </div>
+            </div>
+
+            <div className="text-xs text-orange-700 dark:text-orange-300 font-mono font-bold bg-orange-500/15 px-3 py-1.5 rounded-xl border border-orange-500/25 self-start sm:self-auto">
+              Total Receivable: ₹{livePendingTotal.toLocaleString('en-IN')}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+            {duesList.map((dueFighter) => (
+              <div
+                key={dueFighter._id}
+                className="bg-white dark:bg-zinc-900 border border-orange-500/25 rounded-2xl p-4 shadow-sm flex flex-col justify-between gap-3"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <span className="font-black text-sm text-slate-900 dark:text-white block uppercase tracking-tight truncate">
+                      {dueFighter.name}
+                    </span>
+                    {dueFighter.phone && (
+                      <span className="text-[11px] font-mono text-slate-500 dark:text-zinc-400 flex items-center gap-1 mt-0.5">
+                        <Phone className="w-3 h-3" /> {dueFighter.phone}
+                      </span>
+                    )}
+                    {dueFighter.pendingFeeNote && (
+                      <p className="text-[11px] text-slate-600 dark:text-zinc-400 mt-1.5 line-clamp-2">
+                        Note: {dueFighter.pendingFeeNote}
+                      </p>
+                    )}
+                  </div>
+                  <span className="font-mono font-black text-sm text-orange-600 dark:text-orange-400 bg-orange-500/10 border border-orange-500/25 px-2.5 py-1 rounded-xl shrink-0">
+                    ₹{Number(dueFighter.pendingBalance).toLocaleString('en-IN')} DUE
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100 dark:border-zinc-800">
+                  <span className="text-[10px] font-mono text-slate-400 dark:text-zinc-500">
+                    Expires: {dueFighter.nextPaymentDate ? new Date(dueFighter.nextPaymentDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : 'N/A'}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleOpenCollectModal(dueFighter)}
+                    className="px-3.5 py-1.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-extrabold shadow-sm shadow-orange-500/20 flex items-center gap-1.5 cursor-pointer transition-all"
+                  >
+                    <IndianRupee className="w-3.5 h-3.5" /> Collect Due
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* SUMMARY STAT CARDS */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         {/* Total / Selected Month Revenue */}
-        <div className="bg-white dark:bg-zinc-900/60 border border-slate-200 dark:border-zinc-800 rounded-3xl p-5 shadow-sm relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-red-500/5 rounded-full blur-2xl" />
-          <span className="block text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-zinc-500 mb-1">
+        <div className="bg-white dark:bg-zinc-900/60 border border-slate-200 dark:border-zinc-800 rounded-2xl p-3.5 lg:p-4 shadow-sm relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-20 h-20 bg-red-500/5 rounded-full blur-2xl" />
+          <span className="block text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-zinc-500 mb-1 truncate">
             {monthFilter === 'all'
               ? 'Total Revenue Collected'
               : `${availableMonths.find((m) => m.value === monthFilter)?.label || 'Monthly'} Revenue`}
           </span>
-          <div className="flex items-baseline gap-1 mt-1">
-            <span className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white font-mono">
+          <div className="flex items-baseline gap-1 mt-0.5">
+            <span className="text-xl lg:text-2xl font-black text-slate-900 dark:text-white font-mono tabular-nums">
               ₹{currentMetrics.total.toLocaleString('en-IN')}
             </span>
           </div>
-          <span className="text-[10px] text-emerald-500 font-bold mt-2 block">
+          <span className="text-[10px] text-emerald-500 font-bold mt-1.5 block truncate">
             Across {currentMetrics.count} transactions
           </span>
         </div>
 
         {/* UPI Revenue */}
-        <div className="bg-white dark:bg-zinc-900/60 border border-slate-200 dark:border-zinc-800 rounded-3xl p-5 shadow-sm relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-red-500/5 rounded-full blur-2xl" />
-          <span className="block text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-zinc-500 mb-1">
+        <div className="bg-white dark:bg-zinc-900/60 border border-slate-200 dark:border-zinc-800 rounded-2xl p-3.5 lg:p-4 shadow-sm relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-20 h-20 bg-red-500/5 rounded-full blur-2xl" />
+          <span className="block text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-zinc-500 mb-1 truncate">
             UPI Collections
           </span>
-          <div className="flex items-baseline gap-1 mt-1">
-            <span className="text-2xl sm:text-3xl font-black text-red-600 dark:text-red-400 font-mono">
+          <div className="flex items-baseline gap-1 mt-0.5">
+            <span className="text-xl lg:text-2xl font-black text-red-600 dark:text-red-400 font-mono tabular-nums">
               ₹{currentMetrics.upi.toLocaleString('en-IN')}
             </span>
           </div>
-          <span className="text-[10px] text-slate-400 dark:text-zinc-500 font-medium mt-2 block">
+          <span className="text-[10px] text-slate-400 dark:text-zinc-500 font-medium mt-1.5 block truncate">
             {currentMetrics.total > 0
               ? `${Math.round((currentMetrics.upi / currentMetrics.total) * 100)}% of total revenue`
               : '0%'}
@@ -554,17 +741,17 @@ export default function PaymentsDashboardClient({ initialPayments, stats, curren
         </div>
 
         {/* Cash Revenue */}
-        <div className="bg-white dark:bg-zinc-900/60 border border-slate-200 dark:border-zinc-800 rounded-3xl p-5 shadow-sm relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-full blur-2xl" />
-          <span className="block text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-zinc-500 mb-1">
+        <div className="bg-white dark:bg-zinc-900/60 border border-slate-200 dark:border-zinc-800 rounded-2xl p-3.5 lg:p-4 shadow-sm relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-20 h-20 bg-emerald-500/5 rounded-full blur-2xl" />
+          <span className="block text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-zinc-500 mb-1 truncate">
             Cash Collections
           </span>
-          <div className="flex items-baseline gap-1 mt-1">
-            <span className="text-2xl sm:text-3xl font-black text-emerald-600 dark:text-emerald-400 font-mono">
+          <div className="flex items-baseline gap-1 mt-0.5">
+            <span className="text-xl lg:text-2xl font-black text-emerald-600 dark:text-emerald-400 font-mono tabular-nums">
               ₹{currentMetrics.cash.toLocaleString('en-IN')}
             </span>
           </div>
-          <span className="text-[10px] text-slate-400 dark:text-zinc-500 font-medium mt-2 block">
+          <span className="text-[10px] text-slate-400 dark:text-zinc-500 font-medium mt-1.5 block truncate">
             {currentMetrics.total > 0
               ? `${Math.round((currentMetrics.cash / currentMetrics.total) * 100)}% of total revenue`
               : '0%'}
@@ -572,18 +759,34 @@ export default function PaymentsDashboardClient({ initialPayments, stats, curren
         </div>
 
         {/* Unique Athletes Paid */}
-        <div className="bg-white dark:bg-zinc-900/60 border border-slate-200 dark:border-zinc-800 rounded-3xl p-5 shadow-sm relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/5 rounded-full blur-2xl" />
-          <span className="block text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-zinc-500 mb-1">
+        <div className="bg-white dark:bg-zinc-900/60 border border-slate-200 dark:border-zinc-800 rounded-2xl p-3.5 lg:p-4 shadow-sm relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-20 h-20 bg-blue-500/5 rounded-full blur-2xl" />
+          <span className="block text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-zinc-500 mb-1 truncate">
             Fighters Paid
           </span>
-          <div className="flex items-baseline gap-1 mt-1">
-            <span className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white font-mono">
+          <div className="flex items-baseline gap-1 mt-0.5">
+            <span className="text-xl lg:text-2xl font-black text-slate-900 dark:text-white font-mono tabular-nums">
               {currentMetrics.uniqueAthletes}
             </span>
           </div>
-          <span className="text-[10px] text-slate-400 dark:text-zinc-500 font-medium mt-2 block">
+          <span className="text-[10px] text-slate-400 dark:text-zinc-500 font-medium mt-1.5 block truncate">
             Across {currentMetrics.count} transactions
+          </span>
+        </div>
+
+        {/* Pending Fee Receivable */}
+        <div className="col-span-2 md:col-span-1 bg-white dark:bg-zinc-900/60 border border-orange-200 dark:border-orange-900/40 rounded-2xl p-3.5 lg:p-4 shadow-sm relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-20 h-20 bg-orange-500/5 rounded-full blur-2xl" />
+          <span className="block text-[10px] font-black uppercase tracking-wider text-orange-600 dark:text-orange-400 mb-1 truncate">
+            Pending Receivable
+          </span>
+          <div className="flex items-baseline gap-1 mt-0.5">
+            <span className="text-xl lg:text-2xl font-black text-orange-600 dark:text-orange-400 font-mono tabular-nums">
+              ₹{livePendingTotal.toLocaleString('en-IN')}
+            </span>
+          </div>
+          <span className="text-[10px] text-slate-400 dark:text-zinc-500 font-medium mt-1.5 block truncate">
+            {duesList.length} fighter{duesList.length !== 1 ? 's' : ''} with balance due
           </span>
         </div>
       </div>
@@ -726,20 +929,40 @@ export default function PaymentsDashboardClient({ initialPayments, stats, curren
 
                     {/* Plan */}
                     <td className="py-4 px-4 sm:px-6">
-                      <span className="inline-flex px-2 py-0.5 rounded-md text-[11px] font-black uppercase tracking-wider bg-slate-100 dark:bg-zinc-800 text-slate-800 dark:text-zinc-200 border border-slate-200 dark:border-zinc-700/60">
-                        {payment.durationMonths === 1
-                          ? '🥊 1 Month'
-                          : payment.durationMonths === 3
-                          ? '🔥 3 Months Quarter'
-                          : `${payment.durationMonths} Months`}
-                      </span>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span
+                          className={`inline-flex px-2 py-0.5 rounded-md text-[11px] font-black uppercase tracking-wider border ${
+                            payment.paymentType === 'Balance Settlement' || payment.durationMonths === 0
+                              ? 'bg-orange-500/15 text-orange-600 dark:text-orange-400 border-orange-500/25'
+                              : 'bg-slate-100 dark:bg-zinc-800 text-slate-800 dark:text-zinc-200 border-slate-200 dark:border-zinc-700/60'
+                          }`}
+                        >
+                          {payment.paymentType === 'Balance Settlement' || payment.durationMonths === 0
+                            ? '💵 Balance Settlement'
+                            : payment.durationMonths === 1
+                            ? '🥊 1 Month'
+                            : payment.durationMonths === 3
+                            ? '🔥 3 Months Quarter'
+                            : `${payment.durationMonths} Months`}
+                        </span>
+                        {payment.paymentType === 'Partial Renewal' && (
+                          <span className="inline-flex px-1.5 py-0.5 rounded text-[9px] font-black uppercase bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/25">
+                            Partial
+                          </span>
+                        )}
+                      </div>
                     </td>
 
                     {/* Amount Paid */}
                     <td className="py-4 px-4 sm:px-6 text-right whitespace-nowrap">
-                      <span className="font-mono font-black text-sm sm:text-base text-slate-900 dark:text-white">
+                      <span className="font-mono font-black text-sm sm:text-base text-slate-900 dark:text-white block">
                         ₹{payment.amount.toLocaleString('en-IN')}
                       </span>
+                      {payment.paymentType === 'Partial Renewal' && payment.expectedAmount && (
+                        <span className="text-[10px] font-mono text-orange-600 dark:text-orange-400 block">
+                          of ₹{payment.expectedAmount.toLocaleString('en-IN')} pack
+                        </span>
+                      )}
                     </td>
 
                     {/* Method */}
@@ -950,6 +1173,117 @@ export default function PaymentsDashboardClient({ initialPayments, stats, curren
                 )}
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* COLLECT PENDING BALANCE MODAL */}
+      {collectFighter && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
+          onClick={() => !isCollecting && setCollectFighter(null)}
+        >
+          <div
+            className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-3xl w-full max-w-md p-6 shadow-2xl space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-2 pb-3 border-b border-slate-100 dark:border-zinc-800">
+              <div>
+                <h3 className="text-base font-black text-slate-900 dark:text-white uppercase tracking-tight">
+                  Collect Pending Balance
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
+                  Fighter: <strong className="text-slate-800 dark:text-zinc-200">{collectFighter.name}</strong> • Due:{' '}
+                  <strong className="text-orange-600 dark:text-orange-400 font-mono">
+                    ₹{Number(collectFighter.pendingBalance).toLocaleString('en-IN')}
+                  </strong>
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => !isCollecting && setCollectFighter(null)}
+                className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-zinc-800 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmitCollect} className="space-y-4">
+              <div>
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400 mb-1">
+                  Amount Collected (₹) *
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  step="any"
+                  required
+                  value={collectAmount}
+                  onChange={(e) => setCollectAmount(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 text-slate-900 dark:text-white text-sm font-bold font-mono focus:outline-none focus:ring-2 focus:ring-orange-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400 mb-1.5">
+                  Payment Mode *
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  {['Cash', 'UPI'].map((method) => (
+                    <button
+                      key={method}
+                      type="button"
+                      onClick={() => setCollectMethod(method)}
+                      className={`py-2 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer ${
+                        collectMethod === method
+                          ? 'border-orange-500 bg-orange-500/10 text-orange-600 dark:text-orange-400'
+                          : 'border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-400'
+                      }`}
+                    >
+                      {method === 'Cash' ? <Banknote className="w-3.5 h-3.5" /> : <QrCode className="w-3.5 h-3.5" />}
+                      <span>{method === 'Cash' ? 'Cash Counter' : 'UPI Online'}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400 mb-1">
+                  Note (Optional)
+                </label>
+                <input
+                  type="text"
+                  value={collectNote}
+                  onChange={(e) => setCollectNote(e.target.value)}
+                  placeholder="e.g. Cleared remaining balance"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 text-slate-900 dark:text-white text-xs focus:outline-none focus:ring-2 focus:ring-orange-500"
+                />
+              </div>
+
+              {collectError && (
+                <div className="p-2.5 rounded-xl bg-red-500/10 border border-red-500/30 text-xs font-semibold text-red-600 dark:text-red-400">
+                  {collectError}
+                </div>
+              )}
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-zinc-800">
+                <button
+                  type="button"
+                  onClick={() => setCollectFighter(null)}
+                  disabled={isCollecting}
+                  className="px-4 py-2 rounded-xl border border-slate-200 dark:border-zinc-800 text-xs font-semibold text-slate-600 dark:text-zinc-400 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isCollecting}
+                  className="px-5 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-extrabold shadow-md shadow-orange-500/20 flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  {isCollecting ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : 'Confirm Collection'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

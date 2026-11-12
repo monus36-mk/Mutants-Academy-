@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useTransition } from 'react';
+import { useState, useEffect, useTransition, useRef } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useModalBackHandler } from '@/hooks/useModalBackHandler';
 import {
@@ -40,7 +40,6 @@ export default function SearchFilters({ coaches, isAdmin, currentUser }) {
   const tenureFilter = searchParams.get('tenureFilter') || '';
   const sortBy = searchParams.get('sortBy') || 'SeniorFirst';
 
-  // Staged Filter State (for modal)
   const [stagedFilters, setStagedFilters] = useState({
     status,
     assignedCoach,
@@ -51,6 +50,18 @@ export default function SearchFilters({ coaches, isAdmin, currentUser }) {
     tenureFilter,
     sortBy,
   });
+  const [draftSearch, setDraftSearch] = useState(null);
+  const searchDebounceRef = useRef(null);
+  const displayedSearch =
+    draftSearch && draftSearch.baseSearch === search ? draftSearch.value : search;
+
+  useEffect(() => {
+    return () => {
+      if (searchDebounceRef.current) {
+        clearTimeout(searchDebounceRef.current);
+      }
+    };
+  }, []);
 
   // Keep staged state in sync when URL changes
   useEffect(() => {
@@ -91,7 +102,12 @@ export default function SearchFilters({ coaches, isAdmin, currentUser }) {
 
   // Calculate active filters from URL
   const activeFilters = [];
-  if (status) activeFilters.push({ key: 'status', label: `Status: ${status}` });
+  if (status) {
+    activeFilters.push({
+      key: 'status',
+      label: `Status: ${status === 'PendingDue' ? 'Pending Fee Due' : status}`,
+    });
+  }
   if (assignedCoach && coaches) {
     const coachObj = coaches.find((c) => c._id === assignedCoach);
     activeFilters.push({ key: 'assignedCoach', label: `Coach: ${coachObj ? coachObj.name : 'Selected'}` });
@@ -128,16 +144,22 @@ export default function SearchFilters({ coaches, isAdmin, currentUser }) {
   ].filter(Boolean).length;
 
   const handleSearchChange = (val) => {
-    const params = new URLSearchParams(searchParams.toString());
-    if (val) {
-      params.set('search', val);
-    } else {
-      params.delete('search');
+    setDraftSearch({ value: val, baseSearch: search });
+    if (searchDebounceRef.current) {
+      clearTimeout(searchDebounceRef.current);
     }
-    params.delete('page');
-    startTransition(() => {
-      router.push(`${pathname}?${params.toString()}`);
-    });
+    searchDebounceRef.current = setTimeout(() => {
+      const params = new URLSearchParams(searchParams.toString());
+      if (val) {
+        params.set('search', val);
+      } else {
+        params.delete('search');
+      }
+      params.delete('page');
+      startTransition(() => {
+        router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+      });
+    }, 180);
   };
 
   const handleRemoveFilter = (key) => {
@@ -154,6 +176,10 @@ export default function SearchFilters({ coaches, isAdmin, currentUser }) {
   };
 
   const handleClearAll = () => {
+    if (searchDebounceRef.current) {
+      clearTimeout(searchDebounceRef.current);
+    }
+    setDraftSearch(null);
     setStagedFilters({
       status: '',
       assignedCoach: '',
@@ -204,7 +230,7 @@ export default function SearchFilters({ coaches, isAdmin, currentUser }) {
   };
 
   return (
-    <div className="bg-white dark:bg-zinc-900/60 border border-slate-200 dark:border-zinc-800 rounded-2xl md:rounded-3xl p-3 sm:p-4 shadow-sm space-y-2.5 mb-6 transition-all duration-200">
+    <div className="bg-white dark:bg-zinc-900/60 border border-slate-200 dark:border-zinc-800 rounded-2xl p-2.5 sm:p-3.5 shadow-sm space-y-2.5 transition-all duration-200">
       {/* Search & Single Filter Button Bar */}
       <div className="flex items-center gap-2 sm:gap-3">
         {/* Search Input */}
@@ -213,7 +239,7 @@ export default function SearchFilters({ coaches, isAdmin, currentUser }) {
           <input
             type="text"
             placeholder="Search fighter by name..."
-            defaultValue={search}
+            value={displayedSearch}
             onChange={(e) => handleSearchChange(e.target.value)}
             className="w-full pl-10 pr-4 py-2.5 rounded-xl md:rounded-2xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900/40 text-slate-900 dark:text-zinc-100 placeholder-slate-400 dark:placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-red-500 text-sm font-semibold transition-all"
           />
@@ -378,6 +404,7 @@ export default function SearchFilters({ coaches, isAdmin, currentUser }) {
                     { id: 'Active', label: 'Active' },
                     { id: 'Due Soon', label: 'Due Soon' },
                     { id: 'Expired', label: 'Expired' },
+                    { id: 'PendingDue', label: 'Pending Fee Due' },
                   ].map((opt) => {
                     const isSelected = stagedFilters.status === opt.id;
                     return (

@@ -3,8 +3,9 @@ import { getCurrentUser } from '@/app/actions/authActions';
 import { getFighterProfile } from '@/app/actions/fighterActions';
 import { getFighterPayments } from '@/app/actions/paymentActions';
 import ThemeToggle from '@/components/ThemeToggle';
+import LogoutButton from '@/components/LogoutButton';
 import Link from 'next/link';
-import { Dumbbell, Clock, LogOut, CheckCircle2, AlertTriangle, XCircle, ArrowLeft, CreditCard, Banknote, QrCode, ArrowUpRight, Calendar, Users, User } from 'lucide-react';
+import { Dumbbell, Clock, CheckCircle2, AlertTriangle, XCircle, ArrowLeft, CreditCard, Banknote, QrCode, ArrowUpRight, Calendar, Users, User, IndianRupee } from 'lucide-react';
 import FighterProfileClient from './FighterProfileClient';
 import { resolveFighterFees, resolveFighterPackFee } from '@/lib/utils';
 
@@ -14,27 +15,17 @@ export default async function FighterProfilePage() {
     redirect('/login');
   }
 
-  const profileRes = await getFighterProfile();
-  if (!profileRes.success) {
-    if (profileRes.error === 'Fighter profile not found') {
-      const { logout } = require('@/app/actions/authActions');
-      await logout();
-      redirect('/login');
-    }
+  const [profileRes, paymentsRes] = await Promise.all([
+    getFighterProfile(user.id),
+    getFighterPayments(user.id),
+  ]);
+
+  if (!profileRes.success || !profileRes.fighter) {
+    redirect('/api/auth/logout');
   }
 
   const fighter = profileRes.fighter;
-
-  // Fetch payment history for this fighter
-  const paymentsRes = await getFighterPayments(fighter._id);
   const payments = paymentsRes.success ? paymentsRes.payments : [];
-
-  const handleLogout = async () => {
-    'use server';
-    const { logout } = require('@/app/actions/authActions');
-    await logout();
-    redirect('/login');
-  };
 
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
@@ -96,12 +87,12 @@ export default async function FighterProfilePage() {
       {/* Header */}
       <header className="sticky top-0 z-40 w-full border-b border-slate-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-md transition-colors duration-200">
         <div className="w-full max-w-7xl xl:max-w-[1440px] 2xl:max-w-[1720px] 3xl:max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12">
-          <div className="flex h-16 items-center justify-between">
-            <Link href="/fighter" className="flex items-center gap-2 text-xs font-bold text-slate-500 hover:text-red-500 transition-colors uppercase tracking-wider">
-              <ArrowLeft className="w-4 h-4" /> Back to Dashboard
+          <div className="flex h-14 sm:h-16 items-center justify-between gap-2">
+            <Link href="/fighter" className="flex items-center gap-2 text-xs font-bold text-slate-500 hover:text-red-500 transition-colors uppercase tracking-wider whitespace-nowrap">
+              <ArrowLeft className="w-4 h-4 shrink-0" /> Back to Dashboard
             </Link>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 sm:gap-3 shrink-0">
               {/* Pay Gym CTA Header Button (Desktop only; on mobile, athletes pay directly from the profile bar below) */}
               <Link
                 href={`/renew/${fighter._id}`}
@@ -120,33 +111,32 @@ export default async function FighterProfilePage() {
 
               <ThemeToggle />
 
-              <form action={handleLogout} className="hidden sm:block">
-                <button
-                  type="submit"
-                  className="p-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 text-slate-500 dark:text-zinc-400 hover:bg-red-50 dark:hover:bg-red-950/20 hover:text-red-600 hover:border-red-200 dark:hover:border-red-900/50 transition-all duration-200 cursor-pointer"
+              <div className="hidden sm:block">
+                <LogoutButton
+                  showLabel={false}
+                  iconClassName="w-5 h-5"
+                  className="p-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 text-slate-500 dark:text-zinc-400 hover:bg-red-50 dark:hover:bg-red-950/20 hover:text-red-600 hover:border-red-200 dark:hover:border-red-900/50 transition-all duration-200 cursor-pointer flex items-center justify-center"
                   title="Logout Portal"
-                >
-                  <LogOut className="w-5 h-5" />
-                </button>
-              </form>
+                />
+              </div>
             </div>
           </div>
         </div>
       </header>
 
       {/* Main Profile View */}
-      <main className="flex-1 w-full max-w-7xl xl:max-w-[1440px] 2xl:max-w-[1720px] 3xl:max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 py-6 md:py-8 space-y-8 animate-in fade-in duration-300 pb-24 md:pb-8">
+      <main className="flex-1 w-full max-w-7xl xl:max-w-[1440px] 2xl:max-w-[1720px] 3xl:max-w-[1920px] mx-auto px-3.5 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 py-4 sm:py-6 md:py-8 space-y-5 sm:space-y-8 animate-in fade-in duration-300 pb-24 md:pb-8">
         
         {/* Profile Welcome Banner */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-gradient-to-r from-slate-900 to-zinc-900 dark:from-zinc-900 dark:to-black rounded-3xl p-6 md:p-8 text-white shadow-xl border border-slate-800 dark:border-zinc-800">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 sm:gap-6 bg-gradient-to-r from-slate-900 to-zinc-900 dark:from-zinc-900 dark:to-black rounded-2xl sm:rounded-3xl p-4 sm:p-6 md:p-8 text-white shadow-xl border border-slate-800 dark:border-zinc-800">
           <div>
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-600/25 border border-red-500/30 text-xs font-bold text-red-400 uppercase tracking-wider mb-3">
-              <Dumbbell className="w-3.5 h-3.5" /> Fighter Account Details
+            <div className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-full bg-red-600/25 border border-red-500/30 text-[10px] sm:text-xs font-bold text-red-400 uppercase tracking-wide sm:tracking-wider mb-2.5 sm:mb-3 whitespace-nowrap">
+              <Dumbbell className="w-3 h-3 sm:w-3.5 sm:h-3.5 shrink-0" /> Fighter Account Details
             </div>
-            <h1 className="text-2xl md:text-3xl font-black uppercase tracking-tight">
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-black uppercase tracking-tight">
               Osu, {fighter.name}!
             </h1>
-            <p className="text-slate-400 text-sm mt-1 max-w-xl">
+            <p className="text-slate-400 text-xs sm:text-sm mt-1 max-w-xl leading-relaxed">
               Track your subscription validity, package logs, assigned training supervisor, and contact information.
             </p>
           </div>
@@ -256,6 +246,30 @@ export default async function FighterProfilePage() {
                 </span>
               </div>
 
+              {(fighter.pendingBalance || 0) > 0 && (
+                <div className="p-3 rounded-2xl bg-orange-500/10 border border-orange-500/35 flex items-center justify-between gap-3">
+                  <div className="flex items-start gap-2 min-w-0">
+                    <IndianRupee className="w-4 h-4 text-orange-500 shrink-0 mt-0.5" />
+                    <div className="min-w-0">
+                      <span className="text-[11px] font-black uppercase tracking-wider text-orange-700 dark:text-orange-400 block">
+                        Pending Balance: ₹{Number(fighter.pendingBalance).toLocaleString('en-IN')}
+                      </span>
+                      {fighter.pendingFeeNote && (
+                        <span className="text-[10px] text-slate-500 dark:text-zinc-400 block truncate">
+                          {fighter.pendingFeeNote}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <Link
+                    href={`/renew/${fighter._id}?mode=settle`}
+                    className="px-3 py-1.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-[11px] font-extrabold shrink-0"
+                  >
+                    Pay Due
+                  </Link>
+                </div>
+              )}
+
               <Link
                 href={`/renew/${fighter._id}`}
                 className="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-red-600 via-red-500 to-amber-600 hover:from-red-500 hover:to-amber-500 text-white font-black text-xs uppercase tracking-wider shadow-lg shadow-red-600/25 flex items-center justify-center gap-2 transition-all hover:scale-[1.02] active:scale-[0.98] text-center cursor-pointer"
@@ -310,7 +324,13 @@ export default async function FighterProfilePage() {
                         ₹{p.amount.toLocaleString('en-IN')}
                       </span>
                       <span className="text-[10px] font-bold text-slate-500 dark:text-zinc-400">
-                        ({p.durationMonths} Mo{p.durationMonths > 1 ? 's' : ''})
+                        {p.paymentType === 'Balance Settlement' || p.durationMonths === 0
+                          ? '(Balance Settlement)'
+                          : `(${p.durationMonths} Mo${p.durationMonths > 1 ? 's' : ''}${
+                              p.paymentType === 'Partial Renewal' && p.expectedAmount
+                                ? ` • Partial of ₹${Number(p.expectedAmount).toLocaleString('en-IN')}`
+                                : ''
+                            })`}
                       </span>
                       <span className={`inline-flex items-center gap-0.5 px-2 py-0.5 rounded text-[9px] font-bold uppercase ${
                         p.paymentMethod === 'Cash'
@@ -350,14 +370,14 @@ export default async function FighterProfilePage() {
             </p>
           </div>
           
-          <form action={handleLogout} className="w-full sm:w-auto">
-            <button
-              type="submit"
-              className="w-full sm:w-auto px-6 py-3.5 rounded-2xl bg-red-600 hover:bg-red-700 active:scale-95 text-white font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-2.5 transition-all shadow-lg shadow-red-600/20 cursor-pointer"
-            >
-              <LogOut className="w-4 h-4" /> Log Out of Athlete Portal
-            </button>
-          </form>
+          <div className="w-full sm:w-auto">
+            <LogoutButton
+              label="Log Out of Athlete Portal"
+              iconClassName="w-4 h-4"
+              className="w-full sm:w-auto px-6 py-3.5 rounded-2xl bg-red-600 hover:bg-red-700 active:scale-95 text-white font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-2.5 transition-all shadow-lg shadow-red-600/20 cursor-pointer disabled:opacity-60"
+              title="Log Out of Athlete Portal"
+            />
+          </div>
         </div>
 
       </main>

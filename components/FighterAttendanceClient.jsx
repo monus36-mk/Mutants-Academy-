@@ -281,8 +281,8 @@ export default function FighterAttendanceClient({
       
       {/* Top Header */}
       <header className="sticky top-0 z-40 w-full border-b border-slate-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-md transition-colors duration-200">
-        <div className="w-full max-w-7xl xl:max-w-[1440px] 2xl:max-w-[1720px] 3xl:max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12">
-          <div className="flex h-16 items-center justify-between">
+        <div className="w-full max-w-7xl xl:max-w-[1440px] 2xl:max-w-[1720px] 3xl:max-w-[1920px] mx-auto px-3.5 sm:px-6 lg:px-8 xl:px-10 2xl:px-12">
+          <div className="flex h-14 sm:h-16 items-center justify-between gap-2">
             
             {/* Back button */}
             <Link
@@ -294,13 +294,13 @@ export default function FighterAttendanceClient({
             </Link>
 
             {/* Header Right Controls */}
-            <div className="flex items-center gap-2.5 sm:gap-4">
+            <div className="flex items-center gap-2 sm:gap-4 shrink-0">
               
               {/* History Sub-Page Icon Button (Toggle between Today's Mats & History) */}
               <button
                 type="button"
                 onClick={() => setActiveView(activeView === 'mats' ? 'history' : 'mats')}
-                className={`px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-2xl border text-xs font-black uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer ${
+                className={`h-9 sm:h-10 px-2.5 sm:px-3.5 rounded-2xl border text-xs font-black uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer ${
                   activeView === 'history'
                     ? 'bg-red-600 text-white border-red-600 shadow-md shadow-red-600/25'
                     : 'bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-slate-700 dark:text-zinc-300 hover:border-red-500 hover:text-red-500'
@@ -333,7 +333,7 @@ export default function FighterAttendanceClient({
       </header>
 
       {/* Main Content Area */}
-      <main className="flex-1 w-full max-w-7xl xl:max-w-[1440px] 2xl:max-w-[1720px] 3xl:max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 py-6 md:py-8 space-y-6 animate-in fade-in duration-300 pb-28 md:pb-12">
+      <main className="flex-1 w-full max-w-7xl xl:max-w-[1440px] 2xl:max-w-[1720px] 3xl:max-w-[1920px] mx-auto px-3.5 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 py-4 sm:py-6 md:py-8 space-y-4 sm:space-y-6 animate-in fade-in duration-300 pb-28 md:pb-12">
         
         {/* Action Toast / Feedback message */}
         {actionMsg && (
@@ -355,10 +355,10 @@ export default function FighterAttendanceClient({
 
         {/* ---------------- VIEW 1: TODAY'S LIVE ATTENDANCE & LEADERBOARD ---------------- */}
         {activeView === 'mats' && (
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6">
             
             {/* User Welcome Card (Matching AAMEC Top Header Card) */}
-            <div className="bg-white dark:bg-zinc-900/60 border border-slate-200 dark:border-zinc-800 rounded-3xl p-6 md:p-8 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="bg-white dark:bg-zinc-900/60 border border-slate-200 dark:border-zinc-800 rounded-2xl sm:rounded-3xl p-4 sm:p-6 md:p-8 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
                 <h1 className="text-xl md:text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tight">
                   Welcome back, {fighter.name}
@@ -387,7 +387,7 @@ export default function FighterAttendanceClient({
             </div>
 
             {/* Attendance Punch Box Card (Matching Screenshot 1) */}
-            <div className="bg-white dark:bg-zinc-900/60 border border-slate-200 dark:border-zinc-800 rounded-3xl p-6 md:p-8 shadow-sm space-y-6">
+            <div className="bg-white dark:bg-zinc-900/60 border border-slate-200 dark:border-zinc-800 rounded-2xl sm:rounded-3xl p-4 sm:p-6 md:p-8 shadow-sm space-y-5 sm:space-y-6">
               
               {/* Header title inside box */}
               <div className="flex items-center justify-between border-b border-slate-100 dark:border-zinc-800 pb-4">

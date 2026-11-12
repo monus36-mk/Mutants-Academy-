@@ -22,12 +22,13 @@ import {
   ArrowRight,
   ArrowLeft,
   User,
-  ExternalLink
+  ExternalLink,
+  IndianRupee
 } from 'lucide-react';
 import { submitPendingRenewal, checkPaymentStatus } from '@/app/actions/paymentActions';
 import { resolveFighterFees } from '@/lib/utils';
 
-export default function RenewPaymentClient({ fighter, upiConfig }) {
+export default function RenewPaymentClient({ fighter, upiConfig, initialMode = 'renew' }) {
   const router = useRouter();
 
   const handleBack = () => {
@@ -64,10 +65,17 @@ export default function RenewPaymentClient({ fighter, upiConfig }) {
     },
   ];
 
-  // Default to 1 Month or fighter's existing package duration if 3
+  const pendingDue = Math.max(0, Number(fighter.pendingBalance) || 0);
+
+  // Default to Pending Balance Settlement if requested & due > 0, else 3M / 1M package
   const [selectedMonths, setSelectedMonths] = useState(
-    fighter.packageDurationMonths === 3 ? 3 : 1
+    pendingDue > 0 && initialMode === 'settle'
+      ? 0
+      : fighter.packageDurationMonths === 3
+      ? 3
+      : 1
   );
+  const [settleAmount, setSettleAmount] = useState(pendingDue || 0);
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState('');
   const [copiedUpi, setCopiedUpi] = useState(false);
   const [copiedAmount, setCopiedAmount] = useState(false);
@@ -79,7 +87,15 @@ export default function RenewPaymentClient({ fighter, upiConfig }) {
   const [successData, setSuccessData] = useState(null);
   const [errorMsg, setErrorMsg] = useState('');
 
+  const isSettlement = selectedMonths === 0 && pendingDue > 0;
   const currentPackage = PACKAGES.find((p) => p.months === selectedMonths) || PACKAGES[0];
+  const parsedSettleAmount = Number(settleAmount);
+  const activeAmount = isSettlement
+    ? Number.isFinite(parsedSettleAmount) && parsedSettleAmount > 0
+      ? parsedSettleAmount
+      : pendingDue
+    : currentPackage.amount;
+  const activeTitle = isSettlement ? '💵 Pending Fee Settlement' : currentPackage.title;
   const upiId = process.env.NEXT_PUBLIC_GYM_UPI_ID || upiConfig?.vpa || 'monuskumar36@okicici';
   const upiName = process.env.NEXT_PUBLIC_GYM_UPI_NAME || upiConfig?.name || 'Mutants Academy';
 
@@ -100,10 +116,12 @@ export default function RenewPaymentClient({ fighter, upiConfig }) {
     });
   };
 
-  const transactionNote = `Mutants Renewal - ${fighter.name} (${selectedMonths}M)`;
+  const transactionNote = isSettlement
+    ? `Mutants Pending Fee - ${fighter.name}`
+    : `Mutants Renewal - ${fighter.name} (${selectedMonths}M)`;
   const upiDeepLink = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(
     upiName
-  )}&am=${currentPackage.amount}&cu=INR&tn=${encodeURIComponent(transactionNote)}`;
+  )}&am=${activeAmount}&cu=INR&tn=${encodeURIComponent(transactionNote)}`;
 
   // Generate dynamic QR code whenever package or fighter changes
   useEffect(() => {
@@ -155,7 +173,7 @@ export default function RenewPaymentClient({ fighter, upiConfig }) {
           setIsSuccess(true);
           setSuccessData({
             newExpiryDate: res.expiryDate || res.fighterNextPaymentDate,
-            amount: currentPackage.amount,
+            amount: activeAmount,
             status: res.fighterStatus,
           });
           clearInterval(interval);
@@ -173,7 +191,7 @@ export default function RenewPaymentClient({ fighter, upiConfig }) {
       isMounted = false;
       clearInterval(interval);
     };
-  }, [pendingPaymentId, isPendingReview, isSuccess, currentPackage.amount]);
+  }, [pendingPaymentId, isPendingReview, isSuccess, activeAmount]);
 
   const handleConfirmPayment = async (e) => {
     if (e) e.preventDefault();
@@ -184,8 +202,8 @@ export default function RenewPaymentClient({ fighter, upiConfig }) {
       const cleanUtr = utrNumber.trim();
       const res = await submitPendingRenewal({
         fighterId: fighter._id,
-        durationMonths: selectedMonths,
-        amount: currentPackage.amount,
+        durationMonths: isSettlement ? 0 : selectedMonths,
+        amount: activeAmount,
         utr: cleanUtr,
         paymentMethod: 'UPI',
       });
@@ -199,8 +217,9 @@ export default function RenewPaymentClient({ fighter, upiConfig }) {
         setIsSuccess(true);
         setSuccessData({
           newExpiryDate: res.expiryDate,
-          amount: currentPackage.amount,
+          amount: activeAmount,
           status: res.fighterStatus,
+          pendingBalance: res.pendingBalance,
         });
         return;
       }
@@ -270,11 +289,17 @@ export default function RenewPaymentClient({ fighter, upiConfig }) {
           </div>
 
           <h2 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white mb-2">
-            Renewal Confirmed, {fighter.name}!
+            {isSettlement ? `Balance Payment Confirmed, ${fighter.name}!` : `Renewal Confirmed, ${fighter.name}!`}
           </h2>
           <p className="text-sm sm:text-base text-slate-600 dark:text-zinc-400 max-w-md mx-auto mb-8">
-            Your Mutants Academy package has been successfully extended for{' '}
-            <strong className="text-slate-900 dark:text-zinc-100">{selectedMonths} Month(s)</strong>.
+            {isSettlement ? (
+              <>Your pending fee balance payment has been verified and updated in your account.</>
+            ) : (
+              <>
+                Your Mutants Academy package has been successfully extended for{' '}
+                <strong className="text-slate-900 dark:text-zinc-100">{selectedMonths} Month(s)</strong>.
+              </>
+            )}
           </p>
 
           {/* Receipt Breakdown Card */}
@@ -293,19 +318,27 @@ export default function RenewPaymentClient({ fighter, upiConfig }) {
               </div>
             </div>
             <div className="flex justify-between items-center text-xs text-slate-500 dark:text-zinc-400">
-              <span>Plan Selected:</span>
-              <span className="font-bold text-slate-800 dark:text-zinc-200">{currentPackage.title}</span>
+              <span>{isSettlement ? 'Payment Type:' : 'Plan Selected:'}</span>
+              <span className="font-bold text-slate-800 dark:text-zinc-200">{activeTitle}</span>
             </div>
             <div className="flex justify-between items-center text-xs text-slate-500 dark:text-zinc-400">
               <span>Amount Paid:</span>
               <span className="font-bold text-emerald-600 dark:text-emerald-400 text-sm">
-                ₹{currentPackage.amount.toLocaleString('en-IN')}
+                ₹{activeAmount.toLocaleString('en-IN')}
               </span>
             </div>
             <div className="flex justify-between items-center text-xs text-slate-500 dark:text-zinc-400 border-t border-slate-200 dark:border-zinc-800/80 pt-2.5">
-              <span>New Expiry Date:</span>
+              <span>{isSettlement ? 'Pass Expiry Date:' : 'New Expiry Date:'}</span>
               <span className="font-mono font-bold text-slate-900 dark:text-white">
-                {computeNewExpiryDate(selectedMonths)}
+                {isSettlement
+                  ? fighter.nextPaymentDate
+                    ? new Date(fighter.nextPaymentDate).toLocaleDateString('en-IN', {
+                        day: 'numeric',
+                        month: 'long',
+                        year: 'numeric',
+                      })
+                    : 'Active'
+                  : computeNewExpiryDate(selectedMonths)}
               </span>
             </div>
             {fighter.phone && (
@@ -397,7 +430,63 @@ export default function RenewPaymentClient({ fighter, upiConfig }) {
               </div>
             </div>
 
-            {/* Exactly 2 Membership Renewal Plans: 1 Month (₹1,200) & 3 Months (₹4,000) */}
+            {/* Pending Balance Settlement Option when fighter owes a partial balance */}
+            {pendingDue > 0 && (
+              <div
+                onClick={() => setSelectedMonths(0)}
+                className={`p-5 rounded-3xl border-2 transition-all cursor-pointer space-y-3 ${
+                  isSettlement
+                    ? 'border-orange-500 bg-orange-500/10 dark:bg-orange-950/25 shadow-lg shadow-orange-500/10'
+                    : 'border-orange-500/35 bg-orange-500/5 hover:border-orange-500/60'
+                }`}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-start gap-2.5">
+                    <div className="w-9 h-9 rounded-xl bg-orange-500/20 text-orange-600 dark:text-orange-400 flex items-center justify-center shrink-0">
+                      <IndianRupee className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <span className="text-[10px] font-black uppercase tracking-wider text-orange-600 dark:text-orange-400 block">
+                        Pending Balance Due
+                      </span>
+                      <h3 className="font-extrabold text-slate-900 dark:text-white text-base">
+                        Pay Outstanding Fee Balance Only
+                      </h3>
+                      {fighter.pendingFeeNote && (
+                        <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-0.5">
+                          Note: {fighter.pendingFeeNote}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <span className="font-mono font-black text-xl text-orange-600 dark:text-orange-400 shrink-0">
+                    ₹{pendingDue.toLocaleString('en-IN')}
+                  </span>
+                </div>
+
+                {isSettlement && (
+                  <div
+                    className="pt-2.5 border-t border-orange-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-2"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <label className="text-[11px] font-bold text-slate-700 dark:text-zinc-300">
+                      Amount paying via UPI now (₹):
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      max={pendingDue}
+                      step="1"
+                      value={settleAmount}
+                      onChange={(e) => setSettleAmount(e.target.value)}
+                      className="w-full sm:w-36 px-3 py-1.5 rounded-xl border border-orange-500/40 bg-white dark:bg-zinc-950 text-slate-900 dark:text-white font-mono font-bold text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    />
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Exactly 2 Membership Renewal Plans: 1 Month & 3 Months */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <label className="text-xs font-black uppercase tracking-wider text-slate-500 dark:text-zinc-400">
@@ -497,7 +586,7 @@ export default function RenewPaymentClient({ fighter, upiConfig }) {
                   </h3>
                 </div>
                 <span className="text-xs font-mono font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md">
-                  ₹{currentPackage.amount.toLocaleString('en-IN')}
+                  ₹{activeAmount.toLocaleString('en-IN')}
                 </span>
               </div>
 
@@ -528,7 +617,7 @@ export default function RenewPaymentClient({ fighter, upiConfig }) {
                   className="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-red-600 to-red-500 hover:from-red-500 hover:to-red-600 text-white font-bold text-sm shadow-lg shadow-red-600/25 flex items-center justify-center gap-2 transition-all hover:scale-[1.02] active:scale-[0.98] text-center cursor-pointer"
                 >
                   <Smartphone className="w-4 h-4" />
-                  Pay ₹{currentPackage.amount.toLocaleString('en-IN')} via UPI App
+                  Pay ₹{activeAmount.toLocaleString('en-IN')} via UPI App
                 </a>
                 <p className="text-[11px] text-center text-slate-400 dark:text-zinc-500 mt-1.5">
                   Opens Google Pay / PhonePe / Paytm directly on your phone
@@ -584,7 +673,7 @@ export default function RenewPaymentClient({ fighter, upiConfig }) {
                     <div className="bg-white/80 dark:bg-zinc-950/80 border border-amber-500/30 rounded-xl p-3 text-left space-y-1.5 text-xs font-mono">
                       <div className="flex justify-between text-slate-500 dark:text-zinc-400 text-[11px]">
                         <span>Amount Claimed:</span>
-                        <span className="font-bold text-slate-900 dark:text-white">₹{currentPackage.amount.toLocaleString('en-IN')}</span>
+                        <span className="font-bold text-slate-900 dark:text-white">₹{activeAmount.toLocaleString('en-IN')}</span>
                       </div>
                       {utrNumber && (
                         <div className="flex justify-between text-slate-500 dark:text-zinc-400 text-[11px]">
@@ -638,7 +727,10 @@ export default function RenewPaymentClient({ fighter, upiConfig }) {
                       ) : (
                         <>
                           <CheckCircle2 className="w-4 h-4" />
-                          <span>I Have Paid ₹{currentPackage.amount.toLocaleString('en-IN')} — Activate Pass</span>
+                          <span>
+                            I Have Paid ₹{activeAmount.toLocaleString('en-IN')} —{' '}
+                            {isSettlement ? 'Clear Balance' : 'Activate Pass'}
+                          </span>
                         </>
                       )}
                     </button>

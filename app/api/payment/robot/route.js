@@ -3,6 +3,7 @@ import Fighter from '@/models/Fighter';
 import Payment from '@/models/Payment';
 import BankCredit from '@/models/BankCredit';
 import { sendPaymentSuccessWhatsApp } from '@/lib/whatsapp';
+import { applyCompletedPaymentToFighter } from '@/lib/paymentLifecycle';
 import { revalidatePath } from 'next/cache';
 import { NextResponse } from 'next/server';
 
@@ -174,28 +175,19 @@ export async function POST(request) {
         });
       }
 
-      // Strict continuous renewal calculation
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-
-      let baseDate = new Date(fighter.nextPaymentDate);
-      if (isNaN(baseDate.getTime())) {
-        baseDate = today;
-      }
-
-      const durationMonths = pendingPayment.durationMonths || 1;
-      const newPaymentDate = new Date(baseDate);
-      newPaymentDate.setMonth(newPaymentDate.getMonth() + durationMonths);
-
-      fighter.packageDurationMonths = durationMonths;
-      fighter.nextPaymentDate = newPaymentDate;
-      fighter.status = newPaymentDate >= today ? 'Active' : 'Expired';
-      fighter.isInactive = false;
+      const outcome = applyCompletedPaymentToFighter(fighter, {
+        amount: cleanAmount || pendingPayment.amount,
+        durationMonths: pendingPayment.durationMonths,
+        paymentType: pendingPayment.paymentType,
+      });
       await fighter.save();
 
       // Complete payment
       pendingPayment.status = 'Completed';
-      pendingPayment.expiryDate = newPaymentDate;
+      pendingPayment.expiryDate = outcome.nextPaymentDate || fighter.nextPaymentDate;
+      pendingPayment.expectedAmount = pendingPayment.expectedAmount ?? outcome.expectedAmount;
+      pendingPayment.paymentType = outcome.paymentType;
+      pendingPayment.durationMonths = outcome.durationMonths;
       pendingPayment.transactionId = cleanUtr;
       pendingPayment.notes = `Auto-activated by Robot (${bank} UTR: ${cleanUtr})`.trim();
       await pendingPayment.save();
@@ -213,9 +205,12 @@ export async function POST(request) {
             phone: fighter.phone,
             name: fighter.name,
             amount: cleanAmount || pendingPayment.amount,
-            durationMonths,
-            nextPaymentDate: newPaymentDate,
+            durationMonths: outcome.durationMonths,
+            nextPaymentDate: outcome.nextPaymentDate || fighter.nextPaymentDate,
             style: fighter.style || 'MMA',
+            paymentType: outcome.paymentType,
+            expectedAmount: outcome.expectedAmount,
+            remainingBalance: outcome.newPendingBalance,
           });
         } catch (waErr) {
           console.error('[Bank Robot] Failed to dispatch WhatsApp receipt:', waErr);
@@ -224,18 +219,21 @@ export async function POST(request) {
 
       revalidatePath('/admin');
       revalidatePath('/admin/payments');
+      revalidatePath('/fighter');
+      revalidatePath('/fighter/profile');
       revalidatePath(`/renew/${fighter._id}`);
 
-      console.log(`[Bank Robot] SUCCESS! Activated pass for ${fighter.name} until ${newPaymentDate.toISOString()}`);
+      console.log(`[Bank Robot] SUCCESS! Activated pass for ${fighter.name}`);
 
       return NextResponse.json({
         success: true,
         matched: true,
         fighterName: fighter.name,
-        newExpiryDate: newPaymentDate.toISOString(),
+        newExpiryDate: outcome.nextPaymentDate ? outcome.nextPaymentDate.toISOString() : null,
         amount: cleanAmount,
         utr: cleanUtr,
         status: fighter.status,
+        pendingBalance: outcome.newPendingBalance,
       });
     }
 

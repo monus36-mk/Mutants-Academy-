@@ -16,7 +16,10 @@ export default async function EditFighterPage({ params }) {
   }
 
   await dbConnect();
-  const fighter = await Fighter.findById(id).lean();
+  const [fighter, coachRes] = await Promise.all([
+    Fighter.findById(id).lean(),
+    user.role === 'MainAdmin' ? getCoaches() : Promise.resolve({ success: false }),
+  ]);
   
   if (!fighter) {
     redirect('/admin');
@@ -40,15 +43,11 @@ export default async function EditFighterPage({ params }) {
     nextPaymentDate: fighter.nextPaymentDate ? fighter.nextPaymentDate.toISOString() : null,
     monthlyFee: fees.monthlyFee,
     quarterlyFee: fees.quarterlyFee,
+    pendingBalance: Math.max(0, Number(fighter.pendingBalance) || 0),
+    pendingFeeNote: fighter.pendingFeeNote || '',
   };
 
-  let coaches = [];
-  if (user.role === 'MainAdmin') {
-    const coachRes = await getCoaches();
-    if (coachRes.success) {
-      coaches = coachRes.coaches;
-    }
-  }
+  const coaches = coachRes?.success ? coachRes.coaches : [];
 
   return (
     <div className="space-y-6">

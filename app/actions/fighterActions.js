@@ -9,6 +9,7 @@ import { revalidatePath } from 'next/cache';
 import bcrypt from 'bcryptjs';
 
 import { calculateStatus, getDefaultQuarterlyFee, resolveFighterFees, resolveFighterPackFee } from '@/lib/utils';
+import { applyCompletedPaymentToFighter } from '@/lib/paymentLifecycle';
 
 function parseFeeValue(raw, fallback) {
   if (raw === null || raw === undefined || String(raw).trim() === '') return fallback;
@@ -28,11 +29,21 @@ export async function getFighters(filters = {}) {
       return { error: 'Unauthorized' };
     }
 
-    const dbUser = await User.findById(user.id).lean();
-    const userRole = dbUser ? dbUser.role : user.role;
-    const userCategory = dbUser ? dbUser.category : null;
+    let userRole = user.role;
+    let userCategory = null;
+    if (userRole === 'Coach') {
+      const dbUser = await User.findById(user.id).select('role category').lean();
+      userRole = dbUser ? dbUser.role : user.role;
+      userCategory = dbUser ? dbUser.category : null;
+    }
 
     const query = {};
+
+    if (filters.inactiveOnly) {
+      query.isInactive = true;
+    } else if (!filters.includeInactive) {
+      query.isInactive = { $ne: true };
+    }
 
     // Access control: Coaches can only view students in their discipline (field of study)
     if (userRole === 'Coach') {
@@ -102,6 +113,8 @@ export async function getFighters(filters = {}) {
         eca: f.eca || 'None',
         monthlyFee: fees.monthlyFee,
         quarterlyFee: fees.quarterlyFee,
+        pendingBalance: Math.max(0, Number(f.pendingBalance) || 0),
+        pendingFeeNote: f.pendingFeeNote || '',
       };
     });
 
@@ -114,7 +127,11 @@ export async function getFighters(filters = {}) {
 
     // Client-side status filtering if specified
     if (filters.status) {
-      serializedFighters = serializedFighters.filter(f => f.status === filters.status);
+      if (filters.status === 'PendingDue') {
+        serializedFighters = serializedFighters.filter(f => f.pendingBalance > 0);
+      } else {
+        serializedFighters = serializedFighters.filter(f => f.status === filters.status);
+      }
     }
 
     // Filter by Martial Style (style)
@@ -208,6 +225,8 @@ export async function addFighter(prevState, formData) {
       formData.get('quarterlyFee'),
       getDefaultQuarterlyFee(monthlyFee)
     );
+    const pendingBalance = parseFeeValue(formData.get('pendingBalance'), 0);
+    const pendingFeeNote = pendingBalance > 0 ? (formData.get('pendingFeeNote')?.trim() || '') : '';
 
     if (!name || !phone || !email || !dobStr || !weightClass || !experienceLevel || !packageDurationMonths || !style) {
       return { error: 'Please fill in all required fields.' };
@@ -262,6 +281,8 @@ export async function addFighter(prevState, formData) {
       packageDurationMonths,
       monthlyFee,
       quarterlyFee,
+      pendingBalance,
+      pendingFeeNote,
       nextPaymentDate,
       status,
       password: hashedPassword,
@@ -286,12 +307,19 @@ export async function addFighter(prevState, formData) {
   }
 }
 
-export async function renewFighterSubscription(fighterId, durationMonths, amount, paymentMethod = 'Cash', resetFromToday = false) {
+export async function renewFighterSubscription(
+  fighterId,
+  durationMonths,
+  amount,
+  paymentMethod = 'Cash',
+  resetFromToday = false,
+  options = {}
+) {
   try {
     await dbConnect();
 
     const user = await getCurrentUser();
-    if (!user) {
+    if (!user || user.role === 'Fighter') {
       return { error: 'Unauthorized' };
     }
 
@@ -301,7 +329,7 @@ export async function renewFighterSubscription(fighterId, durationMonths, amount
     }
 
     // Permission check: Coach can only renew their own fighters
-    if (user.role === 'Coach' && fighter.assignedCoach.toString() !== user.id) {
+    if (user.role === 'Coach' && fighter.assignedCoach?.toString() !== user.id) {
       return { error: 'Unauthorized to renew this fighter.' };
     }
 
@@ -310,48 +338,54 @@ export async function renewFighterSubscription(fighterId, durationMonths, amount
       return { error: 'Invalid renewal duration.' };
     }
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    let baseDate = new Date(fighter.nextPaymentDate);
-
-    // Strict Continuous Renewal:
-    // Only reset from today if admin explicitly checked the waiver, or if the date was invalid.
-    // If overdue by 2 months and pays 1 month, baseDate remains nextPaymentDate so gym never loses fees.
-    if (resetFromToday || isNaN(baseDate.getTime())) {
-      baseDate = today;
-    }
-
-    const newPaymentDate = new Date(baseDate);
-    newPaymentDate.setMonth(newPaymentDate.getMonth() + packageDuration);
-
-    fighter.packageDurationMonths = packageDuration;
-    fighter.nextPaymentDate = newPaymentDate;
-    fighter.status = newPaymentDate >= today ? 'Active' : 'Expired';
-    fighter.isInactive = false;
-
-    await fighter.save();
+    const { keepShortfallAsDue = true, feeNote } = options || {};
 
     // Determine final payment amount
-    let finalAmount = Number(amount);
-    if (!finalAmount || isNaN(finalAmount) || finalAmount <= 0) {
-      finalAmount = resolveFighterPackFee(fighter, packageDuration);
-    }
+    const rawAmount = Number(amount);
+    const finalAmount =
+      !rawAmount || isNaN(rawAmount) || rawAmount <= 0
+        ? resolveFighterPackFee(fighter, packageDuration)
+        : rawAmount;
+
+    const outcome = applyCompletedPaymentToFighter(fighter, {
+      amount: finalAmount,
+      durationMonths: packageDuration,
+      resetFromToday,
+      keepShortfallAsDue,
+      feeNote,
+    });
+
+    await fighter.save();
 
     const validMethod = ['UPI', 'Cash', 'YouPI', 'Bank Transfer'].includes(paymentMethod) ? paymentMethod : 'Cash';
 
     // Record in Payment ledger
-    const waiverTag = resetFromToday ? ' [Cycle reset from today]' : '';
+    const noteParts = [`Admin renewal (${validMethod}) by ${user.name || user.role}`];
+    if (resetFromToday) noteParts.push('[Cycle reset from today]');
+    if (outcome.shortfallAdded > 0) {
+      noteParts.push(`[Partial: ₹${outcome.shortfallAdded} added to pending due]`);
+    } else if (outcome.paidAmount < outcome.expectedAmount && !keepShortfallAsDue) {
+      noteParts.push(`[₹${outcome.expectedAmount - outcome.paidAmount} shortfall waived]`);
+    } else if (outcome.clearedFromExcess > 0) {
+      noteParts.push(`[Cleared ₹${outcome.clearedFromExcess} prior due]`);
+    }
+    if (typeof feeNote === 'string' && feeNote.trim()) {
+      noteParts.push(`— ${feeNote.trim()}`);
+    }
+
     const payment = await Payment.create({
       fighterId: fighter._id,
       fighterName: fighter.name,
       phone: fighter.phone,
-      amount: finalAmount,
-      durationMonths: packageDuration,
+      amount: outcome.paidAmount,
+      expectedAmount: outcome.expectedAmount,
+      paymentType: outcome.paymentType,
+      durationMonths: outcome.durationMonths,
       paymentDate: new Date(),
-      expiryDate: newPaymentDate,
+      expiryDate: outcome.nextPaymentDate,
       paymentMethod: validMethod,
       status: 'Completed',
-      notes: `Admin renewal (${validMethod}) by ${user.name || user.role}${waiverTag}`,
+      notes: noteParts.join(' '),
     });
 
     // Dispatch official WhatsApp payment & renewal receipt with exact amount paid
@@ -360,10 +394,13 @@ export async function renewFighterSubscription(fighterId, durationMonths, amount
         await sendPaymentSuccessWhatsApp({
           phone: fighter.phone,
           name: fighter.name,
-          amount: finalAmount,
-          durationMonths: packageDuration,
-          nextPaymentDate: newPaymentDate,
+          amount: outcome.paidAmount,
+          durationMonths: outcome.durationMonths,
+          nextPaymentDate: outcome.nextPaymentDate,
           style: fighter.style || 'MMA',
+          paymentType: outcome.paymentType,
+          expectedAmount: outcome.expectedAmount,
+          remainingBalance: outcome.newPendingBalance,
         });
       } catch (waErr) {
         console.error('Failed to send renewal confirmation WhatsApp:', waErr);
@@ -373,10 +410,105 @@ export async function renewFighterSubscription(fighterId, durationMonths, amount
     revalidatePath('/admin');
     revalidatePath('/admin/payments');
     revalidatePath('/fighter');
-    return { success: true, paymentId: payment._id.toString() };
+    revalidatePath('/fighter/profile');
+    revalidatePath(`/renew/${fighterId}`);
+    return {
+      success: true,
+      paymentId: payment._id.toString(),
+      paymentType: outcome.paymentType,
+      pendingBalance: outcome.newPendingBalance,
+    };
   } catch (err) {
     console.error('Error renewing subscription:', err);
     return { error: 'Failed to renew subscription.' };
+  }
+}
+
+export async function collectPendingBalance(fighterId, amount, paymentMethod = 'Cash', feeNote = '') {
+  try {
+    await dbConnect();
+
+    const user = await getCurrentUser();
+    if (!user || user.role === 'Fighter') {
+      return { error: 'Unauthorized' };
+    }
+
+    const fighter = await Fighter.findById(fighterId);
+    if (!fighter) {
+      return { error: 'Fighter not found' };
+    }
+
+    if (user.role === 'Coach' && fighter.assignedCoach?.toString() !== user.id) {
+      return { error: 'Unauthorized to collect fee for this fighter.' };
+    }
+
+    const paidAmount = Number(amount);
+    if (!Number.isFinite(paidAmount) || paidAmount <= 0) {
+      return { error: 'Please enter a valid payment amount greater than 0.' };
+    }
+
+    const outcome = applyCompletedPaymentToFighter(fighter, {
+      amount: paidAmount,
+      durationMonths: 0,
+      paymentType: 'Balance Settlement',
+      feeNote,
+    });
+
+    await fighter.save();
+
+    const validMethod = ['UPI', 'Cash', 'YouPI', 'Bank Transfer'].includes(paymentMethod) ? paymentMethod : 'Cash';
+    const statusTag =
+      outcome.newPendingBalance > 0
+        ? `[₹${outcome.newPendingBalance} remaining]`
+        : '[Balance cleared]';
+    const trimmedNote = typeof feeNote === 'string' && feeNote.trim() ? ` — ${feeNote.trim()}` : '';
+
+    const payment = await Payment.create({
+      fighterId: fighter._id,
+      fighterName: fighter.name,
+      phone: fighter.phone,
+      amount: outcome.paidAmount,
+      expectedAmount: outcome.expectedAmount,
+      paymentType: 'Balance Settlement',
+      durationMonths: 0,
+      paymentDate: new Date(),
+      expiryDate: outcome.nextPaymentDate || fighter.nextPaymentDate,
+      paymentMethod: validMethod,
+      status: 'Completed',
+      notes: `Pending fee collection (${validMethod}) by ${user.name || user.role} ${statusTag}${trimmedNote}`,
+    });
+
+    if (fighter.phone) {
+      try {
+        await sendPaymentSuccessWhatsApp({
+          phone: fighter.phone,
+          name: fighter.name,
+          amount: outcome.paidAmount,
+          durationMonths: 0,
+          nextPaymentDate: outcome.nextPaymentDate || fighter.nextPaymentDate,
+          style: fighter.style || 'MMA',
+          paymentType: 'Balance Settlement',
+          expectedAmount: outcome.expectedAmount,
+          remainingBalance: outcome.newPendingBalance,
+        });
+      } catch (waErr) {
+        console.error('Failed to send pending settlement WhatsApp:', waErr);
+      }
+    }
+
+    revalidatePath('/admin');
+    revalidatePath('/admin/payments');
+    revalidatePath('/fighter');
+    revalidatePath('/fighter/profile');
+    revalidatePath(`/renew/${fighterId}`);
+    return {
+      success: true,
+      paymentId: payment._id.toString(),
+      pendingBalance: outcome.newPendingBalance,
+    };
+  } catch (err) {
+    console.error('Error collecting pending balance:', err);
+    return { error: 'Failed to collect pending fee.' };
   }
 }
 
@@ -485,6 +617,18 @@ export async function updateFighter(fighterId, prevState, formData) {
     if (parsedQuarterlyFee !== null) {
       fighter.quarterlyFee = parsedQuarterlyFee;
     }
+
+    if (formData.has('pendingBalance')) {
+      const parsedPending = parseFeeValue(formData.get('pendingBalance'), 0);
+      fighter.pendingBalance = parsedPending;
+      if (parsedPending === 0 && !formData.get('pendingFeeNote')?.trim()) {
+        fighter.pendingFeeNote = '';
+      }
+    }
+    if (formData.has('pendingFeeNote')) {
+      const note = formData.get('pendingFeeNote')?.trim() || '';
+      fighter.pendingFeeNote = fighter.pendingBalance > 0 ? note : '';
+    }
     if (assignedCoach) {
       fighter.assignedCoach = assignedCoach;
     }
@@ -567,6 +711,8 @@ export async function getFighterProfile(userId = null) {
         isInactive: Boolean(fighter.isInactive),
         monthlyFee: fees.monthlyFee,
         quarterlyFee: fees.quarterlyFee,
+        pendingBalance: Math.max(0, Number(fighter.pendingBalance) || 0),
+        pendingFeeNote: fighter.pendingFeeNote || '',
       }
     };
   } catch (err) {
@@ -629,8 +775,9 @@ export async function getPeers(userId = null) {
       }
     }
 
-    // Retrieve all fighters excluding sensitive info
+    // Retrieve all fighters excluding sensitive auth fields
     const fighters = await Fighter.find({})
+      .select('name phone email dob weightClass experienceLevel joiningDate entryDate style eca bio photo isInactive assignedCoach')
       .populate('assignedCoach', 'name email')
       .sort({ name: 1 })
       .lean();

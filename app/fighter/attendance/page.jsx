@@ -27,9 +27,7 @@ export default async function FighterAttendancePage() {
   ]);
 
   if (!profileRes.success || !profileRes.fighter) {
-    const { logout } = require('@/app/actions/authActions');
-    await logout();
-    redirect('/login');
+    redirect('/api/auth/logout');
   }
 
   const todayStr = new Intl.DateTimeFormat('en-CA', {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition, useMemo, useEffect, useRef } from 'react';
+import { useState, useTransition, useMemo, useEffect, useRef, useCallback } from 'react';
 import { 
   getAttendanceForDate, 
   adminManualPunch,
@@ -59,6 +59,7 @@ export default function AttendanceDashboardClient({ initialData, initialDate, cu
   // History modal for any fighter
   const [historyModalFighter, setHistoryModalFighter] = useState(null);
   const [historyModalData, setHistoryModalData] = useState(null);
+  const [historyError, setHistoryError] = useState(null);
   const [loadingHistory, setLoadingHistory] = useState(false);
 
   // Gym Location settings modal state
@@ -74,12 +75,18 @@ export default function AttendanceDashboardClient({ initialData, initialDate, cu
   const [isCapturingGPS, setIsCapturingGPS] = useState(false);
   const [isSavingLocation, setIsSavingLocation] = useState(false);
 
-  useModalBackHandler(Boolean(historyModalFighter), (open) => {
+  const historyRequestRef = useRef(0);
+
+  const handleHistoryOpenChange = useCallback((open) => {
     if (!open) {
+      historyRequestRef.current += 1;
       setHistoryModalFighter(null);
       setHistoryModalData(null);
+      setHistoryError(null);
     }
-  }, 'adminAttendanceHistory');
+  }, []);
+
+  useModalBackHandler(Boolean(historyModalFighter), handleHistoryOpenChange, 'adminAttendanceHistory');
   useModalBackHandler(showLocationModal, setShowLocationModal, 'adminGymLocation');
 
   const knownTodayRef = useRef(getTodayISTDate());
@@ -140,14 +147,28 @@ export default function AttendanceDashboardClient({ initialData, initialDate, cu
   }, [activeMenuFighterId]);
 
   const openHistoryModal = async (fighter) => {
+    const requestId = ++historyRequestRef.current;
     setHistoryModalFighter(fighter);
     setHistoryModalData(null);
+    setHistoryError(null);
     setLoadingHistory(true);
-    const res = await getFighterAttendanceHistory(fighter.fighterId);
-    if (res.success) {
-      setHistoryModalData(res);
+    try {
+      const res = await getFighterAttendanceHistory(fighter.fighterId);
+      if (historyRequestRef.current !== requestId) return;
+      if (res?.success) {
+        setHistoryModalData(res);
+      } else {
+        setHistoryError(res?.error || 'Could not load training history.');
+      }
+    } catch (err) {
+      if (historyRequestRef.current !== requestId) return;
+      console.error('History fetch error:', err);
+      setHistoryError('Failed to fetch training history. Please try again.');
+    } finally {
+      if (historyRequestRef.current === requestId) {
+        setLoadingHistory(false);
+      }
     }
-    setLoadingHistory(false);
   };
 
   // Date shifting helpers using pure UTC calendar math on YYYY-MM-DD (avoids IST midnight shift)
@@ -849,7 +870,10 @@ export default function AttendanceDashboardClient({ initialData, initialDate, cu
                       {/* Explicit History Button */}
                       <button
                         type="button"
-                        onClick={() => openHistoryModal(fighter)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openHistoryModal(fighter);
+                        }}
                         className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-slate-700 dark:text-zinc-300 hover:border-red-500 hover:text-red-500 text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm"
                         title="View athlete monthly history and stats"
                       >
@@ -916,11 +940,8 @@ export default function AttendanceDashboardClient({ initialData, initialDate, cu
       {/* ---------------- ATHLETE HISTORY MODAL (Exact match to Screenshot 2) ---------------- */}
       {historyModalFighter && (
         <div
-          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
-          onClick={() => {
-            setHistoryModalFighter(null);
-            setHistoryModalData(null);
-          }}
+          className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={() => handleHistoryOpenChange(false)}
         >
           <div
             className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-3xl max-w-2xl w-full p-6 shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-200"
@@ -947,10 +968,7 @@ export default function AttendanceDashboardClient({ initialData, initialDate, cu
 
               <button
                 type="button"
-                onClick={() => {
-                  setHistoryModalFighter(null);
-                  setHistoryModalData(null);
-                }}
+                onClick={() => handleHistoryOpenChange(false)}
                 className="p-2 rounded-2xl bg-slate-100 dark:bg-zinc-800 text-slate-500 hover:text-slate-800 dark:hover:text-zinc-200 transition-colors cursor-pointer"
               >
                 <X className="w-5 h-5" />
@@ -960,6 +978,17 @@ export default function AttendanceDashboardClient({ initialData, initialDate, cu
             {loadingHistory ? (
               <div className="py-16 text-center text-xs font-bold text-slate-400">
                 Loading monthly training history...
+              </div>
+            ) : historyError ? (
+              <div className="py-12 text-center space-y-3">
+                <p className="text-xs font-bold text-red-500">{historyError}</p>
+                <button
+                  type="button"
+                  onClick={() => openHistoryModal(historyModalFighter)}
+                  className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-black uppercase tracking-wider cursor-pointer"
+                >
+                  Retry
+                </button>
               </div>
             ) : historyModalData ? (
               <div className="space-y-6">
@@ -1050,7 +1079,7 @@ export default function AttendanceDashboardClient({ initialData, initialDate, cu
       {/* ---------------- GYM LOCATION / GEOFENCE SETTINGS MODAL ---------------- */}
       {showLocationModal && (
         <div
-          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+          className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
           onClick={() => setShowLocationModal(false)}
         >
           <form

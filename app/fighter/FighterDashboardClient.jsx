@@ -4,14 +4,14 @@ import { useState, useTransition, useMemo, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { toggleEventRSVP, toggleEventLike, addEventComment } from '@/app/actions/eventActions';
-import { logout } from '@/app/actions/authActions';
 import ThemeToggle from '@/components/ThemeToggle';
+import { performClientLogout } from '@/lib/clientAuth';
 import { 
   Dumbbell, Calendar, Phone, Mail, Award, Clock, LogOut, 
   CheckCircle2, AlertTriangle, XCircle, Users, Bell, 
   MessageSquare, UserCheck, Sparkles, Filter, Search, ShieldAlert,
   MapPin, HelpCircle, User, Mic, X, Heart, Send, Pin,
-  CreditCard, Banknote, QrCode, ArrowUpRight
+  CreditCard, Banknote, QrCode, ArrowUpRight, IndianRupee
 } from 'lucide-react';
 import { formatWhatsAppNumber, resolveFighterFees, resolveFighterPackFee } from '@/lib/utils';
 import PeerSearchFilters from '@/components/PeerSearchFilters';
@@ -73,13 +73,18 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
     peerDisplayStyle = selectedPeer.eca;
   }
 
-  // Initialize read notices count on mount
+  // Initialize read notices count and prefetch key athlete routes on mount
   useEffect(() => {
     const cachedCount = localStorage.getItem('readNoticesCount');
     if (cachedCount) {
       setReadNoticesCount(parseInt(cachedCount, 10));
     }
-  }, []);
+    router.prefetch('/fighter/attendance');
+    router.prefetch('/fighter/profile');
+    if (fighter?._id) {
+      router.prefetch(`/renew/${fighter._id}`);
+    }
+  }, [router, fighter?._id]);
 
   // Close bell dropdown when clicking outside
   useEffect(() => {
@@ -372,20 +377,20 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
       
       {/* Header */}
       <header className="sticky top-0 z-40 w-full border-b border-slate-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-md transition-colors duration-200">
-        <div className="w-full max-w-7xl xl:max-w-[1440px] 2xl:max-w-[1720px] 3xl:max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12">
-          <div className="flex h-16 items-center justify-between flex-nowrap">
+        <div className="w-full max-w-7xl xl:max-w-[1440px] 2xl:max-w-[1720px] 3xl:max-w-[1920px] mx-auto px-3.5 sm:px-6 lg:px-8 xl:px-10 2xl:px-12">
+          <div className="flex h-14 sm:h-16 items-center justify-between flex-nowrap gap-2">
             {/* Logo */}
-            <div className="flex items-center gap-2.5 md:gap-3">
-              <div className="w-10 h-10 flex items-center justify-center shrink-0">
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center shrink-0">
                 <img src="/logo.png" alt="Mutants Academy" className="w-full h-full object-contain drop-shadow-md" />
               </div>
-              <span className="font-black tracking-tight text-lg md:text-xl text-slate-900 dark:text-white uppercase">
+              <span className="font-black tracking-tight text-[15px] min-[390px]:text-base sm:text-xl text-slate-900 dark:text-white uppercase whitespace-nowrap truncate">
                 Mutants <span className="text-red-600">Academy</span>
               </span>
             </div>
 
             {/* Header Actions */}
-            <div className="flex items-center gap-2.5 md:gap-4">
+            <div className="flex items-center gap-2 sm:gap-3 md:gap-4 shrink-0">
               
               {/* Notification Bell */}
               <div id="notification-bell-container" className="static sm:relative">
@@ -397,7 +402,7 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
                       localStorage.setItem('readNoticesCount', initialEvents.length.toString());
                     }
                   }}
-                  className="w-10 h-10 rounded-2xl border border-slate-200 dark:border-zinc-800 flex items-center justify-center text-slate-500 bg-white dark:bg-zinc-900 hover:bg-slate-50 dark:hover:bg-zinc-800 transition-all cursor-pointer relative"
+                  className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl border border-slate-200 dark:border-zinc-800 flex items-center justify-center text-slate-500 bg-white dark:bg-zinc-900 hover:bg-slate-50 dark:hover:bg-zinc-800 transition-all cursor-pointer relative shrink-0"
                   title="Notifications & Notices"
                 >
                   <Bell className="w-5 h-5" />
@@ -492,15 +497,10 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
               <div className="hidden sm:block shrink-0">
                 <button
                   type="button"
-                  onClick={async () => {
+                  onClick={() => {
                     setShowBellDropdown(false);
                     setSelectedEvent(null);
-                    try {
-                      localStorage.removeItem('mutants_auth_token');
-                      localStorage.removeItem('mutants_user_role');
-                    } catch (e) {}
-                    await logout();
-                    window.location.href = '/login';
+                    performClientLogout();
                   }}
                   className="p-2.5 rounded-2xl border border-slate-200 dark:border-zinc-800 text-slate-500 dark:text-zinc-400 bg-white dark:bg-zinc-900 hover:bg-red-50 dark:hover:bg-red-950/20 hover:text-red-600 hover:border-red-200 dark:hover:border-red-900/50 transition-all duration-200 cursor-pointer"
                   title="Logout Portal"
@@ -535,55 +535,55 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
       )}
 
       {/* Main Content */}
-      <main className="flex-1 w-full max-w-7xl xl:max-w-[1440px] 2xl:max-w-[1720px] 3xl:max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 py-6 md:py-8 space-y-8 animate-in fade-in duration-300 pb-24 md:pb-8">
+      <main className="flex-1 w-full max-w-7xl xl:max-w-[1440px] 2xl:max-w-[1720px] 3xl:max-w-[1920px] mx-auto px-3.5 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 py-4 sm:py-6 md:py-8 space-y-5 md:space-y-8 animate-in fade-in duration-300 pb-24 md:pb-8">
         
         {/* Athlete Banner */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-gradient-to-r from-slate-900 to-zinc-900 dark:from-zinc-900 dark:to-black rounded-3xl p-6 md:p-8 text-white shadow-xl border border-slate-800 dark:border-zinc-800">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 sm:gap-5 md:gap-6 bg-gradient-to-r from-slate-900 to-zinc-900 dark:from-zinc-900 dark:to-black rounded-2xl sm:rounded-3xl p-4 sm:p-6 md:p-8 text-white shadow-xl border border-slate-800 dark:border-zinc-800">
           <div>
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-600/25 border border-red-500/30 text-xs font-bold text-red-400 uppercase tracking-wider mb-3">
-              <Sparkles className="w-3.5 h-3.5 text-red-400" /> Mutants Academy Athlete Network
+            <div className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-full bg-red-600/25 border border-red-500/30 text-[10px] sm:text-xs font-bold text-red-400 uppercase tracking-wide sm:tracking-wider mb-2.5 sm:mb-3 whitespace-nowrap max-w-full">
+              <Sparkles className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-red-400 shrink-0" /> Mutants Academy Athlete Network
             </div>
-            <h1 className="text-2xl md:text-3xl font-black uppercase tracking-tight">
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-black uppercase tracking-tight">
               Osu, {fighter.name}!
             </h1>
-            <p className="text-slate-405 text-sm mt-1 max-w-xl">
+            <p className="text-slate-400 text-xs sm:text-sm mt-1 max-w-xl leading-relaxed">
               Fighter Portal active. Review notice boards, join training schedules, and connect with sparring partners. Click the profile icon in the header to view billing cycles.
             </p>
           </div>
 
           {/* Dynamic counts & Pay CTA */}
-          <div className="shrink-0 flex flex-wrap items-center gap-3 text-xs font-black uppercase tracking-widest">
+          <div className="w-full md:w-auto shrink-0 grid grid-cols-2 md:flex md:flex-wrap items-stretch md:items-center gap-2.5 sm:gap-3 text-xs font-black uppercase tracking-wider sm:tracking-widest">
             <Link
               href="/fighter/attendance"
-              className="px-4 py-3 bg-emerald-600 hover:bg-emerald-500 rounded-2xl flex items-center gap-2.5 shadow-md shadow-emerald-600/30 transition-all hover:scale-105 active:scale-95 text-white border border-emerald-500/30 cursor-pointer"
+              className="px-3.5 py-2.5 sm:px-4 sm:py-3 bg-emerald-600 hover:bg-emerald-500 rounded-2xl flex items-center gap-2 sm:gap-2.5 shadow-md shadow-emerald-600/30 transition-all hover:scale-105 active:scale-95 text-white border border-emerald-500/30 cursor-pointer min-w-0"
               title="Mat Attendance & Live Check-In"
             >
-              <UserCheck className="w-4 h-4" />
-              <div className="text-left">
+              <UserCheck className="w-4 h-4 shrink-0" />
+              <div className="text-left min-w-0">
                 <span className="block text-[8px] font-black text-emerald-200 tracking-wider">DAILY MATS</span>
-                <span className="text-xs font-black uppercase">Attendance</span>
+                <span className="block text-[11px] sm:text-xs font-black uppercase truncate">Attendance</span>
               </div>
             </Link>
 
             <Link
               href={`/renew/${fighter._id}`}
-              className="px-4 py-3 bg-red-600 hover:bg-red-500 rounded-2xl flex items-center gap-2.5 shadow-md shadow-red-600/30 transition-all hover:scale-105 active:scale-95 text-white border border-red-500/30"
+              className="px-3.5 py-2.5 sm:px-4 sm:py-3 bg-red-600 hover:bg-red-500 rounded-2xl flex items-center gap-2 sm:gap-2.5 shadow-md shadow-red-600/30 transition-all hover:scale-105 active:scale-95 text-white border border-red-500/30 min-w-0"
               title="Renew membership pass or pay monthly fee"
             >
-              <CreditCard className="w-4 h-4" />
-              <div className="text-left">
+              <CreditCard className="w-4 h-4 shrink-0" />
+              <div className="text-left min-w-0">
                 <span className="block text-[8px] font-black text-red-200 tracking-wider">FEE RENEWAL</span>
-                <span className="text-xs font-black uppercase">Pay Gym</span>
+                <span className="block text-[11px] sm:text-xs font-black uppercase truncate">Pay Gym</span>
               </div>
             </Link>
 
-            <div className="px-4 py-3 bg-slate-800/50 dark:bg-zinc-900/60 border border-slate-700/50 dark:border-zinc-800/80 rounded-2xl">
+            <div className="px-3.5 py-2.5 sm:px-4 sm:py-3 bg-slate-800/50 dark:bg-zinc-900/60 border border-slate-700/50 dark:border-zinc-800/80 rounded-2xl flex flex-col justify-center min-w-0">
               <span className="block text-slate-400 text-[8px] font-bold tracking-wider">EVENTS JOINED</span>
-              <span className="text-lg md:text-xl text-red-500 font-extrabold">{upcomingEvents.filter(e => e.rsvps.includes(fighter._id)).length}</span>
+              <span className="text-lg md:text-xl text-red-500 font-extrabold leading-tight mt-0.5">{upcomingEvents.filter(e => e.rsvps.includes(fighter._id)).length}</span>
             </div>
-            <div className="px-4 py-3 bg-slate-800/50 dark:bg-zinc-900/60 border border-slate-700/50 dark:border-zinc-800/80 rounded-2xl">
+            <div className="px-3.5 py-2.5 sm:px-4 sm:py-3 bg-slate-800/50 dark:bg-zinc-900/60 border border-slate-700/50 dark:border-zinc-800/80 rounded-2xl flex flex-col justify-center min-w-0">
               <span className="block text-slate-400 text-[8px] font-bold tracking-wider">ACADEMY PEERS</span>
-              <span className="text-lg md:text-xl text-emerald-450 font-extrabold">{filteredPeers.length}</span>
+              <span className="text-lg md:text-xl text-emerald-400 font-extrabold leading-tight mt-0.5">{filteredPeers.length}</span>
             </div>
           </div>
         </div>
@@ -647,13 +647,13 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
                 </p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 lg:gap-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6 lg:gap-8">
                 {upcomingEvents.map((event) => {
                   const isAttending = event.rsvps.includes(fighter._id);
                   return (
                      <div
                       key={event._id}
-                      className="bg-white dark:bg-zinc-900/50 border border-slate-200 dark:border-zinc-800 hover:border-slate-300 dark:hover:border-zinc-700 rounded-3xl p-6 md:p-8 flex flex-col justify-between shadow-sm hover:shadow-md transition-all group w-full"
+                      className="bg-white dark:bg-zinc-900/50 border border-slate-200 dark:border-zinc-800 hover:border-slate-300 dark:hover:border-zinc-700 rounded-2xl sm:rounded-3xl p-4 sm:p-6 md:p-8 flex flex-col justify-between shadow-sm hover:shadow-md transition-all group w-full"
                     >
                       <div 
                         className="space-y-4 cursor-pointer"
@@ -857,7 +857,7 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
                             <h4 className="font-extrabold text-sm text-slate-800 dark:text-zinc-100 uppercase tracking-tight leading-tight">
                               {peer.name}
                             </h4>
-                            <span className="text-[10px] text-slate-400 dark:text-zinc-555 font-mono block mt-0.5">
+                            <span className="text-[10px] text-slate-400 dark:text-zinc-500 font-mono block mt-0.5">
                               Joined: {new Date(peer.joiningDate).toLocaleDateString('en-US', { year: 'numeric', month: 'short' })}
                             </span>
                           </div>
@@ -944,11 +944,11 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
 
         {/* Tab 3: Billing & Payment History */}
         {activeTab === 'billing' && (
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6">
             
             {/* Membership Overview Card */}
-            <div className="bg-white dark:bg-zinc-900/60 border border-slate-200 dark:border-zinc-800 rounded-3xl p-6 md:p-8 shadow-sm">
-              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+            <div className="bg-white dark:bg-zinc-900/60 border border-slate-200 dark:border-zinc-800 rounded-2xl sm:rounded-3xl p-4 sm:p-6 md:p-8 shadow-sm">
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5 sm:gap-6">
                 
                 <div className="space-y-3">
                   <div className="flex items-center gap-2">
@@ -969,6 +969,30 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
                   <h2 className="text-xl sm:text-2xl font-black uppercase tracking-tight text-slate-900 dark:text-white">
                     {fighter.packageDurationMonths === 1 ? '🥊 1 Month Training Pass' : fighter.packageDurationMonths === 3 ? '🔥 3 Months Quarter Pass' : `${fighter.packageDurationMonths} Months Pass`}
                   </h2>
+
+                  {(fighter.pendingBalance || 0) > 0 && (
+                    <div className="p-3.5 rounded-2xl bg-orange-500/10 border border-orange-500/35 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="flex items-start gap-2.5">
+                        <IndianRupee className="w-4 h-4 text-orange-500 shrink-0 mt-0.5" />
+                        <div>
+                          <span className="text-xs font-black uppercase tracking-wider text-orange-700 dark:text-orange-400 block">
+                            Pending Fee Balance: ₹{Number(fighter.pendingBalance).toLocaleString('en-IN')}
+                          </span>
+                          {fighter.pendingFeeNote && (
+                            <span className="text-[11px] text-slate-600 dark:text-zinc-400 block mt-0.5">
+                              {fighter.pendingFeeNote}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <Link
+                        href={`/renew/${fighter._id}?mode=settle`}
+                        className="px-4 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-extrabold uppercase tracking-wider shadow-sm shadow-orange-500/20 text-center shrink-0 transition-all"
+                      >
+                        Pay Balance Now
+                      </Link>
+                    </div>
+                  )}
 
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 pt-2 text-xs">
                     <div className="p-3 bg-slate-50 dark:bg-zinc-950/60 rounded-2xl border border-slate-100 dark:border-zinc-800/80">
@@ -1046,16 +1070,33 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
                     {initialPayments.map((p) => (
                       <div
                         key={p._id}
-                        className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-slate-50/70 dark:hover:bg-zinc-850/40 transition-colors"
+                        className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 hover:bg-slate-50/70 dark:hover:bg-zinc-800/40 transition-colors"
                       >
                         <div className="space-y-1">
-                          <div className="flex items-center gap-2">
+                          <div className="flex flex-wrap items-center gap-2">
                             <span className="font-mono font-black text-base text-slate-900 dark:text-white">
                               ₹{Number(p.amount).toLocaleString('en-IN')}
                             </span>
-                            <span className="inline-flex px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 border border-slate-200 dark:border-zinc-700/60">
-                              {p.durationMonths === 1 ? '🥊 1 Month' : p.durationMonths === 3 ? '🔥 3 Months' : `${p.durationMonths} Months`}
+                            <span
+                              className={`inline-flex px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider border ${
+                                p.paymentType === 'Balance Settlement' || p.durationMonths === 0
+                                  ? 'bg-orange-500/15 text-orange-600 dark:text-orange-400 border-orange-500/25'
+                                  : 'bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 border-slate-200 dark:border-zinc-700/60'
+                              }`}
+                            >
+                              {p.paymentType === 'Balance Settlement' || p.durationMonths === 0
+                                ? '💵 Balance Settlement'
+                                : p.durationMonths === 1
+                                ? '🥊 1 Month'
+                                : p.durationMonths === 3
+                                ? '🔥 3 Months'
+                                : `${p.durationMonths} Months`}
                             </span>
+                            {p.paymentType === 'Partial Renewal' && p.expectedAmount && (
+                              <span className="inline-flex px-2 py-0.5 rounded text-[10px] font-black uppercase bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/25">
+                                Partial (of ₹{Number(p.expectedAmount).toLocaleString('en-IN')})
+                              </span>
+                            )}
                             <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
                               p.paymentMethod === 'Cash'
                                 ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
@@ -1110,7 +1151,7 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
               </div>
               <button
                 onClick={() => setSelectedEvent(null)}
-                className="p-2 rounded-xl text-slate-400 hover:bg-slate-100 dark:hover:bg-zinc-800 hover:text-slate-600 dark:hover:text-zinc-205 transition-all cursor-pointer shrink-0"
+                className="p-2 rounded-xl text-slate-400 hover:bg-slate-100 dark:hover:bg-zinc-800 hover:text-slate-600 dark:hover:text-zinc-200 transition-all cursor-pointer shrink-0"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -1381,20 +1422,20 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
               </div>
               <button
                 onClick={() => setSelectedPeer(null)}
-                className="p-2 rounded-xl text-slate-400 hover:bg-slate-100 dark:hover:bg-zinc-800 hover:text-slate-600 dark:hover:text-zinc-205 transition-all cursor-pointer"
+                className="p-2 rounded-xl text-slate-400 hover:bg-slate-100 dark:hover:bg-zinc-800 hover:text-slate-600 dark:hover:text-zinc-200 transition-all cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             {/* Modal scrollable body */}
-            <div className="p-6 overflow-y-auto space-y-6 flex-1 text-slate-700 dark:text-zinc-300">
+            <div className="p-4 sm:p-6 overflow-y-auto space-y-5 sm:space-y-6 flex-1 text-slate-700 dark:text-zinc-300">
               
               {/* Detailed attributes grid */}
-              <div className="grid grid-cols-2 gap-x-6 gap-y-4 pt-2 text-xs">
+              <div className="grid grid-cols-2 gap-x-4 sm:gap-x-6 gap-y-4 pt-1 sm:pt-2 text-xs">
                 {peerDisplayStyle && (
                   <div>
-                    <span className="block text-[9px] font-bold text-slate-400 dark:text-zinc-555 uppercase tracking-wider">Martial Style</span>
+                    <span className="block text-[9px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wider">Martial Style</span>
                     <span className="text-sm font-extrabold text-red-500 dark:text-red-400 uppercase tracking-wide block mt-1">
                       {peerDisplayStyle}
                     </span>
@@ -1402,14 +1443,14 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
                 )}
                 {peerDisplayEca && (
                   <div>
-                    <span className="block text-[9px] font-bold text-slate-400 dark:text-zinc-555 uppercase tracking-wider">Extra Activity</span>
+                    <span className="block text-[9px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wider">Extra Activity</span>
                     <span className="text-sm font-bold text-slate-700 dark:text-zinc-200 block mt-1">
                       {peerDisplayEca}
                     </span>
                   </div>
                 )}
                 <div>
-                  <span className="block text-[9px] font-bold text-slate-400 dark:text-zinc-555 uppercase tracking-wider">Experience Level</span>
+                  <span className="block text-[9px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wider">Experience Level</span>
                   <span className={`inline-flex px-2.5 py-0.5 rounded-full text-[11px] font-bold mt-1 ${
                     selectedPeer.experienceLevel === 'Pro' 
                       ? 'bg-purple-100 text-purple-700 dark:bg-purple-950/20 dark:text-purple-400 border border-purple-200 dark:border-purple-900/30'
@@ -1421,25 +1462,25 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
                   </span>
                 </div>
                 <div>
-                  <span className="block text-[9px] font-bold text-slate-400 dark:text-zinc-555 uppercase tracking-wider">Weight Class</span>
+                  <span className="block text-[9px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wider">Weight Class</span>
                   <span className="text-sm font-bold text-slate-700 dark:text-zinc-200 block mt-1">
                     {selectedPeer.weightClass} kg
                   </span>
                 </div>
                 <div>
-                  <span className="block text-[9px] font-bold text-slate-400 dark:text-zinc-555 uppercase tracking-wider">Age Group</span>
+                  <span className="block text-[9px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wider">Age Group</span>
                   <span className="text-sm font-bold text-slate-700 dark:text-zinc-200 block mt-1">
                     {calculateAge(selectedPeer.dob)} yrs ({calculateAge(selectedPeer.dob) < 18 ? 'Youth' : calculateAge(selectedPeer.dob) > 35 ? 'Master' : 'Adult'})
                   </span>
                 </div>
                 <div>
-                  <span className="block text-[9px] font-bold text-slate-400 dark:text-zinc-555 uppercase tracking-wider">Academy Tenure</span>
+                  <span className="block text-[9px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wider">Academy Tenure</span>
                   <span className="text-sm font-bold text-slate-700 dark:text-zinc-200 block mt-1">
                     {formatTenurePeriod(selectedPeer.joiningDate)}
                   </span>
                 </div>
                 <div>
-                  <span className="block text-[9px] font-bold text-slate-400 dark:text-zinc-555 uppercase tracking-wider">Joined Date</span>
+                  <span className="block text-[9px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wider">Joined Date</span>
                   <span className="text-sm font-bold text-slate-700 dark:text-zinc-200 font-mono block mt-1">
                     {new Date(selectedPeer.joiningDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
                   </span>
@@ -1448,7 +1489,7 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
 
               {/* Bio & Achievements Section */}
               <div className="border-t border-slate-100 dark:border-zinc-800/80 pt-5 space-y-2">
-                <h4 className="text-xs font-black uppercase tracking-wider text-slate-400 dark:text-zinc-555 flex items-center gap-1.5">
+                <h4 className="text-xs font-black uppercase tracking-wider text-slate-400 dark:text-zinc-500 flex items-center gap-1.5">
                   <Award className="w-4 h-4 text-red-500" /> Bio & Achievements
                 </h4>
                 <p className="text-xs font-medium leading-relaxed bg-slate-50/50 dark:bg-zinc-950/20 p-4 border border-slate-100 dark:border-zinc-800 rounded-2xl whitespace-pre-wrap text-slate-600 dark:text-zinc-400">
@@ -1462,8 +1503,8 @@ export default function FighterDashboardClient({ fighter, initialPeers, initialE
 
               {/* Contact Information (If available) */}
               <div className="border-t border-slate-100 dark:border-zinc-800/80 pt-5 space-y-3.5">
-                <h4 className="text-xs font-black uppercase tracking-wider text-slate-400 dark:text-zinc-555">Contact Info</h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs font-semibold text-slate-605 dark:text-zinc-300">
+                <h4 className="text-xs font-black uppercase tracking-wider text-slate-400 dark:text-zinc-500">Contact Info</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs font-semibold text-slate-600 dark:text-zinc-300">
                   <div className="flex items-center gap-2">
                     <Phone className="w-4 h-4 text-red-500" />
                     <span className="font-mono">{selectedPeer.phone}</span>

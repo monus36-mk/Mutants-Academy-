@@ -8,6 +8,8 @@ import User from '@/models/User';
 import { getCurrentUser } from './authActions';
 import { revalidatePath } from 'next/cache';
 import { sendPaymentSuccessWhatsApp } from '@/lib/whatsapp';
+import { applyCompletedPaymentToFighter } from '@/lib/paymentLifecycle';
+import { resolveFighterPackFee } from '@/lib/utils';
 
 /**
  * Fetch payments with filtering, search, and summary analytics.
@@ -46,9 +48,23 @@ export async function getPayments(filters = {}) {
       query.status = filters.status;
     }
 
-    const payments = await Payment.find(query)
-      .sort({ createdAt: -1, paymentDate: -1 })
-      .lean();
+    const duesQuery = {
+      isInactive: { $ne: true },
+      pendingBalance: { $gt: 0 },
+    };
+    if (currentUser.role === 'Coach') {
+      duesQuery.assignedCoach = currentUser.id;
+    }
+
+    const [payments, dueFightersRaw] = await Promise.all([
+      Payment.find(query)
+        .sort({ createdAt: -1, paymentDate: -1 })
+        .lean(),
+      Fighter.find(duesQuery)
+        .select('name phone style status packageDurationMonths nextPaymentDate pendingBalance pendingFeeNote')
+        .sort({ pendingBalance: -1, nextPaymentDate: 1 })
+        .lean(),
+    ]);
 
     // Calculate aggregated stats across the matching set (or all accessible)
     let totalRevenue = 0;
@@ -67,13 +83,23 @@ export async function getPayments(filters = {}) {
         }
       }
 
+      const resolvedDuration =
+        p.durationMonths !== undefined && p.durationMonths !== null ? Number(p.durationMonths) : 1;
+      const resolvedType =
+        p.paymentType || (resolvedDuration === 0 ? 'Balance Settlement' : 'Renewal');
+
       return {
         _id: p._id.toString(),
         fighterId: p.fighterId ? p.fighterId.toString() : null,
         fighterName: p.fighterName || 'Unknown Fighter',
         phone: p.phone || '',
         amount: amt,
-        durationMonths: p.durationMonths || 1,
+        expectedAmount:
+          p.expectedAmount !== undefined && p.expectedAmount !== null
+            ? Number(p.expectedAmount)
+            : null,
+        paymentType: resolvedType,
+        durationMonths: resolvedDuration,
         paymentDate: p.paymentDate ? p.paymentDate.toISOString() : null,
         expiryDate: p.expiryDate ? p.expiryDate.toISOString() : null,
         paymentMethod: p.paymentMethod || 'UPI',
@@ -84,14 +110,31 @@ export async function getPayments(filters = {}) {
       };
     });
 
+    const fightersWithDues = dueFightersRaw.map((f) => ({
+      _id: f._id.toString(),
+      name: f.name,
+      phone: f.phone || '',
+      style: f.style || 'MMA',
+      status: f.status || 'Active',
+      packageDurationMonths: f.packageDurationMonths || 1,
+      nextPaymentDate: f.nextPaymentDate ? f.nextPaymentDate.toISOString() : null,
+      pendingBalance: Math.max(0, Number(f.pendingBalance) || 0),
+      pendingFeeNote: f.pendingFeeNote || '',
+    }));
+
+    const totalPendingBalance = fightersWithDues.reduce((sum, f) => sum + f.pendingBalance, 0);
+
     return {
       success: true,
       payments: serializedPayments,
+      fightersWithDues,
       stats: {
         totalRevenue,
         upiRevenue,
         cashRevenue,
         totalTransactions,
+        totalPendingBalance,
+        duesCount: fightersWithDues.length,
       },
     };
   } catch (err) {
@@ -121,20 +164,30 @@ export async function getFighterPayments(fighterId) {
       .sort({ paymentDate: -1 })
       .lean();
 
-    const serialized = payments.map((p) => ({
-      _id: p._id.toString(),
-      fighterId: p.fighterId.toString(),
-      fighterName: p.fighterName,
-      phone: p.phone || '',
-      amount: Number(p.amount) || 0,
-      durationMonths: p.durationMonths || 1,
-      paymentDate: p.paymentDate ? p.paymentDate.toISOString() : null,
-      expiryDate: p.expiryDate ? p.expiryDate.toISOString() : null,
-      paymentMethod: p.paymentMethod || 'UPI',
-      transactionId: p.transactionId || '',
-      status: p.status || 'Completed',
-      notes: p.notes || '',
-    }));
+    const serialized = payments.map((p) => {
+      const resolvedDuration =
+        p.durationMonths !== undefined && p.durationMonths !== null ? Number(p.durationMonths) : 1;
+      return {
+        _id: p._id.toString(),
+        fighterId: p.fighterId.toString(),
+        fighterName: p.fighterName,
+        phone: p.phone || '',
+        amount: Number(p.amount) || 0,
+        expectedAmount:
+          p.expectedAmount !== undefined && p.expectedAmount !== null
+            ? Number(p.expectedAmount)
+            : null,
+        paymentType:
+          p.paymentType || (resolvedDuration === 0 ? 'Balance Settlement' : 'Renewal'),
+        durationMonths: resolvedDuration,
+        paymentDate: p.paymentDate ? p.paymentDate.toISOString() : null,
+        expiryDate: p.expiryDate ? p.expiryDate.toISOString() : null,
+        paymentMethod: p.paymentMethod || 'UPI',
+        transactionId: p.transactionId || '',
+        status: p.status || 'Completed',
+        notes: p.notes || '',
+      };
+    });
 
     return { success: true, payments: serialized };
   } catch (err) {
@@ -155,8 +208,14 @@ export async function submitPendingRenewal({ fighterId, durationMonths, amount, 
       return { error: 'Fighter not found' };
     }
 
-    const duration = Number(durationMonths) || 1;
-    const cleanAmount = Number(amount) || 1300;
+    const parsedDuration = Number(durationMonths);
+    const isSettlement = parsedDuration === 0;
+    const duration = isSettlement ? 0 : parsedDuration > 0 ? parsedDuration : 1;
+    const expectedAmount = isSettlement
+      ? Math.max(0, Number(fighter.pendingBalance) || 0) || Number(amount) || 0
+      : resolveFighterPackFee(fighter, duration);
+    const cleanAmount = Number(amount) || expectedAmount || 1300;
+    const paymentType = isSettlement ? 'Balance Settlement' : 'Renewal';
     const cleanUtr = String(utr || '').trim();
 
     // Check if matching bank credit already arrived via Bank Robot (Axis/SBI)
@@ -164,31 +223,23 @@ export async function submitPendingRenewal({ fighterId, durationMonths, amount, 
       const existingCredit = await BankCredit.findOne({ utr: cleanUtr, claimed: false });
       if (existingCredit) {
         // Instant approval because the bank already confirmed the credit!
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-
-        let baseDate = new Date(fighter.nextPaymentDate);
-        if (isNaN(baseDate.getTime())) {
-          baseDate = today;
-        }
-
-        const newPaymentDate = new Date(baseDate);
-        newPaymentDate.setMonth(newPaymentDate.getMonth() + duration);
-
-        fighter.packageDurationMonths = duration;
-        fighter.nextPaymentDate = newPaymentDate;
-        fighter.status = newPaymentDate >= today ? 'Active' : 'Expired';
-        fighter.isInactive = false;
+        const outcome = applyCompletedPaymentToFighter(fighter, {
+          amount: cleanAmount,
+          durationMonths: duration,
+          paymentType,
+        });
         await fighter.save();
 
         const payment = await Payment.create({
           fighterId: fighter._id,
           fighterName: fighter.name,
           phone: fighter.phone,
-          amount: cleanAmount,
-          durationMonths: duration,
+          amount: outcome.paidAmount,
+          expectedAmount: outcome.expectedAmount,
+          paymentType: outcome.paymentType,
+          durationMonths: outcome.durationMonths,
           paymentDate: new Date(),
-          expiryDate: newPaymentDate,
+          expiryDate: outcome.nextPaymentDate || fighter.nextPaymentDate,
           paymentMethod: paymentMethod || 'UPI',
           transactionId: cleanUtr,
           status: 'Completed',
@@ -205,10 +256,13 @@ export async function submitPendingRenewal({ fighterId, durationMonths, amount, 
             await sendPaymentSuccessWhatsApp({
               phone: fighter.phone,
               name: fighter.name,
-              amount: cleanAmount,
-              durationMonths: duration,
-              nextPaymentDate: newPaymentDate,
+              amount: outcome.paidAmount,
+              durationMonths: outcome.durationMonths,
+              nextPaymentDate: outcome.nextPaymentDate || fighter.nextPaymentDate,
               style: fighter.style || 'MMA',
+              paymentType: outcome.paymentType,
+              expectedAmount: outcome.expectedAmount,
+              remainingBalance: outcome.newPendingBalance,
             });
           } catch (waErr) {
             console.error('Failed to dispatch WhatsApp receipt:', waErr);
@@ -217,6 +271,8 @@ export async function submitPendingRenewal({ fighterId, durationMonths, amount, 
 
         revalidatePath('/admin');
         revalidatePath('/admin/payments');
+        revalidatePath('/fighter');
+        revalidatePath('/fighter/profile');
         revalidatePath(`/renew/${fighter._id}`);
 
         return {
@@ -224,7 +280,8 @@ export async function submitPendingRenewal({ fighterId, durationMonths, amount, 
           paymentId: payment._id.toString(),
           instantApproved: true,
           fighterStatus: fighter.status,
-          expiryDate: newPaymentDate.toISOString(),
+          expiryDate: outcome.nextPaymentDate ? outcome.nextPaymentDate.toISOString() : null,
+          pendingBalance: outcome.newPendingBalance,
         };
       }
     }
@@ -237,12 +294,18 @@ export async function submitPendingRenewal({ fighterId, durationMonths, amount, 
       createdAt: { $gte: tenMinsAgo },
     });
 
+    const claimPrefix = isSettlement ? 'Pending Fee Settlement' : 'Submitted online';
+
     if (existingPending) {
       // Update existing pending claim with the latest UTR/amount
       existingPending.amount = cleanAmount;
+      existingPending.expectedAmount = expectedAmount;
+      existingPending.paymentType = paymentType;
       existingPending.durationMonths = duration;
       if (cleanUtr) existingPending.transactionId = cleanUtr;
-      existingPending.notes = cleanUtr ? `UTR: ${cleanUtr} (Submitted online)` : 'Submitted online, awaiting verification';
+      existingPending.notes = cleanUtr
+        ? `UTR: ${cleanUtr} (${claimPrefix})`
+        : `${claimPrefix}, awaiting verification`;
       await existingPending.save();
 
       revalidatePath('/admin');
@@ -255,12 +318,16 @@ export async function submitPendingRenewal({ fighterId, durationMonths, amount, 
       fighterName: fighter.name,
       phone: fighter.phone,
       amount: cleanAmount,
+      expectedAmount,
+      paymentType,
       durationMonths: duration,
       paymentDate: new Date(),
       paymentMethod: paymentMethod || 'UPI',
       transactionId: cleanUtr || `CLAIM_${Date.now()}`,
       status: 'Pending',
-      notes: cleanUtr ? `UTR: ${cleanUtr} (Submitted online)` : 'Submitted online, awaiting verification',
+      notes: cleanUtr
+        ? `UTR: ${cleanUtr} (${claimPrefix})`
+        : `${claimPrefix}, awaiting verification`,
     });
 
     revalidatePath('/admin');
@@ -303,27 +370,19 @@ export async function approvePendingPayment(paymentId) {
       return { error: 'Unauthorized: you can only approve payments for your assigned fighters' };
     }
 
-    // Strict continuous renewal calculation
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    let baseDate = new Date(fighter.nextPaymentDate);
-    if (isNaN(baseDate.getTime())) {
-      baseDate = today;
-    }
-
-    const newPaymentDate = new Date(baseDate);
-    newPaymentDate.setMonth(newPaymentDate.getMonth() + (payment.durationMonths || 1));
-
-    fighter.packageDurationMonths = payment.durationMonths || 1;
-    fighter.nextPaymentDate = newPaymentDate;
-    fighter.status = newPaymentDate >= today ? 'Active' : 'Expired';
-    fighter.isInactive = false;
+    const outcome = applyCompletedPaymentToFighter(fighter, {
+      amount: payment.amount,
+      durationMonths: payment.durationMonths,
+      paymentType: payment.paymentType,
+    });
     await fighter.save();
 
     // Mark payment as Completed
     payment.status = 'Completed';
-    payment.expiryDate = newPaymentDate;
+    payment.expiryDate = outcome.nextPaymentDate || fighter.nextPaymentDate;
+    payment.expectedAmount = payment.expectedAmount ?? outcome.expectedAmount;
+    payment.paymentType = outcome.paymentType;
+    payment.durationMonths = outcome.durationMonths;
     payment.notes = `${payment.notes || ''} [Approved by ${user.name || user.role}]`.trim();
     await payment.save();
 
@@ -334,9 +393,12 @@ export async function approvePendingPayment(paymentId) {
           phone: fighter.phone,
           name: fighter.name,
           amount: payment.amount,
-          durationMonths: payment.durationMonths,
-          nextPaymentDate: newPaymentDate,
+          durationMonths: outcome.durationMonths,
+          nextPaymentDate: outcome.nextPaymentDate || fighter.nextPaymentDate,
           style: fighter.style || 'MMA',
+          paymentType: outcome.paymentType,
+          expectedAmount: outcome.expectedAmount,
+          remainingBalance: outcome.newPendingBalance,
         });
       } catch (waErr) {
         console.error('Failed to dispatch WhatsApp receipt on approval:', waErr);
@@ -345,13 +407,16 @@ export async function approvePendingPayment(paymentId) {
 
     revalidatePath('/admin');
     revalidatePath('/admin/payments');
+    revalidatePath('/fighter');
+    revalidatePath('/fighter/profile');
     revalidatePath(`/renew/${fighter._id}`);
 
     return {
       success: true,
       fighterName: fighter.name,
-      newExpiryDate: newPaymentDate.toISOString(),
+      newExpiryDate: outcome.nextPaymentDate ? outcome.nextPaymentDate.toISOString() : null,
       amount: payment.amount,
+      pendingBalance: outcome.newPendingBalance,
     };
   } catch (err) {
     console.error('Error approving pending payment:', err);
@@ -462,26 +527,18 @@ export async function triggerRobotBankCredit({ utr, amount, bank = 'Axis Bank', 
         return { success: true, message: 'Payment already completed', alreadyDone: true };
       }
 
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-
-      let baseDate = new Date(fighter.nextPaymentDate);
-      if (isNaN(baseDate.getTime())) {
-        baseDate = today;
-      }
-
-      const durationMonths = pendingPayment.durationMonths || 1;
-      const newPaymentDate = new Date(baseDate);
-      newPaymentDate.setMonth(newPaymentDate.getMonth() + durationMonths);
-
-      fighter.packageDurationMonths = durationMonths;
-      fighter.nextPaymentDate = newPaymentDate;
-      fighter.status = newPaymentDate >= today ? 'Active' : 'Expired';
-      fighter.isInactive = false;
+      const outcome = applyCompletedPaymentToFighter(fighter, {
+        amount: cleanAmount || pendingPayment.amount,
+        durationMonths: pendingPayment.durationMonths,
+        paymentType: pendingPayment.paymentType,
+      });
       await fighter.save();
 
       pendingPayment.status = 'Completed';
-      pendingPayment.expiryDate = newPaymentDate;
+      pendingPayment.expiryDate = outcome.nextPaymentDate || fighter.nextPaymentDate;
+      pendingPayment.expectedAmount = pendingPayment.expectedAmount ?? outcome.expectedAmount;
+      pendingPayment.paymentType = outcome.paymentType;
+      pendingPayment.durationMonths = outcome.durationMonths;
       pendingPayment.transactionId = cleanUtr;
       pendingPayment.notes = `Auto-activated by Robot (${bank} UTR: ${cleanUtr})`.trim();
       await pendingPayment.save();
@@ -496,10 +553,13 @@ export async function triggerRobotBankCredit({ utr, amount, bank = 'Axis Bank', 
           await sendPaymentSuccessWhatsApp({
             phone: fighter.phone,
             name: fighter.name,
-            amount: cleanAmount,
-            durationMonths,
-            nextPaymentDate: newPaymentDate,
+            amount: cleanAmount || pendingPayment.amount,
+            durationMonths: outcome.durationMonths,
+            nextPaymentDate: outcome.nextPaymentDate || fighter.nextPaymentDate,
             style: fighter.style || 'MMA',
+            paymentType: outcome.paymentType,
+            expectedAmount: outcome.expectedAmount,
+            remainingBalance: outcome.newPendingBalance,
           });
         } catch (waErr) {
           console.error('[Bank Robot] Failed to dispatch WhatsApp receipt:', waErr);
@@ -508,15 +568,18 @@ export async function triggerRobotBankCredit({ utr, amount, bank = 'Axis Bank', 
 
       revalidatePath('/admin');
       revalidatePath('/admin/payments');
+      revalidatePath('/fighter');
+      revalidatePath('/fighter/profile');
       revalidatePath(`/renew/${fighter._id}`);
 
       return {
         success: true,
         matched: true,
         fighterName: fighter.name,
-        newExpiryDate: newPaymentDate.toISOString(),
+        newExpiryDate: outcome.nextPaymentDate ? outcome.nextPaymentDate.toISOString() : null,
         amount: cleanAmount,
         utr: cleanUtr,
+        pendingBalance: outcome.newPendingBalance,
       };
     }
 

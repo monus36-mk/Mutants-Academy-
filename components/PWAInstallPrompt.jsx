@@ -12,16 +12,39 @@ export default function PWAInstallPrompt() {
   const [isInstalled, setIsInstalled] = useState(false);
 
   useEffect(() => {
-    // 1. Register Service Worker
+    // 1. Register Service Worker in production only; unregister & purge stale SW caches in localhost dev
     if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
-      navigator.serviceWorker
-        .register('/sw.js')
-        .then((reg) => {
-          console.log('PWA Service Worker registered with scope:', reg.scope);
-        })
-        .catch((err) => {
-          console.warn('PWA Service Worker registration failed:', err);
-        });
+      const isLocalhost =
+        window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+
+      if (isLocalhost) {
+        const hadController = Boolean(navigator.serviceWorker.controller);
+        Promise.all([
+          navigator.serviceWorker
+            .getRegistrations()
+            .then((regs) => Promise.all(regs.map((reg) => reg.unregister()))),
+          'caches' in window
+            ? caches.keys().then((keys) => Promise.all(keys.map((k) => caches.delete(k))))
+            : Promise.resolve(),
+        ])
+          .then(() => {
+            if (hadController && !sessionStorage.getItem('dev_sw_cleaned')) {
+              sessionStorage.setItem('dev_sw_cleaned', '1');
+              window.location.reload();
+            }
+          })
+          .catch(() => {});
+      } else {
+        navigator.serviceWorker
+          .register('/sw.js', { updateViaCache: 'none' })
+          .then((reg) => {
+            reg.update().catch(() => {});
+            console.log('PWA Service Worker registered with scope:', reg.scope);
+          })
+          .catch((err) => {
+            console.warn('PWA Service Worker registration failed:', err);
+          });
+      }
     }
 
     // 2. Check if already running in standalone (installed app) mode

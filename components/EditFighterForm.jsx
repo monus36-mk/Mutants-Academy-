@@ -3,7 +3,7 @@
 import { useState, useActionState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { updateFighter } from '@/app/actions/fighterActions';
-import { Edit3, Calendar, Phone, Dumbbell, User, ShieldAlert, Mail, Eye, EyeOff } from 'lucide-react';
+import { Edit3, Calendar, Phone, Dumbbell, User, ShieldAlert, Mail, Eye, EyeOff, IndianRupee } from 'lucide-react';
 import { parsePhone } from '@/lib/utils';
 import PackagePricingFields from './PackagePricingFields';
 
@@ -27,6 +27,7 @@ export default function EditFighterForm({ fighter, coaches, currentUser }) {
   const [eca, setEca] = useState(fighter.eca || 'None');
   const [style, setStyle] = useState(fighter.style || 'MMA');
   const [duration, setDuration] = useState(Number(fighter.packageDurationMonths || 1));
+  const [pendingBalance, setPendingBalance] = useState(Number(fighter.pendingBalance || 0));
 
   const calculateAge = (dobString) => {
     if (!dobString) return null;
@@ -339,6 +340,60 @@ export default function EditFighterForm({ fighter, coaches, currentUser }) {
               </div>
             )}
           </div>
+        </div>
+
+        {/* Pending Fee Balance Adjustment */}
+        <div className="p-4 sm:p-5 bg-amber-50/70 dark:bg-amber-950/15 border border-amber-200/80 dark:border-amber-900/40 rounded-2xl space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <IndianRupee className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+              <span className="text-xs font-extrabold uppercase tracking-wider text-amber-800 dark:text-amber-300">
+                Pending Fee Balance & Note
+              </span>
+            </div>
+            {Number(pendingBalance) > 0 && (
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30">
+                ₹{Number(pendingBalance).toLocaleString('en-IN')} Due
+              </span>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="pendingBalance" className="block text-[11px] font-bold uppercase tracking-wider text-slate-600 dark:text-zinc-400 mb-1">
+                Pending Due Amount (₹)
+              </label>
+              <input
+                id="pendingBalance"
+                name="pendingBalance"
+                type="number"
+                min="0"
+                step="1"
+                value={pendingBalance}
+                onChange={(e) => setPendingBalance(e.target.value)}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/70 text-slate-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm font-bold font-mono transition-all"
+                placeholder="0"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="pendingFeeNote" className="block text-[11px] font-bold uppercase tracking-wider text-slate-600 dark:text-zinc-400 mb-1">
+                Pending Fee Note (Optional)
+              </label>
+              <input
+                id="pendingFeeNote"
+                name="pendingFeeNote"
+                type="text"
+                defaultValue={fighter.pendingFeeNote || ''}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/70 text-slate-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm transition-all"
+                placeholder="e.g. Paid ₹500 of ₹1,300 — balance next week"
+              />
+            </div>
+          </div>
+
+          <p className="text-[11px] text-slate-500 dark:text-zinc-400 leading-relaxed">
+            Use this to manually record or clear a previous pending balance without logging a cash/UPI receipt. To log a real collection into the ledger, use Collect Due on Dashboard or Payments.
+          </p>
         </div>
 
         {/* Calculated Next Payment Expiry Preview */}

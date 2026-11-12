@@ -10,20 +10,41 @@ import Link from 'next/link';
 export default function LoginPage() {
   const router = useRouter();
   const [state, formAction, isPending] = useActionState(login, null);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [isRestoring, setIsRestoring] = useState(true);
+  const [isRestoring, setIsRestoring] = useState(false);
 
-  // 1. Check for saved persistent token on mount (Instagram-like auto-login)
+  const isRedirecting = Boolean(state?.success && state?.token);
+  const isBusy = isPending || isRedirecting;
+
+  // 1. Check for saved persistent token on mount (skip when user just logged out)
   useEffect(() => {
     let isMounted = true;
     const checkAutoLogin = async () => {
       try {
-        const savedToken = localStorage.getItem('mutants_auth_token');
-        if (!savedToken) {
+        const searchParams = new URLSearchParams(window.location.search);
+        const justLoggedOut =
+          searchParams.get('loggedOut') === '1' ||
+          sessionStorage.getItem('mutants_logging_out') === '1';
+
+        if (justLoggedOut) {
+          localStorage.removeItem('mutants_auth_token');
+          localStorage.removeItem('mutants_user_role');
+          sessionStorage.removeItem('mutants_logging_out');
+          if (searchParams.has('loggedOut')) {
+            window.history.replaceState({}, '', '/login');
+          }
           if (isMounted) setIsRestoring(false);
           return;
         }
 
+        const savedToken = localStorage.getItem('mutants_auth_token');
+        if (!savedToken) {
+          return;
+        }
+
+        if (isMounted) setIsRestoring(true);
         const res = await restoreSession(savedToken);
         if (res?.success && res?.redirectUrl) {
           router.replace(res.redirectUrl);
@@ -42,10 +63,19 @@ export default function LoginPage() {
     return () => { isMounted = false; };
   }, [router]);
 
+  // Prefetch portal routes once login form is ready so navigation starts warm
+  useEffect(() => {
+    if (!isRestoring) {
+      router.prefetch('/admin');
+      router.prefetch('/fighter');
+    }
+  }, [isRestoring, router]);
+
   // 2. On successful login, save token into localStorage and navigate
   useEffect(() => {
     if (state?.success && state?.token) {
       try {
+        sessionStorage.removeItem('mutants_logging_out');
         localStorage.setItem('mutants_auth_token', state.token);
         if (state.role) localStorage.setItem('mutants_user_role', state.role);
       } catch (e) {}
@@ -106,7 +136,10 @@ export default function LoginPage() {
                 name="email"
                 type="email"
                 required
-                className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900/50 text-slate-900 dark:text-zinc-100 placeholder-slate-400 dark:placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-red-500 transition-all text-sm font-medium"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                readOnly={isBusy}
+                className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900/50 text-slate-900 dark:text-zinc-100 placeholder-slate-400 dark:placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-red-500 transition-all text-sm font-medium read-only:opacity-75"
                 placeholder="e.g. coach@mutantsacademy.com or fighter@example.com"
               />
             </div>
@@ -121,13 +154,17 @@ export default function LoginPage() {
                   name="password"
                   type={showPassword ? "text" : "password"}
                   required
-                  className="w-full pl-4 pr-11 py-3 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900/50 text-slate-900 dark:text-zinc-100 placeholder-slate-400 dark:placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-red-500 transition-all text-sm font-medium"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  readOnly={isBusy}
+                  className="w-full pl-4 pr-11 py-3 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900/50 text-slate-900 dark:text-zinc-100 placeholder-slate-400 dark:placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-red-500 transition-all text-sm font-medium read-only:opacity-75"
                   placeholder="••••••••"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 dark:hover:text-zinc-300 transition-colors cursor-pointer"
+                  disabled={isBusy}
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 dark:hover:text-zinc-300 transition-colors cursor-pointer disabled:opacity-50"
                   title={showPassword ? "Hide password" : "Show password"}
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -143,11 +180,14 @@ export default function LoginPage() {
 
             <button
               type="submit"
-              disabled={isPending}
-              className="w-full py-3.5 rounded-xl bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-bold text-sm shadow-lg shadow-red-600/25 hover:shadow-red-500/30 dark:shadow-none focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 dark:focus:ring-offset-zinc-950 transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+              disabled={isBusy}
+              className="w-full py-3.5 rounded-xl bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-bold text-sm shadow-lg shadow-red-600/25 hover:shadow-red-500/30 dark:shadow-none focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 dark:focus:ring-offset-zinc-950 transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-80 disabled:cursor-wait"
             >
-              {isPending ? (
-                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              {isBusy ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  <span>{isRedirecting ? 'Opening Portal...' : 'Signing In...'}</span>
+                </>
               ) : (
                 'Sign In to Portal'
               )}

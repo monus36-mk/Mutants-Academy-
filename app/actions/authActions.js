@@ -1,5 +1,6 @@
 'use server';
 
+import { cache } from 'react';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import bcrypt from 'bcryptjs';
@@ -28,10 +29,10 @@ export async function login(prevState, formData) {
     const escapedEmail = email.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
     const emailRegex = new RegExp(`^${escapedEmail}$`, 'i');
     
-    // Query both collections in parallel to optimize lookup latency
+    // Query only essential auth fields across both collections in parallel
     const [userAccount, fighterAccount] = await Promise.all([
-      User.findOne({ email: emailRegex }).lean(),
-      Fighter.findOne({ email: emailRegex }).lean()
+      User.findOne({ email: emailRegex }).select('_id name email role password').lean(),
+      Fighter.findOne({ email: emailRegex }).select('_id name email password').lean(),
     ]);
 
     let account = userAccount || fighterAccount;
@@ -130,21 +131,33 @@ export async function getSessionTokenForSync() {
 
 export async function logout() {
   const cookieStore = await cookies();
+  cookieStore.set('session', '', {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/',
+    maxAge: 0,
+    expires: new Date(0),
+  });
   cookieStore.delete('session');
   return { success: true };
 }
 
-export async function getCurrentUser() {
+const readCachedCurrentUser = cache(async () => {
   try {
     const cookieStore = await cookies();
     const sessionToken = cookieStore.get('session')?.value;
     if (!sessionToken) return null;
-    
+
     const payload = await verifyToken(sessionToken);
     return payload;
   } catch (err) {
     return null;
   }
+});
+
+export async function getCurrentUser() {
+  return readCachedCurrentUser();
 }
 
 export async function sendResetOtp(prevState, formData) {
